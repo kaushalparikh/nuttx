@@ -55,7 +55,12 @@
 #  include <nuttx/mmcsd.h>
 #endif
 
-#include "stm32_internal.h"
+#ifdef CONFIG_USBHOST
+#  include <nuttx/usb/usbhost.h>
+#endif
+
+#include <arch/board/board.h>
+#include "stm3210e-internal.h"
 
 /****************************************************************************
  * Pre-Processor Definitions
@@ -71,6 +76,7 @@
 
 #ifdef CONFIG_ARCH_BOARD_STM3210E_EVAL
 #  define CONFIG_NSH_HAVEUSBDEV 1
+#  define CONFIG_NSH_HAVEUSBHOST 1
 #  define CONFIG_NSH_HAVEMMCSD  1
 #  if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
 #    error "Only one MMC/SD slot"
@@ -79,10 +85,18 @@
 #  ifndef CONFIG_NSH_MMCSDSLOTNO
 #    define CONFIG_NSH_MMCSDSLOTNO 0
 #  endif
+#  if defined(CONFIG_NSH_USBHOSTNO) && CONFIG_NSH_USBHOSTNO != 0
+#    error "Only one USB Host"
+#    undef CONFIG_NSH_USBHOSTNO
+#  endif
+#  ifndef CONFIG_NSH_USBHOSTNO
+#    define CONFIG_NSH_USBHOSTNO 0
+#  endif
 #else
    /* Add configuration for new STM32 boards here */
 #  error "Unrecognized STM32 board"
 #  undef CONFIG_NSH_HAVEUSBDEV
+#  undef CONFIG_NSH_HAVEUSBHOST
 #  undef CONFIG_NSH_HAVEMMCSD
 #endif
 
@@ -90,6 +104,10 @@
 
 #ifndef CONFIG_USBDEV
 #  undef CONFIG_NSH_HAVEUSBDEV
+#endif
+
+#ifndef CONFIG_USBHOST
+#  undef CONFIG_NSH_HAVEUSBHOST
 #endif
 
 /* Can't support MMC/SD features if mountpoints are disabled or if SDIO support
@@ -121,6 +139,23 @@
 #endif
 
 /****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+#ifdef CONFIG_NSH_HAVEMMCSD
+static struct sdio_dev_s *sdio = NULL;
+#endif
+
+#ifdef CONFIG_NSH_HAVEUSBHOST
+extern FAR int usbhost_interrupt(int irq, FAR void *context);
+extern FAR int usbhost_run(int controller);
+extern FAR int usbhost_stop(int controller);
+extern FAR void usbhost_regdump(int controller);
+
+static struct usbhost_driver_s *usbhost = NULL;
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -131,6 +166,8 @@
  *   Perform architecture specific initialization
  *
  ****************************************************************************/
+
+#ifdef CONFIG_NSH_ARCHINIT
 
 int nsh_archinitialize(void)
 {
@@ -211,3 +248,196 @@ int nsh_archinitialize(void)
 #endif
   return OK;
 }
+
+#else
+
+/****************************************************************************
+ * Name: nsh_sdcardinit
+ *
+ * Description:
+ *   Perform architecture specific initialization
+ *
+ ****************************************************************************/
+
+int nsh_sdcardinit(void)
+{
+#ifdef CONFIG_NSH_HAVEMMCSD
+  int ret;
+
+  /* First, get an instance of the SDIO interface */
+
+  if (!sdio)
+    {
+      message("nsh_sdcard: Initialize SDIO slot %d\n", CONFIG_NSH_MMCSDSLOTNO);
+      sdio = sdio_initialize(CONFIG_NSH_MMCSDSLOTNO);
+      if (!sdio)
+        {
+          message("nsh_sdcard: Failed to initialize SDIO slot %d\n",
+                  CONFIG_NSH_MMCSDSLOTNO);
+          return -ENODEV;
+        }
+
+      /* Now bind the SDIO interface to the MMC/SD driver */
+
+      message("nsh_sdcard: Bind SDIO to the MMC/SD driver, minor=%d\n",
+              CONFIG_NSH_MMCSDMINOR);
+      ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
+      if (ret != OK)
+        {
+          message("nsh_sdcard: Failed to bind SDIO to the MMC/SD driver: %d\n", ret);
+          return ret;
+        }
+    }
+  
+  /* Then let's guess and say that there is a card in the slot.  I need to check to
+   * see if the STM3210E-EVAL board supports a GPIO to detect if there is a card in
+   * the slot.
+   */
+
+   sdio_mediachange(sdio, true);
+#endif
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nsh_sdcarddeinit
+ *
+ * Description:
+ *   Disable SDIO
+ *
+ ****************************************************************************/
+ 
+int nsh_sdcarddeinit(void)
+{
+#ifdef CONFIG_NSH_HAVEMMCSD  
+  if (!sdio)
+    {
+       sdio_mediachange(sdio, false);
+    }
+#endif  
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nsh_usbhostinit
+ *
+ * Description:
+ *   Initialize external USB host
+ *
+ ****************************************************************************/
+
+int nsh_usbhostinit(void)
+{
+#ifdef CONFIG_NSH_HAVEUSBHOST
+  int ret;
+
+  /* First, register all of the class drivers needed to support the drivers
+   * that we care about:
+   */
+
+  if (!usbhost)
+    {
+      struct usbhost_hal_s hal = {stm32_usbregaccess, stm32_usbmemaccess,
+                                  stm32_usbgetreg32, stm32_usbputreg32};
+
+      stm32_gpiosetevent(GPIO_USBHOST_IRQ, false, true, false, usbhost_interrupt);
+              
+      usbhost_halinitialize(&hal);
+   
+      /*
+      message("nsh_usbhost: Register storage class driver\n");
+      ret = usbhost_storageinit();
+      if (ret != OK)
+        {
+          message("nsh_usbhost: Failed to Register storage class driver\n");
+          return -ENODEV;
+        }
+      */
+
+      message("nsh_usbhost: Register hub class driver\n");
+      ret = usbhost_hubinit();
+      if (ret != OK)
+        {
+          message("nsh_usbhost: Failed to Register hub class driver\n");
+          return -ENODEV;
+        }
+
+      /* Then get an instance of the USB host interface */
+
+      message("nsh_usbhost: Initialize USB host controller %d\n", CONFIG_NSH_USBHOSTNO);
+      usbhost = usbhost_initialize(CONFIG_NSH_USBHOSTNO);
+      if (!usbhost)
+        {
+          message("nsh_usbhost: Failed to initialize USB controller %d\n",
+                  CONFIG_NSH_USBHOSTNO);
+          return -ENODEV;
+        }
+    }
+
+  /* Run USB controller */
+
+  message("nsh_usbhost: Run USB host controller %d\n", CONFIG_NSH_USBHOSTNO);
+  ret = usbhost_run(CONFIG_NSH_USBHOSTNO);
+  if (ret != OK)
+    {
+      message("nsh_usbhost: Failed to run USB host controller %d\n",
+              CONFIG_NSH_USBHOSTNO);
+      return ret;
+    }
+#endif
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nsh_usbhostdeinit
+ *
+ * Description:
+ *   Disable USB
+ *
+ ****************************************************************************/
+ 
+int nsh_usbhostdeinit(void)
+{
+#ifdef CONFIG_NSH_HAVEUSBHOST
+  int ret;
+
+  if (usbhost)
+    {
+      /* Stop USB controller */
+    
+      message("nsh_usbhost: Stop USB host controller %d\n", CONFIG_NSH_USBHOSTNO);
+      ret = usbhost_stop(CONFIG_NSH_USBHOSTNO);
+      if (ret != OK)
+        {
+          message("nsh_usbhost: Failed to stop USB host controller %d\n",
+                   CONFIG_NSH_USBHOSTNO);
+        }       
+    }
+#endif  
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nsh_usbhostregdump
+ *
+ * Description:
+ *   Dump USB host registers
+ *
+ ****************************************************************************/
+ 
+void nsh_usbhostregdump(void)
+{
+#ifdef CONFIG_NSH_HAVEUSBHOST
+  if (usbhost)
+    {    
+      usbhost_regdump(CONFIG_NSH_USBHOSTNO);
+    }
+#endif
+}
+
+#endif
+

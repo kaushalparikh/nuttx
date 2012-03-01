@@ -647,7 +647,7 @@ static void mmcsd_decodeCSD(FAR struct mmcsd_state_s *priv, uint32_t csd[4])
 #endif
       priv->blockshift               = 9;
       priv->blocksize                = 1 << 9;
-      priv->nblocks                  = priv->capacity >> 9;
+      priv->nblocks                  = (priv->capacity >> 9) + 1;
 
 #if defined(CONFIG_DEBUG) && defined (CONFIG_DEBUG_VERBOSE) && defined(CONFIG_DEBUG_FS)
       decoded.u.sdblock.csize        = csize; 
@@ -666,7 +666,7 @@ static void mmcsd_decodeCSD(FAR struct mmcsd_state_s *priv, uint32_t csd[4])
       uint16_t csize                 = ((csd[1] & 0x03ff) << 2) | ((csd[2] >> 30) & 3);
       uint8_t  csizemult             = (csd[2] >> 15) & 7;
 
-      priv->nblocks                  = ((uint32_t)csize + 1) * (1 << (csizemult + 2));
+      priv->nblocks                  = (((uint32_t)csize + 1) * (1 << (csizemult + 2))) + 1;
       priv->blockshift               = readbllen;
       priv->blocksize                = (1 << readbllen);
       priv->capacity                 = (priv->nblocks << readbllen);

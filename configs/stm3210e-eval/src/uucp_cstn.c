@@ -1,9 +1,9 @@
 /************************************************************************************
- * configs/stm3210e-eval/src/up_boot.c
- * arch/arm/src/board/up_boot.c
+ * configs/stm3210e-eval/src/up_selectcstn.c
+ * arch/arm/src/board/up_selectcstn.c
  *
  *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Akshay Mishra, akshay@dspworks.in
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,73 +40,87 @@
 
 #include <nuttx/config.h>
 
+#include <sys/types.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <debug.h>
 
-#include <arch/board/board.h>
-
+#include "chip.h"
 #include "up_arch.h"
+
+#include "stm32_fsmc.h"
+#include "stm32_gpio.h"
+#include "stm32_internal.h"
 #include "stm3210e-internal.h"
 
-/************************************************************************************
- * Definitions
- ************************************************************************************/
+#ifdef CONFIG_STM32_FSMC
 
 /************************************************************************************
- * Private Functions
+ * Pre-processor Definitions
  ************************************************************************************/
 
-/************************************************************************************
- * Public Functions
- ************************************************************************************/
+#if STM32_NGPIO_PORTS < 6
+#  error "Required GPIO ports not enabled"
+#endif
+
+
+/* CSTN connected to D0...7 and A0 is the command/Data for 0/1 
+ * The FSMC4 is connected to the CSTN. NE4 is the OE. WE/OE are common
+ * Pin Usage (per schematic)
+ *                     CSTN
+ *   D[0..8]           [0..8]
+ *   A[0]              [0]
+ *   PSMC_NE4   PG10  OUT  ~CE   
+ *   PSMC_NWE   PD5   OUT  ~WE  
+ *   PSMC_NOE   PD4   OUT  ~OE 
+ *
+ */
+
+/* GPIO configurations unique to SRAM  */
+
+static const uint16_t g_cstnconfig[] =
+{
+  /* NE4  */
+
+  GPIO_NPS_NE4
+};
+#define NCSTN_CONFIG (sizeof(g_cstnconfig)/sizeof(uint16_t))
 
 /************************************************************************************
- * Name: stm32_boardinitialize
+ * Name: stm32_selectcstn
  *
  * Description:
- *   All STM32 architectures must provide the following entry point.  This entry point
- *   is called early in the intitialization -- after all memory has been configured
- *   and mapped but before any devices have been initialized.
+ *   Initialize to access CSTN
  *
  ************************************************************************************/
 
-void stm32_boardinitialize(void)
+void stm32_selectcstn(void)
 {
-  /* Configure on-board FSMC peripherals */
+  /* Configure new GPIO state */
 
-#ifdef CONFIG_STM32_FSMC
-  stm32_initfsmc();
+  stm32_extmemgpios(g_commonconfig, NCOMMON_CONFIG);
+  stm32_extmemgpios(g_cstnconfig, NCSTN_CONFIG);
+
+  /* Enable AHB clocking to the FSMC */
+
   stm32_enablefsmc();
-  stm32_selectsram();
-  stm32_selectusb();
-  //stm32_selectlcd();
-#endif
 
-  /* Configure SPI chip selects if 1) SPI is not disabled, and 2) the weak function
-   * stm32_spiinitialize() has been brought into the link.
-   */
+  /* Bank1 NOR/SRAM control register configuration */
 
-#if defined(CONFIG_STM32_SPI1) || defined(CONFIG_STM32_SPI2)
-  if (stm32_spiinitialize)
-    {
-      stm32_spiinitialize();
-    }
-#endif
+  putreg32(FSMC_BCR_MWID8|FSMC_BCR_WREN, STM32_FSMC_BCR4);
 
-   /* Initialize USB is 1) USBDEV is selected, 2) the USB controller is not
-    * disabled, and 3) the weak function stm32_usbinitialize() has been brought
-    * into the build.
-    */
+  /* Bank1 NOR/SRAM timing register configuration */
 
-#if defined(CONFIG_USBDEV) && defined(CONFIG_STM32_USB)
-  if (stm32_usbinitialize)
-    {
-      stm32_usbinitialize();
-    }
-#endif
+  putreg32(FSMC_BTR_ADDSET(16)|FSMC_BTR_ADDHLD(6)|FSMC_BTR_DATAST(6)|FSMC_BTR_BUSTRUN(8)|
+           FSMC_BTR_CLKDIV(1), STM32_FSMC_BTR4);
 
-  /* Configure on-board LEDs if LED support has been selected. */
+  putreg32(0xffffffff, STM32_FSMC_BCR4);
 
-#ifdef CONFIG_ARCH_LEDS
-  up_ledinit();
-#endif
+  /* Enable the bank */
+
+  putreg32(FSMC_BCR_MBKEN|FSMC_BCR_MWID8|FSMC_BCR_WREN, STM32_FSMC_BCR4);
 }
+
+#endif /* CONFIG_STM32_FSMC */
+
+

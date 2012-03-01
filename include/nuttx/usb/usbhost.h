@@ -52,6 +52,8 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <semaphore.h>
+#include <nuttx/wqueue.h>
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -91,7 +93,7 @@
  *
  ************************************************************************************/
 
-#define CLASS_CREATE(reg, drvr, id) ((reg)->create(drvr, id))
+#define CLASS_CREATE(reg, class, id) ((reg)->create(class, id))
 
 /************************************************************************************
  * Name: CLASS_CONNECT
@@ -126,8 +128,8 @@
  *
  ************************************************************************************/
 
-#define CLASS_CONNECT(class,configdesc,desclen,funcaddr) \
-  ((class)->connect(class,configdesc,desclen, funcaddr))
+#define CLASS_CONNECT(class,configdesc,desclen) \
+  ((class)->connect(class,configdesc,desclen))
 
 /************************************************************************************
  * Name: CLASS_DISCONNECTED
@@ -229,7 +231,7 @@
  *
  ************************************************************************************/
 
-#define DRVR_EP0CONFIGURE(drvr,funcaddr,mps) ((drvr)->ep0configure(drvr,funcaddr,mps))
+#define DRVR_EP0CONFIGURE(drvr,ep0,funcaddr,mps) ((drvr)->ep0configure(drvr,ep0,funcaddr,mps))
 
 /************************************************************************************
  * Name: DRVR_EPALLOC
@@ -422,8 +424,8 @@
  *
  ************************************************************************************/
 
-#define DRVR_CTRLIN(drvr,req,buffer)  ((drvr)->ctrlin(drvr,req,buffer))
-#define DRVR_CTRLOUT(drvr,req,buffer) ((drvr)->ctrlout(drvr,req,buffer))
+#define DRVR_CTRLIN(drvr,xfer,cmd)  ((drvr)->ctrlin(drvr,xfer,cmd))
+#define DRVR_CTRLOUT(drvr,xfer,cmd) ((drvr)->ctrlout(drvr,xfer,cmd))
 
 /************************************************************************************
  * Name: DRVR_TRANSFER
@@ -482,8 +484,73 @@
 #define DRVR_DISCONNECT(drvr) ((drvr)->disconnect(drvr))
 
 /************************************************************************************
+ * Name: DRVR_ROOTHUB
+ *
+ * Description:
+ *   Called by hub class to control root hub.
+ *
+ * Input Parameters:
+ *   drvr - The USB host driver instance obtained as a parameter from the call to
+ *      the class create() method.
+ *   req - Describes the request to be sent.  This request must lie in memory
+ *      created by DRVR_ALLOC.
+ *   buffer - A buffer used for sending the request and for returning any
+ *     responses.  This buffer must be large enough to hold the length value
+ *     in the request description. buffer must have been allocated using DRVR_ALLOC.
+ *
+ * Returned Values:
+ *   On success, zero (OK) is returned. On a failure, a negated errno value is
+ *   returned indicating the nature of the failure
+ *
+ * Assumptions:
+ *
+ ************************************************************************************/
+
+#define DRVR_RHCTRL(drvr,xfer,cmd) ((drvr)->rhctrl(drvr,xfer,cmd))
+#define DRVR_RHSTATUS(drvr,xfer,cmd) ((drvr)->rhstatus(drvr,xfer))
+
+/************************************************************************************
  * Public Types
  ************************************************************************************/
+
+/* This type represents one endpoint configured by the allocep() method.
+ * The actual form is know only internally to the USB host controller
+ * (for example, for an OHCI driver, this would probably be a pointer
+ * to an endpoint descriptor).
+ */
+
+typedef FAR void *usbhost_ep_t;
+
+/* Generic transfer structure
+ */
+
+struct usbhost_xfer_s
+{
+  uint8_t                *buffer;
+  size_t                 buflen;
+  size_t                 len;
+  int                    status;
+
+  /* Semaphore of synchronized transfers */
+
+  sem_t                  done;
+
+  /* Device class */
+
+  struct usbhost_class_s *devclass;
+  
+  /* Opaque endpoint pointer; can be xHCI specific */
+
+  usbhost_ep_t           ep;
+
+  /* Workqueue for callback */
+
+  struct work_s          work;
+  
+  /* Transfer complete callback */
+  
+  void (*callback)(FAR struct usbhost_xfer_s *xfer);
+};
 
 /* This struct contains all of the information that is needed to associate a device
  * this is connected via a USB port to a class.
@@ -522,7 +589,7 @@ struct usbhost_registry_s
    * simultaneously connected (see the CLASS_CREATE() macro above).
    */
  
-  FAR struct usbhost_class_s     *(*create)(FAR struct usbhost_driver_s *drvr,
+  int                            (*create)(FAR struct usbhost_class_s *class,
                                            FAR const struct usbhost_id_s *id);
 
   /* This information uniquely identifies the USB host class implementation that
@@ -539,13 +606,42 @@ struct usbhost_registry_s
 
 struct usbhost_class_s
 {
+  /* Host driver */
+
+  struct usbhost_driver_s *drvr;
+
+  /* USB device address & speed */
+
+  uint8_t                 addr;
+  uint8_t                 speed;
+
+  /* Parent class */
+
+  struct usbhost_class_s  *parent;
+
+  /* Control endpoint, ep0 */
+
+  usbhost_ep_t            ep0;
+
+  /* Transaction translator hub */
+
+  struct usb_hubtt_s      *tt;
+
+  /* Transaction translator port */
+
+  uint8_t                 ttport;
+
+  /* Class specific private data */
+
+  void                    *priv;
+
   /* Provides the configuration descriptor to the class.  The configuration
    * descriptor contains critical information needed by the class in order to
    * initialize properly (such as endpoint selections).
    */
 
   int (*connect)(FAR struct usbhost_class_s *class, FAR const uint8_t *configdesc,
-                 int desclen, uint8_t funcaddr);
+                 int desclen);
 
   /* This method informs the class that the USB device has been disconnected. */
 
@@ -559,21 +655,35 @@ struct usbhost_class_s
 
 struct usbhost_epdesc_s
 {
-  uint8_t  addr;         /* Endpoint address */
-  bool     in;           /* Direction: true->IN */
-  uint8_t  funcaddr;     /* USB address of function containing endpoint */
-  uint8_t  xfrtype;      /* Transfer type.  See SB_EP_ATTR_XFER_* in usb.h */
-  uint8_t  interval;     /* Polling interval */
-  uint16_t mxpacketsize; /* Max packetsize */
+  struct usbhost_class_s *devclass;    /* Class */
+  uint8_t                addr;         /* Endpoint address */
+  bool                   in;           /* Direction: true->IN */
+  uint8_t                xfrtype;      /* Transfer type.  See SB_EP_ATTR_XFER_* in usb.h */
+  uint8_t                interval;     /* Polling interval */
+  uint16_t               mxpacketsize; /* Max packetsize */
 };
 
-/* This type represents one endpoint configured by the allocep() method.
- * The actual form is know only internally to the USB host controller
- * (for example, for an OHCI driver, this would probably be a pointer
- * to an endpoint descriptor).
+/* struct usbhost_hal_s provides hardware abstraction layer for external
+ * host controller IC
  */
 
-typedef FAR void *usbhost_ep_t;
+struct usbhost_hal_s
+{
+  /* Set hardware interface for register access */
+
+  void (*set_regaccess)(void);
+
+  /* Set hardware interface for memory access */
+
+  void (*set_memaccess)(void);
+
+  /* Read 32-bit memory/register */
+
+  uint32_t (*getreg32)(uint32_t addr);
+
+  /* Write 32-bit memory/register */
+  void (*putreg32)(uint32_t val, uint32_t addr);
+};
 
 /* struct usbhost_driver_s provides access to the USB host driver from the
  * USB host class implementation.
@@ -581,6 +691,14 @@ typedef FAR void *usbhost_ep_t;
 
 struct usbhost_driver_s
 {
+  /* Root hub */
+
+  struct usbhost_class_s *roothub;
+
+  /* Controller speed, i.e. High/Full/Low */
+
+  uint8_t                speed;
+
   /* Wait for a device to connect or disconnect. */
 
   int (*wait)(FAR struct usbhost_driver_s *drvr, bool connected);
@@ -602,8 +720,8 @@ struct usbhost_driver_s
    * an external implementation of the enumeration logic.
    */
 
-  int (*ep0configure)(FAR struct usbhost_driver_s *drvr, uint8_t funcaddr,
-                      uint16_t maxpacketsize);
+  int (*ep0configure)(FAR struct usbhost_driver_s *drvr, usbhost_ep_t ep0,
+                      uint8_t funcaddr, uint16_t maxpacketsize);
 
   /* Allocate and configure an endpoint. */
 
@@ -649,11 +767,11 @@ struct usbhost_driver_s
    */
 
   int (*ctrlin)(FAR struct usbhost_driver_s *drvr,
-                FAR const struct usb_ctrlreq_s *req,
-                FAR uint8_t *buffer);
+                FAR struct usbhost_xfer_s *xfer,
+                FAR const struct usb_ctrlreq_s *cmd);
   int (*ctrlout)(FAR struct usbhost_driver_s *drvr,
-                 FAR const struct usb_ctrlreq_s *req,
-                 FAR const uint8_t *buffer);
+                 FAR struct usbhost_xfer_s *xfer,
+                 FAR const struct usb_ctrlreq_s *cmd);
 
   /* Process a request to handle a transfer descriptor.  This method will
    * enqueue the transfer request and wait for it to complete.  Only one transfer may
@@ -674,6 +792,15 @@ struct usbhost_driver_s
    */
 
   void (*disconnect)(FAR struct usbhost_driver_s *drvr);
+
+  /* Called by hub class to control root hub.
+   */
+
+  int (*rhctrl)(FAR struct usbhost_driver_s *drvr,
+                 FAR struct usbhost_xfer_s *xfer,
+                 FAR const struct usb_ctrlreq_s *cmd);
+  int (*rhstatus)(FAR struct usbhost_driver_s *drvr,
+                  FAR struct usbhost_xfer_s *xfer);
 };
 
 /************************************************************************************
@@ -735,6 +862,25 @@ EXTERN int usbhost_registerclass(struct usbhost_registry_s *class);
  ************************************************************************************/
 
 EXTERN const struct usbhost_registry_s *usbhost_findclass(const struct usbhost_id_s *id);
+
+/****************************************************************************
+ * Name: usbhost_hubinit
+ *
+ * Description:
+ *   Initialize the USB hub class.  This function should be called
+ *   be platform-specific code in order to initialize and register support
+ *   for the USB host storage class.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Values:
+ *   On success this function will return zero (OK);  A negated errno value
+ *   will be returned on failure.
+ *
+ ****************************************************************************/
+
+EXTERN int usbhost_hubinit(void);
 
 /****************************************************************************
  * Name: usbhost_storageinit
@@ -820,14 +966,49 @@ EXTERN int usbhost_wlaninit(void);
 
 EXTERN FAR struct usbhost_driver_s *usbhost_initialize(int controller);
 
+/****************************************************************************
+ * Name: usbhost_ctrlxfer
+ *
+ * Description:
+ *   Free transfer buffer memory.
+ *
+ * Input Parameters:
+ *   priv - A reference to the class instance.
+ *
+ * Returned Values:
+ *   On sucess, zero (OK) is returned.  On failure, an negated errno value
+ *   is returned to indicate the nature of the failure.
+ *
+ ****************************************************************************/
+
+EXTERN int usbhost_ctrlxfer(FAR struct usbhost_class_s *devclass,
+                            uint8_t type, uint8_t req, uint16_t value,
+                            uint16_t index, uint16_t len,
+                            FAR uint8_t *buffer);
+
+/****************************************************************************
+ * Name: usbhost_intxfer
+ *
+ * Description:
+ *   Free transfer buffer memory.
+ *
+ * Input Parameters:
+ *   priv - A reference to the class instance.
+ *
+ * Returned Values:
+ *   On sucess, zero (OK) is returned.  On failure, an negated errno value
+ *   is returned to indicate the nature of the failure.
+ *
+ ****************************************************************************/
+
+EXTERN int usbhost_intxfer(FAR struct usbhost_class_s *devclass,
+                           FAR struct usbhost_xfer_s *xfer,
+                           void (*callback)(FAR struct usbhost_xfer_s *xfer));
+
 /*******************************************************************************
  * Name: usbhost_enumerate
  *
  * Description:
- *   This is a share-able implementation of most of the logic required by the
- *   driver enumerate() method.  This logic within this method should be common
- *   to all USB host drivers.
- *
  *   Enumerate the connected device.  As part of this enumeration process,
  *   the driver will (1) get the device's configuration descriptor, (2)
  *   extract the class ID info from the configuration descriptor, (3) call
@@ -838,28 +1019,63 @@ EXTERN FAR struct usbhost_driver_s *usbhost_initialize(int controller);
  *   charge of the sequence of operations.
  *
  * Input Parameters:
- *   drvr - The USB host driver instance obtained as a parameter from the call to
- *      the class create() method.
- *   funcaddr - The USB address of the function containing the endpoint that EP0
- *     controls
- *   class - If the class driver for the device is successful located
- *      and bound to the driver, the allocated class instance is returned into
- *      this caller-provided memory location.
+ *   class - USB class information common across all classes. Whoever calls
+ *      enumerate should fill address, speed, driver and parent class
+ *      pointer. Enumeration will fill the control endpoint ep0,
+ *      transaction translator (if applicable) and private data
  *
  * Returned Values:
  *   On success, zero (OK) is returned. On a failure, a negated errno value is
  *   returned indicating the nature of the failure
  *
  * Assumptions:
- *   - Only a single class bound to a single device is supported.
  *   - Called from a single thread so no mutual exclusion is required.
  *   - Never called from an interrupt handler.
  *
  *******************************************************************************/
 
-EXTERN int usbhost_enumerate(FAR struct usbhost_driver_s *drvr,
-                             uint8_t funcaddr,
-                             FAR struct usbhost_class_s **class);
+EXTERN int usbhost_enumerate(FAR struct usbhost_class_s *devclass);
+
+/*******************************************************************************
+ * Name: usbhost_halinitialize
+ *
+ * Description:
+ *   Initialize USB host device controller hardware abstraction.
+ *   (Used only for external host controller IC)
+ *
+ * Input Parameters:
+ *   hal -- Hardware abstraction API
+ *
+ * Returned Value:
+ *   None
+ *
+ * Assumptions:
+ *
+ *******************************************************************************/
+
+#ifdef CONFIG_USBHOST_EXTERNAL
+
+EXTERN FAR void usbhost_halinitialize(FAR struct usbhost_hal_s *hal);
+
+#endif
+
+/*******************************************************************************
+ * Name: usbhost_rh_connect
+ *
+ * Description:
+ *   Registers USB host root hub
+ *
+ * Input Parameters:
+ *   drvr - The USB host driver instance obtained as a parameter from the call to
+ *      the class create() method.
+ *
+ * Returned Value:
+ *
+ * Assumptions:
+ *
+ *******************************************************************************/
+
+EXTERN int usbhost_rh_connect(FAR struct usbhost_driver_s *drvr);
 
 #undef EXTERN
 #if defined(__cplusplus)

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+USAGE="\t`basename $0` [ target = clean or distclean; no target builds all ]"
+
+if [ $# -gt 1 ]
+then
+  echo "Usage:"
+  echo -e $USAGE
+fi
+
+TARGET=""
+if [ $# -gt 0 ]
+then
+  if [ "$1" == "clean" -o "$1" == "distclean" ]
+  then
+    TARGET="$1"
+  else
+    echo "Usage:"
+    echo -e $USAGE
+    exit
+  fi
+fi
+
+if [ "$TARGET" == "" ]
+then
+  if [ ! -f ".config" -o ! -f "Make.defs" -o ! -f "setenv.sh" ]
+  then
+    cd tools
+    ./configure.sh -a apps stm3210e-eval/nsh
+    cd ..
+  fi
+  source setenv.sh
+fi
+
+make $TARGET
+if [ "$TARGET" == "clean" -o "$TARGET" == "distclean" ]
+then
+  rm -f include/nuttx/version.h
+fi

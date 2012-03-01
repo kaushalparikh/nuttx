@@ -60,17 +60,24 @@
 #  undef CONFIG_STM32_SPI2
 #endif
 
-/* STM3210E-EVAL GPIOs **************************************************************/
+/* UUCP GPIOs **************************************************************/
+
 /* LEDs */
 
 #define GPIO_LED1       (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
-                         GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN6)
+                         GPIO_OUTPUT_CLEAR|GPIO_PORTG|GPIO_PIN6)
 #define GPIO_LED2       (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
-                         GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN7)
-#define GPIO_LED3       (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
-                         GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN8)
-#define GPIO_LED4       (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
-                         GPIO_OUTPUT_CLEAR|GPIO_PORTF|GPIO_PIN9)
+                         GPIO_OUTPUT_CLEAR|GPIO_PORTB|GPIO_PIN12)
+
+/* LCD Enable */
+
+#define GPIO_PA4       (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_10MHz|\
+                         GPIO_OUTPUT_SET|GPIO_PORTA|GPIO_PIN4)
+
+/* USB Host interrupt */
+
+#define GPIO_USBHOST_IRQ (GPIO_INPUT|GPIO_CNF_INFLOAT|GPIO_MODE_INPUT|\
+                          GPIO_EXTI|GPIO_PORTC|GPIO_PIN3)
 
 /* BUTTONS -- NOTE that some have EXTI interrupts configured */
 
@@ -144,11 +151,6 @@ struct extmem_save_s
 
 #ifndef __ASSEMBLY__
 
-/* GPIO configurations common to SRAM and NOR Flash */
-
-#define NCOMMON_CONFIG 37
-extern const uint16_t g_commonconfig[NCOMMON_CONFIG];
-
 /************************************************************************************
  * Public Functions
  ************************************************************************************/
@@ -173,6 +175,8 @@ extern void weak_function stm32_spiinitialize(void);
 
 extern void weak_function stm32_usbinitialize(void);
 
+#ifdef CONFIG_STM32_FSMC
+
 /************************************************************************************
  * Name: stm32_extcontextsave
  *
@@ -181,7 +185,6 @@ extern void weak_function stm32_usbinitialize(void);
  *
  ************************************************************************************/
 
-#ifdef CONFIG_STM32_FSMC
 extern void stm32_extcontextsave(struct extmem_save_s *save);
 
 /************************************************************************************
@@ -195,14 +198,14 @@ extern void stm32_extcontextsave(struct extmem_save_s *save);
 extern void stm32_extcontextrestore(struct extmem_save_s *restore);
 
 /************************************************************************************
- * Name: stm32_extmemgpios
+ * Name: stm32_initfsmc
  *
  * Description:
  *   Initialize GPIOs for NOR or SRAM
  *
  ************************************************************************************/
 
-extern void stm32_extmemgpios(const uint16_t *gpios, int ngpios);
+extern void stm32_initfsmc(void);
 
 /************************************************************************************
  * Name: stm32_enablefsmc
@@ -225,24 +228,24 @@ extern void stm32_enablefsmc(void);
 extern void stm32_disablefsmc(void);
 
 /************************************************************************************
- * Name: stm32_selectnor
+ * Name: stm32_selectusb
  *
  * Description:
- *   Initialize to access NOR flash
+ *   Initialize to access USB controller
  *
  ************************************************************************************/
 
-extern void stm32_selectnor(void);
+extern void stm32_selectusb(void);
 
 /************************************************************************************
- * Name: stm32_deselectnor
+ * Name: stm32_deselectusb
  *
  * Description:
- *   Disable NOR FLASH
+ *   Disable access to USB controller
  *
  ************************************************************************************/
 
-extern void stm32_deselectnor(void);
+extern void stm32_deselectusb(void);
 
 /************************************************************************************
  * Name: stm32_selectsram

@@ -320,7 +320,12 @@ extern int nsh_script(FAR struct nsh_vtbl_s *vtbl, const char *cmd, const char *
 #ifdef CONFIG_NSH_ARCHINIT
 extern int nsh_archinitialize(void);
 #else
-#  define nsh_archinitialize() (-ENOSYS)
+extern int nsh_sdcardinit(void);
+extern int nsh_sdcarddeinit(void);
+
+extern int nsh_usbhostinit(void);
+extern int nsh_usbhostdeinit(void);
+extern void nsh_usbhostregdump(void);
 #endif
 
 /* Message handler */
@@ -416,6 +421,12 @@ extern int cmd_date(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #     endif
 #     ifndef CONFIG_NSH_DISABLE_UMOUNT
         extern int cmd_umount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#     endif
+#     ifndef CONFIG_NSH_DISABLE_SDCARD
+        extern int cmd_sdcard(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#     endif
+#     ifndef CONFIG_NSH_DISABLE_USBH
+        extern int cmd_usbh(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #     endif
 #     ifdef CONFIG_FS_WRITABLE
 #       ifndef CONFIG_NSH_DISABLE_MKDIR

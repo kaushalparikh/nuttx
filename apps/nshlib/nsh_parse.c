@@ -323,6 +323,18 @@ static const struct cmdmap_s g_cmdmap[] =
 # endif
 #endif
 
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+# ifndef CONFIG_NSH_DISABLE_SDCARD
+  { "sdcard",   cmd_sdcard,   2, 2, "<mount/umount>" },
+# endif
+#endif
+
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+# ifndef CONFIG_NSH_DISABLE_USBH
+  { "usbh",   cmd_usbh,   2, 2, "<mount/umount>" },
+# endif
+#endif
+
 #ifndef CONFIG_DISABLE_ENVIRON
 # ifndef CONFIG_NSH_DISABLE_UNSET
   { "unset",    cmd_unset,    2, 2, "<name>" },
@@ -1028,7 +1040,9 @@ void nsh_initialize(void)
 
   /* Perform architecture-specific initialization (if available) */
 
+#ifdef CONFIG_NSH_ARCHINIT
   (void)nsh_archinitialize();
+#endif
 
   /* Bring up the network */
 

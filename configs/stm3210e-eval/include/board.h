@@ -55,16 +55,16 @@
 
 /* Clocking *************************************************************************/
 
-/* On-board crystal frequency is 8MHz (HSE) */
+/* On-board crystal frequency is 12MHz (HSE) */
 
-#define STM32_BOARD_XTAL        8000000ul
+#define STM32_BOARD_XTAL       12000000ul
 
-/* PLL source is HSE/1, PLL multipler is 9: PLL frequency is 8MHz (XTAL) x 9 = 72MHz */
+/* PLL source is HSE/1, PLL multipler is 5: PLL frequency is 12MHz (XTAL) x 5 = 60MHz */
 
-#define STM32_CFGR_PLLSRC       RCC_CFGR_PLLSRC
-#define STM32_CFGR_PLLXTPRE     0
-#define STM32_CFGR_PLLMUL       RCC_CFGR_PLLMUL_CLKx9
-#define STM32_PLL_FREQUENCY     (9*STM32_BOARD_XTAL)
+#define STM32_CFGR_PLLSRC      RCC_CFGR_PLLSRC
+#define STM32_CFGR_PLLXTPRE    0
+#define STM32_CFGR_PLLMUL      RCC_CFGR_PLLMUL_CLKx5
+#define STM32_PLL_FREQUENCY    (5*STM32_BOARD_XTAL)
 
 /* Use the PLL and set the SYSCLK source to be the PLL */
 
@@ -146,16 +146,19 @@
 
 /* LED definitions ******************************************************************/
 
-/* The STM3210E-EVAL board has 4 LEDs that we will encode as: */
+/* The UUCP board has 2 LEDs that we will encode as: */
 
-#define LED_STARTED       0  /* LED1 */
-#define LED_HEAPALLOCATE  1  /* LED2 */
-#define LED_IRQSENABLED   2  /* LED1 + LED2 */
-#define LED_STACKCREATED  3  /* LED3 */
-#define LED_INIRQ         4  /* LED1 + LED3 */
-#define LED_SIGNAL        5  /* LED2 + LED3 */
-#define LED_ASSERTION     6  /* LED1 + LED2 + LED3 */
-#define LED_PANIC         7  /* N/C  + N/C  + N/C + LED4 */
+#define LED_STARTED       0  /* None */
+#define LED_INIRQ         1  /* LED1 */
+#define LED_USER          2  /* LED2 */
+#define LED_ASSERTION     3  /* LED1 + LED2 */
+#define LED_INVALID       4  /* Invalid LED combination */
+
+#define LED_PANIC         4  /* N/C  + N/C  + N/C + LED4 */
+#define LED_SIGNAL        5  /* LED2 */
+#define LED_HEAPALLOCATE  6  /* LED2 */
+#define LED_IRQSENABLED   7  /* LED1 + LED2 */
+#define LED_STACKCREATED  8  /* LED3 */
 
 /* The STM3210E-EVAL supports several buttons
  *
@@ -194,6 +197,10 @@
 #define JOYSTICK_LEFT_BIT  (1 << JOYSTICK_LEFT)
 #define JOYSTICK_RIGHT_BIT (1 << JOYSTICK_RIGHT)
 #define JOYSTICK_UP_BIT    (1 << JOYSTICK_UP)
+
+/* USB memory interface base address */
+
+#define USB_BASE           0x68000000
 
 /************************************************************************************
  * Public Data
@@ -305,6 +312,46 @@ EXTERN int stm32_lm75initialize(FAR const char *devpath);
 #if defined(CONFIG_I2C) && defined(CONFIG_I2C_LM75) && defined(CONFIG_STM32_I2C1)
 EXTERN xcpt_t stm32_lm75attach(xcpt_t irqhandler);
 #endif
+
+/************************************************************************************
+ * Name: stm32_usbregaccess
+ *
+ * Description:
+ *   Set FSMC timings for register read/write
+ *
+ ************************************************************************************/
+
+EXTERN void stm32_usbregaccess(void);
+
+/************************************************************************************
+ * Name: stm32_usbmemaccess
+ *
+ * Description:
+ *   Set FSMC timings for memory read/write
+ *
+ ************************************************************************************/
+
+EXTERN void stm32_usbmemaccess(void);
+
+/************************************************************************************
+ * Name: stm32_usbgetreg32
+ *
+ * Description:
+ *   Read 32-bit register
+ *
+ ************************************************************************************/
+ 
+EXTERN uint32_t stm32_usbgetreg32(uint32_t addr);
+
+/************************************************************************************
+ * Name: stm32_usbputreg32
+ *
+ * Description:
+ *   Write 32-bit register
+ *
+ ************************************************************************************/
+ 
+EXTERN void stm32_usbputreg32(uint32_t val, uint32_t addr);
 
 #undef EXTERN
 #if defined(__cplusplus)

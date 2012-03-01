@@ -1339,3 +1339,101 @@ int cmd_umount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 }
 #endif
 #endif
+
+/****************************************************************************
+ * Name: cmd_sdcard
+ ****************************************************************************/
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+#ifndef CONFIG_NSH_DISABLE_SDCARD
+int cmd_sdcard(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+{
+  int ret;
+
+  if (strcmp(argv[1], "mount") == 0)
+    {
+      ret = nsh_sdcardinit();
+      if (ret == OK)
+        {
+          ret = mount("/dev/mmcsd0", "/sdcard", "vfat", 0, NULL);
+          if (ret < 0)
+            {
+              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
+            }
+        }
+    }
+  else if (strcmp(argv[1], "umount") == 0)
+    {
+      ret = nsh_sdcarddeinit();
+      if (ret == OK)
+        {
+          ret = umount("/sdcard");
+          if (ret < 0)
+            {
+              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
+            }
+        }
+    }
+  else
+    {
+      nsh_output(vtbl, g_fmtarginvalid, argv[1]);
+      return ERROR;
+    }
+
+  return ret;
+}
+#endif
+#endif
+
+/****************************************************************************
+ * Name: cmd_usbh
+ ****************************************************************************/
+#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
+#ifndef CONFIG_NSH_DISABLE_USBH
+int cmd_usbh(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
+{
+  int ret;
+
+  if (strcmp(argv[1], "mount") == 0)
+    {
+      ret = nsh_usbhostinit();
+      /*
+      if (ret == OK)
+        {
+          ret = mount("/dev/mmcsd0", "/sdcard", "vfat", 0, NULL);
+          if (ret < 0)
+            {
+              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
+            }
+        }
+      */
+    }
+  else if (strcmp(argv[1], "umount") == 0)
+    {
+      ret = nsh_usbhostdeinit();
+      /*
+      if (ret == OK)
+        {
+          ret = umount("/sdcard");
+          if (ret < 0)
+            {
+              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
+            }
+        }
+      */
+    }
+  else if (strcmp(argv[1], "reg") == 0)
+    {
+      nsh_usbhostregdump();
+      ret = OK;
+    }  
+  else
+    {
+      nsh_output(vtbl, g_fmtarginvalid, argv[1]);
+      return ERROR;
+    }
+
+  return ret;
+}
+#endif
+#endif
+

@@ -173,14 +173,6 @@
 
 #define CLASS_RESUME(drvr,dev)    (drvr)->ops->resume ? (drvr)->ops->resume(dev) : (void)
 
-/* Device speeds */
-
-#define USB_SPEED_UNKNOWN         0 /* Transfer rate not yet set */
-#define USB_SPEED_LOW             1 /* USB 1.1 */
-#define USB_SPEED_FULL            2 /* USB 1.1 */
-#define USB_SPEED_HIGH            3 /* USB 2.0 */
-#define USB_SPEED_VARIABLE        4 /* Wireless USB 2.5 */
-
 /* Request flags */
 
 #define USBDEV_REQFLAGS_NULLPKT   1 /* Bit 0: Terminate w/short packet; null packet if necessary */

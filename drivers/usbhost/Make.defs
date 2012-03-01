@@ -40,7 +40,8 @@ ifeq ($(CONFIG_USBHOST),y)
 # Include built-in USB host driver logic
 
 CSRCS  += usbhost_registry.c usbhost_registerclass.c usbhost_findclass.c
-CSRCS  += usbhost_enumerate.c usbhost_storage.c usbhost_hidkbd.c
+CSRCS  += usbhost_enumerate.c usbhost_hub.c
+# CSRCS  += usbhost_storage.c usbhost_hidkbd.c
 
 # Include add-on USB host driver logic (see misc/drivers)
 
@@ -48,6 +49,11 @@ ifeq ($(CONFIG_NET),y)
   RTL8187_CSRC  := ${shell if [ -f usbhost/rtl8187x.c ]; then echo "rtl8187x.c"; fi}
   CSRCS += $(RTL8187_CSRC)
 endif
+
+ifeq ($(CONFIG_USBHOST_ISP1761),y)
+  CSRCS += isp1761_host.c
+endif
+
 endif
 
 # Include USB host driver build logic

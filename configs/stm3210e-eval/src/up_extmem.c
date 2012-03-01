@@ -98,6 +98,8 @@
 
 /* GPIO configurations common to SRAM and NOR Flash */
 
+#define NCOMMON_CONFIG 37
+
 const uint16_t g_commonconfig[NCOMMON_CONFIG] =
 {
   /* A0... A18 */
@@ -133,22 +135,22 @@ const uint16_t g_commonconfig[NCOMMON_CONFIG] =
  ************************************************************************************/
 
 /************************************************************************************
- * Name: stm32_extmemgpios
+ * Name: stm32_initfsmc
  *
  * Description:
  *   Initialize GPIOs for NOR or SRAM
  *
  ************************************************************************************/
 
-void stm32_extmemgpios(const uint16_t *gpios, int ngpios)
+void stm32_initfsmc(void)
 {
   int i;
 
   /* Configure GPIOs */
 
-  for (i = 0; i < ngpios; i++)
+  for (i = 0; i < NCOMMON_CONFIG; i++)
     {
-      stm32_configgpio(gpios[i]);
+      stm32_configgpio(g_commonconfig[i]);
     }
 }
 
@@ -189,3 +191,249 @@ void stm32_disablefsmc(void)
   regval &= ~RCC_AHBENR_FSMCEN;
   putreg32(regval, STM32_RCC_AHBENR);
 }
+
+/************************************************************************************
+ * Name: stm32_fsmccontextsave
+ *
+ * Description:
+ *  Save current GPIOs that will used by external memory configurations
+ *
+ ************************************************************************************/
+
+void stm32_fsmccontextsave(struct extmem_save_s *save)
+{
+  DEBUGASSERT(save != NULL);
+  save->gpiod_crl = getreg32(STM32_GPIOE_CRL);
+  save->gpiod_crh = getreg32(STM32_GPIOE_CRH);
+  save->gpioe_crl = getreg32(STM32_GPIOD_CRL);
+  save->gpioe_crh = getreg32(STM32_GPIOD_CRH);
+  save->gpiof_crl = getreg32(STM32_GPIOF_CRL);
+  save->gpiof_crh = getreg32(STM32_GPIOF_CRH);
+  save->gpiog_crl = getreg32(STM32_GPIOG_CRL);
+  save->gpiog_crh = getreg32(STM32_GPIOG_CRH);  
+}
+
+/************************************************************************************
+ * Name: stm32_fsmccontextrestore
+ *
+ * Description:
+ *  Restore GPIOs that were used by external memory configurations
+ *
+ ************************************************************************************/
+
+void stm32_fsmccontextrestore(struct extmem_save_s *restore)
+{
+  DEBUGASSERT(restore != NULL);
+  putreg32(restore->gpiod_crl, STM32_GPIOE_CRL);
+  putreg32(restore->gpiod_crh, STM32_GPIOE_CRH);
+  putreg32(restore->gpioe_crl, STM32_GPIOD_CRL);
+  putreg32(restore->gpioe_crh, STM32_GPIOD_CRH);
+  putreg32(restore->gpiof_crl, STM32_GPIOF_CRL);
+  putreg32(restore->gpiof_crh, STM32_GPIOF_CRH);
+  putreg32(restore->gpiog_crl, STM32_GPIOG_CRL);
+  putreg32(restore->gpiog_crh, STM32_GPIOG_CRH);  
+}
+
+/************************************************************************************
+ * Name: stm32_selectsram
+ *
+ * Description:
+ *   Initialize GPIOs for NOR or SRAM and memory interface
+ *
+ ************************************************************************************/
+
+void stm32_selectsram(void)
+{
+  /* Configure new GPIO state */
+
+  stm32_configgpio(GPIO_NPS_NE2);
+  stm32_configgpio(GPIO_NPS_NBL0);
+  stm32_configgpio(GPIO_NPS_NBL1);
+
+  /* Bank2 NOR/SRAM control register configuration */
+
+  putreg32(FSMC_BCR_MWID16|FSMC_BCR_WREN, STM32_FSMC_BCR2);
+
+  /* Bank2 NOR/SRAM timing register configuration */
+
+  putreg32(FSMC_BTR_ADDSET(1)|FSMC_BTR_ADDHLD(1)|FSMC_BTR_DATAST(2)|FSMC_BTR_BUSTRUN(1)|
+           FSMC_BTR_CLKDIV(1)|FSMC_BTR_DATLAT(2)|FSMC_BTR_ACCMODA, STM32_FSMC_BTR2);
+
+  putreg32(0xffffffff, STM32_FSMC_BWTR2);
+
+  /* Enable the bank */
+
+  putreg32(FSMC_BCR_MBKEN|FSMC_BCR_MWID16|FSMC_BCR_WREN, STM32_FSMC_BCR2);
+}
+
+/************************************************************************************
+ * Name: stm32_deselectsram
+ *
+ * Description:
+ *   Disable SRAM
+ *
+ ************************************************************************************/
+
+void stm32_deselectsram(void)
+{
+  /* Restore registers to their power up settings */
+
+  putreg32(0x000030d2, STM32_FSMC_BCR2);
+
+  /* Bank1 NOR/SRAM timing register configuration */
+
+  putreg32(0x0fffffff, STM32_FSMC_BTR2);
+}
+
+/************************************************************************************
+ * Name: stm32_selectusb
+ *
+ * Description:
+ *   Initialize GPIOs for USB controller and memory interface
+ *
+ ************************************************************************************/
+ 
+void stm32_selectusb(void)
+{
+  /* Configure new GPIO state */
+
+  stm32_configgpio(GPIO_NPS_NE3);
+
+  /* Bank1 NOR/SRAM control register configuration */
+
+  putreg32(FSMC_BCR_MWID16|FSMC_BCR_WREN|FSMC_BCR_EXTMOD, STM32_FSMC_BCR3);
+
+  /* Bank1 NOR/SRAM timing register configuration */
+
+  putreg32(FSMC_BTR_ADDSET(2)|FSMC_BTR_ADDHLD(1)|FSMC_BTR_DATAST(2)|FSMC_BTR_BUSTRUN(1)|
+           FSMC_BTR_CLKDIV(1)|FSMC_BTR_DATLAT(2)|FSMC_BTR_ACCMODA, STM32_FSMC_BTR3);
+
+  putreg32(FSMC_BTR_ADDSET(2)|FSMC_BTR_ADDHLD(1)|FSMC_BTR_DATAST(2)|
+           FSMC_BTR_CLKDIV(1)|FSMC_BTR_DATLAT(2)|FSMC_BTR_ACCMODA, STM32_FSMC_BWTR3);
+
+  /* Enable the bank */
+
+  //putreg32(FSMC_BCR_MBKEN|FSMC_BCR_NOR|FSMC_BCR_FACCEN|FSMC_BCR_MWID16|FSMC_BCR_WREN, STM32_FSMC_BCR3);
+  putreg32(FSMC_BCR_MBKEN|FSMC_BCR_MWID16|FSMC_BCR_WREN|FSMC_BCR_EXTMOD, STM32_FSMC_BCR3);
+}
+
+/************************************************************************************
+ * Name: stm32_deselectusb
+ *
+ * Description:
+ *   Disable USB controller
+ *
+ ************************************************************************************/
+
+void stm32_deselectusb(void)
+{
+  /* Restore registers to their power up settings */
+
+  putreg32(0x000030d2, STM32_FSMC_BCR3);
+
+  /* Bank1 NOR/SRAM timing register configuration */
+
+  putreg32(0x0fffffff, STM32_FSMC_BTR3);
+  putreg32(0x0fffffff, STM32_FSMC_BWTR3);
+}
+
+/************************************************************************************
+ * Name: stm32_selectlcd
+ *
+ * Description:
+ *   Initialize to the LCD
+ *
+ ************************************************************************************/
+
+void stm32_selectlcd(void)
+{
+}
+
+/************************************************************************************
+ * Name: stm32_deselectlcd
+ *
+ * Description:
+ *   Disable the LCD
+ *
+ ************************************************************************************/
+
+void stm32_deselectlcd(void)
+{
+}
+
+/************************************************************************************
+ * Name: stm32_usbregaccess
+ *
+ * Description:
+ *   Set FSMC timings for register read/write
+ *
+ ************************************************************************************/
+
+void stm32_usbregaccess(void)
+{
+  uint32_t regval;
+
+  /* Set the inter read/write delay */
+
+  regval  = getreg32(STM32_FSMC_BTR3);
+  regval &= (~FSMC_BTR_ADDSET_MASK);
+  
+  putreg32(regval|FSMC_BTR_ADDSET(10), STM32_FSMC_BTR3);
+
+  regval  = getreg32(STM32_FSMC_BWTR3);
+  regval &= (~FSMC_BWTR_ADDSET_MASK);
+  
+  putreg32(regval|FSMC_BWTR_ADDSET(10), STM32_FSMC_BWTR3);
+}
+
+/************************************************************************************
+ * Name: stm32_usbmemaccess
+ *
+ * Description:
+ *   Set FSMC timings for memory read/write
+ *
+ ************************************************************************************/
+
+void stm32_usbmemaccess(void)
+{
+  uint32_t regval;
+  
+  /* Set the inter read/write delay */
+
+  regval  = getreg32(STM32_FSMC_BTR3);
+  regval &= (~FSMC_BTR_ADDSET_MASK);
+  
+  putreg32(regval|FSMC_BTR_ADDSET(2), STM32_FSMC_BTR3);
+
+  regval  = getreg32(STM32_FSMC_BWTR3);
+  regval &= (~FSMC_BWTR_ADDSET_MASK);
+  
+  putreg32(regval|FSMC_BWTR_ADDSET(2), STM32_FSMC_BWTR3);
+}
+
+/************************************************************************************
+ * Name: stm32_usbgetreg32
+ *
+ * Description:
+ *   Read 32-bit register
+ *
+ ************************************************************************************/
+ 
+uint32_t stm32_usbgetreg32(uint32_t addr)
+{
+  return getreg32((USB_BASE+addr));
+}
+
+/************************************************************************************
+ * Name: stm32_usbputreg32
+ *
+ * Description:
+ *   Write 32-bit register
+ *
+ ************************************************************************************/
+ 
+void stm32_usbputreg32(uint32_t val, uint32_t addr)
+{
+  putreg32(val, (USB_BASE+addr));
+}
+

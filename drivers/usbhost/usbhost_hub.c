@@ -98,23 +98,23 @@
 
 struct usbhost_hub_s
 {
-  volatile bool           disconnected; /* TRUE: Device has been disconnected */
-  uint8_t                 ifno;         /* Interface number */  
-  int16_t                 crefs;        /* Reference count on the driver instance */
-  sem_t                   exclsem;      /* Used to maintain mutual exclusive access */
+  volatile bool             disconnected; /* TRUE: Device has been disconnected */
+  uint8_t                   ifno;         /* Interface number */  
+  int16_t                   crefs;        /* Reference count on the driver instance */
+  sem_t                     exclsem;      /* Used to maintain mutual exclusive access */
 
-  uint8_t                 nports;       /* Number of ports */
-  uint8_t                 lpsm;         /* Logical power switching mode */
-  bool                    compounddev;  /* Hub is part of compound device */
-  uint8_t                 ocmode;       /* Over current protection mode */
-  bool                    indicator;    /* Port indicator */
-  uint16_t                pwrondelay;   /* Power on wait time in ms */
-  uint8_t                 ctrlcurrent;  /* Control current */
+  uint8_t                   nports;       /* Number of ports */
+  uint8_t                   lpsm;         /* Logical power switching mode */
+  bool                      compounddev;  /* Hub is part of compound device */
+  uint8_t                   ocmode;       /* Over current protection mode */
+  bool                      indicator;    /* Port indicator */
+  uint16_t                  pwrondelay;   /* Power on wait time in ms */
+  uint8_t                   ctrlcurrent;  /* Control current */
 
-  struct usb_hubtt_s      tt;           /* Transaction translator */
-  struct usbhost_xfer_s   intxfer;      /* Interrupt IN endpoint */
+  struct usb_hubtt_s        tt;           /* Transaction translator */
+  struct usbhost_transfer_s intxfer;      /* Interrupt IN endpoint */
 
-  struct usbhost_class_s *childclass[USBHUB_MAX_PORTS];
+  struct usbhost_class_s    *childclass[USBHUB_MAX_PORTS];
                                         /* Pointer to child devices */
 };
 
@@ -151,14 +151,14 @@ static inline int usbhost_hubdesc(FAR struct usbhost_class_s *hubclass);
 
 static inline int usbhost_hubpwr(FAR struct usbhost_class_s *hubclass, bool on);
 
-static void usbhost_hubevent(FAR struct usbhost_xfer_s *xfer);
+static void usbhost_hubevent(FAR struct usbhost_transfer_s *xfer);
 
 /* (Little Endian) Data helpers */
 
 static inline uint16_t usbhost_getle16(const uint8_t *val);
 static void usbhost_putle16(uint8_t *dest, uint16_t val);
 
-static void usbhost_callback(FAR struct usbhost_xfer_s *xfer);
+static void usbhost_callback(FAR struct usbhost_transfer_s *xfer);
 
 /* struct usbhost_registry_s methods */
  
@@ -752,7 +752,7 @@ static inline int usbhost_hubpwr(FAR struct usbhost_class_s *hubclass, bool on)
  *
  ****************************************************************************/
 
-static void usbhost_hubevent(FAR struct usbhost_xfer_s *xfer)
+static void usbhost_hubevent(FAR struct usbhost_transfer_s *xfer)
 {
   FAR struct usbhost_class_s *hubclass = (FAR struct usbhost_class_s *)xfer->devclass;
   FAR struct usbhost_hub_s *hubpriv = (FAR struct usbhost_hub_s *)hubclass->priv;
@@ -1027,7 +1027,7 @@ static void usbhost_putle16(uint8_t *dest, uint16_t val)
  *
  ****************************************************************************/
 
-static void usbhost_callback(FAR struct usbhost_xfer_s *xfer)
+static void usbhost_callback(FAR struct usbhost_transfer_s *xfer)
 {
   if (xfer->status != OK)
     {

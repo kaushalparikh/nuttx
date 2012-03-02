@@ -70,7 +70,7 @@
 static inline uint16_t usbhost_getle16(const uint8_t *val);
 static void usbhost_putle16(uint8_t *dest, uint16_t val);
 
-static void usbhost_callback(FAR struct usbhost_xfer_s *xfer);
+static void usbhost_callback(FAR struct usbhost_transfer_s *xfer);
 
 static inline int usbhost_devdesc(const struct usb_devdesc_s *devdesc,
                                   struct usbhost_id_s *id);
@@ -127,7 +127,7 @@ static void usbhost_putle16(uint8_t *dest, uint16_t val)
  *
  *******************************************************************************/
 
-static void usbhost_callback(FAR struct usbhost_xfer_s *xfer)
+static void usbhost_callback(FAR struct usbhost_transfer_s *xfer)
 {
   sem_post(&xfer->done);
 }
@@ -303,7 +303,7 @@ int usbhost_ctrlxfer(FAR struct usbhost_class_s *devclass,
                      uint16_t index, uint16_t len,
                      FAR uint8_t *buffer)
 {
-  struct usbhost_xfer_s xfer;
+  struct usbhost_transfer_s xfer;
   struct usb_ctrlreq_s cmd;
   struct timespec timeout;
   int ret;
@@ -374,10 +374,23 @@ out:
  ****************************************************************************/
 
 int usbhost_intxfer(FAR struct usbhost_class_s *devclass,
-                    FAR struct usbhost_xfer_s *xfer,
-                    void (*callback)(FAR struct usbhost_xfer_s *xfer))
+                    FAR struct usbhost_transfer_s *xfer,
+                    void (*callback)(FAR struct usbhost_transfer_s *))
 {
-  return OK;
+  int ret;
+
+  xfer->callback = callback;
+
+  if (ROOTHUB(devclass))
+    {
+      ret = DRVR_RHSTATUS(devclass->drvr, &xfer);
+    }
+  else
+    {
+      ret = DRVR_TRANSFER(devclass->drvr, &xfer);
+    }
+
+  return ret;
 }
 
 /*******************************************************************************

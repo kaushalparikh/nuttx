@@ -93,13 +93,21 @@ struct ehci_ep_s
 
   struct ehci_qtdlist_s qtdlist;
 
-  /* Endpoint polling interval */
-
-  uint8_t               interval;
-
   /* Transfer direction */
 
   bool                  in;
+
+  /* Endpoint polling interval and start frame */
+
+  uint8_t               interval;
+  int16_t               startframe;
+};
+
+struct ehci_driver_s
+{
+  /* Driver APIs */
+
+  struct usbhost_driver_s drvr;
 };
 
 /*******************************************************************************
@@ -137,7 +145,7 @@ static  int ehci_ioalloc(FAR struct usbhost_driver_s *drvr,
 static  int ehci_iofree(FAR struct usbhost_driver_s *drvr, FAR uint8_t *buffer);
 
 static int ehci_rhctrl(FAR struct usbhost_driver_s *drvr,
-                       FAR struct usbhost_xfer_s *xfer,
+                       FAR struct usbhost_transfer_s *xfer,
                        FAR const struct usb_ctrlreq_s *cmd);
 
 static int isp1761_hw_modectrl(void);
@@ -230,25 +238,28 @@ static const uint8_t g_rh_configdesc[] =
   0x0c        /*  uint8_t bInterval (256ms -- usb 2.0 spec) */
 };
 
-static struct usbhost_driver_s g_drvr =
+static struct ehci_driver_s g_drvr =
 {
-  .roothub      = NULL,
-  .speed        = USB_SPEED_HIGH,
-  .wait         = NULL, 
-  .enumerate    = NULL, 
-  .ep0configure = ehci_ep0config, 
-  .epalloc      = ehci_epalloc, 
-  .epfree       = ehci_epfree, 
-  .alloc        = ehci_alloc,
-  .free         = ehci_free, 
-  .ioalloc      = ehci_ioalloc, 
-  .iofree       = ehci_iofree, 
-  .ctrlin       = NULL, 
-  .ctrlout      = NULL, 
-  .transfer     = NULL, 
-  .disconnect   = NULL,  
-  .rhctrl       = ehci_rhctrl,
-  .rhstatus     = NULL,
+  .drvr = 
+    {
+      .roothub      = NULL,
+      .speed        = USB_SPEED_HIGH,
+      .wait         = NULL, 
+      .enumerate    = NULL, 
+      .ep0configure = ehci_ep0config, 
+      .epalloc      = ehci_epalloc, 
+      .epfree       = ehci_epfree, 
+      .alloc        = ehci_alloc,
+      .free         = ehci_free, 
+      .ioalloc      = ehci_ioalloc, 
+      .iofree       = ehci_iofree, 
+      .ctrlin       = NULL, 
+      .ctrlout      = NULL, 
+      .transfer     = NULL, 
+      .disconnect   = NULL,  
+      .rhctrl       = ehci_rhctrl,
+      .rhstatus     = NULL,
+    },
 };
 
 static struct usbhost_hal_s g_hal;
@@ -413,7 +424,7 @@ static int ehci_stop(void)
  *******************************************************************************/
  
 static int ehci_epalloc(FAR struct usbhost_driver_s *drvr,
-                        const FAR struct usbhost_epdesc_s *epdesc, 
+                        const FAR struct usbhost_epdesc_s *epdesc,
                         usbhost_ep_t *ep)
 {
   struct ehci_ep_s *ehci_ep;
@@ -444,6 +455,7 @@ static int ehci_epalloc(FAR struct usbhost_driver_s *drvr,
 
               ehci_ep->in         = epdesc->in;
               ehci_ep->interval   = epdesc->interval;
+              ehci_ep->startframe = -1;
 
               *ep = ehci_ep;
               ret = OK;
@@ -590,7 +602,7 @@ static int ehci_iofree(FAR struct usbhost_driver_s *drvr, FAR uint8_t *buffer)
  *******************************************************************************/
  
 static int ehci_rhctrl(FAR struct usbhost_driver_s *drvr,
-                       FAR struct usbhost_xfer_s *xfer,
+                       FAR struct usbhost_transfer_s *xfer,
                        FAR const struct usb_ctrlreq_s *cmd)
 {
   uint32_t regval;

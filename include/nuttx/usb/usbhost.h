@@ -457,7 +457,7 @@
  *
  ************************************************************************************/
 
-#define DRVR_TRANSFER(drvr,ed,buffer,buflen) ((drvr)->transfer(drvr,ed,buffer,buflen))
+#define DRVR_TRANSFER(drvr,xfer) ((drvr)->transfer(drvr,xfer)
 
 /************************************************************************************
  * Name: DRVR_DISCONNECT
@@ -521,10 +521,9 @@
 
 typedef FAR void *usbhost_ep_t;
 
-/* Generic transfer structure
- */
+/* Generic transfer structure */
 
-struct usbhost_xfer_s
+struct usbhost_transfer_s
 {
   uint8_t                *buffer;
   size_t                 buflen;
@@ -549,7 +548,7 @@ struct usbhost_xfer_s
   
   /* Transfer complete callback */
   
-  void (*callback)(FAR struct usbhost_xfer_s *xfer);
+  void (*callback)(FAR struct usbhost_transfer_s *);
 };
 
 /* This struct contains all of the information that is needed to associate a device
@@ -767,10 +766,10 @@ struct usbhost_driver_s
    */
 
   int (*ctrlin)(FAR struct usbhost_driver_s *drvr,
-                FAR struct usbhost_xfer_s *xfer,
+                FAR struct usbhost_transfer_s *xfer,
                 FAR const struct usb_ctrlreq_s *cmd);
   int (*ctrlout)(FAR struct usbhost_driver_s *drvr,
-                 FAR struct usbhost_xfer_s *xfer,
+                 FAR struct usbhost_transfer_s *xfer,
                  FAR const struct usb_ctrlreq_s *cmd);
 
   /* Process a request to handle a transfer descriptor.  This method will
@@ -782,8 +781,7 @@ struct usbhost_driver_s
    * transfer has completed.
    */
 
-  int (*transfer)(FAR struct usbhost_driver_s *drvr, usbhost_ep_t ep,
-                  FAR uint8_t *buffer, size_t buflen);
+  int (*transfer)(FAR struct usbhost_driver_s *drvr, FAR struct usbhost_transfer_s *xfer);
 
   /* Called by the class when an error occurs and driver has been disconnected.
    * The USB host driver should discard the handle to the class instance (it is
@@ -797,10 +795,10 @@ struct usbhost_driver_s
    */
 
   int (*rhctrl)(FAR struct usbhost_driver_s *drvr,
-                 FAR struct usbhost_xfer_s *xfer,
+                 FAR struct usbhost_transfer_s *xfer,
                  FAR const struct usb_ctrlreq_s *cmd);
   int (*rhstatus)(FAR struct usbhost_driver_s *drvr,
-                  FAR struct usbhost_xfer_s *xfer);
+                  FAR struct usbhost_transfer_s *xfer);
 };
 
 /************************************************************************************
@@ -1002,8 +1000,8 @@ EXTERN int usbhost_ctrlxfer(FAR struct usbhost_class_s *devclass,
  ****************************************************************************/
 
 EXTERN int usbhost_intxfer(FAR struct usbhost_class_s *devclass,
-                           FAR struct usbhost_xfer_s *xfer,
-                           void (*callback)(FAR struct usbhost_xfer_s *xfer));
+                           FAR struct usbhost_transfer_s *xfer,
+                           void (*callback)(FAR struct usbhost_transfer_s *));
 
 /*******************************************************************************
  * Name: usbhost_enumerate

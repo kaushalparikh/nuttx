@@ -238,7 +238,7 @@ static const uint8_t g_rh_configdesc[] =
   0x0c        /*  uint8_t bInterval (256ms -- usb 2.0 spec) */
 };
 
-static struct ehci_driver_s g_drvr =
+static struct ehci_driver_s g_ehci =
 {
   .drvr = 
     {
@@ -1118,7 +1118,7 @@ FAR struct usbhost_driver_s *usbhost_initialize(int controller)
 
   isp1761_irq_init();
 
-  return &g_drvr;
+  return &g_ehci.drvr;
 }
 
 /*******************************************************************************
@@ -1162,7 +1162,7 @@ FAR int usbhost_run(int controller)
 
   /* Connect Root hub */
 
-  ret = usbhost_rh_connect(&g_drvr);
+  ret = usbhost_rh_connect(&g_ehci.drvr);
     if (ret != OK)
     {
       udbg("failed to connect root hub\n");
@@ -1210,7 +1210,7 @@ FAR int usbhost_stop(int controller)
 
   /* Disconnect Root hub */
 
-  (void)usbhost_rh_disconnect(&g_drvr);
+  (void)usbhost_rh_disconnect(&g_ehci.drvr);
 
   return OK;
 }

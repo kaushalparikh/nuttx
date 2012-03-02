@@ -457,7 +457,7 @@
  *
  ************************************************************************************/
 
-#define DRVR_TRANSFER(drvr,xfer) ((drvr)->transfer(drvr,xfer)
+#define DRVR_TRANSFER(drvr,xfer) ((drvr)->transfer(drvr,xfer))
 
 /************************************************************************************
  * Name: DRVR_DISCONNECT
@@ -507,7 +507,7 @@
  ************************************************************************************/
 
 #define DRVR_RHCTRL(drvr,xfer,cmd) ((drvr)->rhctrl(drvr,xfer,cmd))
-#define DRVR_RHSTATUS(drvr,xfer,cmd) ((drvr)->rhstatus(drvr,xfer))
+#define DRVR_RHSTATUS(drvr,xfer) ((drvr)->rhstatus(drvr,xfer))
 
 /************************************************************************************
  * Public Types

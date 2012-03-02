@@ -150,7 +150,7 @@ static inline int usbhost_devdesc(const struct usb_devdesc_s *devdesc,
 
   /* Pick off the class ID info */
 
-  id->base     = devdesc->class;
+  id->base     = devdesc->classid;
   id->subclass = devdesc->subclass;
   id->proto    = devdesc->protocol;
 
@@ -213,7 +213,7 @@ static inline int usbhost_configdesc(const uint8_t *configdesc, int cfglen,
            */
  
           DEBUGASSERT(remaining >= sizeof(struct usb_ifdesc_s));
-          id->base     = ifdesc->class;
+          id->base     = ifdesc->classid;
           id->subclass = ifdesc->subclass;
           id->proto    = ifdesc->protocol;
           uvdbg("class:%d subclass:%d protocol:%d\n",
@@ -383,11 +383,11 @@ int usbhost_intxfer(FAR struct usbhost_class_s *devclass,
 
   if (ROOTHUB(devclass))
     {
-      ret = DRVR_RHSTATUS(devclass->drvr, &xfer);
+      ret = DRVR_RHSTATUS(devclass->drvr, xfer);
     }
   else
     {
-      ret = DRVR_TRANSFER(devclass->drvr, &xfer);
+      ret = DRVR_TRANSFER(devclass->drvr, xfer);
     }
 
   return ret;

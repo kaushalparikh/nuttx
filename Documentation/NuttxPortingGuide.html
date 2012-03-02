@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NuttX RTOS Porting Guide</i>
       </font></big></h1>
-      <p>Last Updated: December 21, 2011</p>
+      <p>Last Updated: February 5, 2011</p>
     </td>
   </tr>
 </table>
@@ -3080,7 +3080,7 @@ extern void up_ledoff(int led);
     </p>
     <p>
       <b>Examples</b>:
-      <code>drivers/usbdev/usbdev_serial.c</code> and <code>drivers/usbdev/usbdev_storage.c</code>
+      <code>drivers/usbdev/pl2303.c</code> and <code>drivers/usbdev/usbmsc.c</code>
     </p>
   </li>
   <li>
@@ -3100,8 +3100,8 @@ extern void up_ledoff(int led);
           </p>
           <p>
             <b>Examples</b>:
-            The function <code>usbdev_serialinitialize()</code> in the file <code>drivers/usbdev/usbdev_serial.c</code> and
-            the function <code></code> in the file <code>drivers/usbdev/usbdev_storage.c</code>
+            The function <code>usbdev_serialinitialize()</code> in the file <code>drivers/usbdev/pl2303.c</code> and
+            the function <code></code> in the file <code>drivers/usbdev/usbmsc.c</code>
           </p>
         </li>
         <li>
@@ -3331,18 +3331,18 @@ extern void up_ledoff(int led);
       <code>SLEEP</code> (some MCUs may even require going through reset).
 </dl>
 <p>
-  These various states are represented with type <code>enum pm_state_e</code> in <code>include/nuttx/pm.h</code>.
+  These various states are represented with type <code>enum pm_state_e</code> in <code>include/nuttx/power/pm.h</code>.
 </p>
 
 <h3><a name="pminterfaces">6.4.2 Interfaces</a></h3>
 <p>
-  All PM interfaces are declared in the file <code>include/nuttx/pm.h</code>.
+  All PM interfaces are declared in the file <code>include/nuttx/power/pm.h</code>.
 </p>
 
 <h4><a name="pminitialize">6.4.2.1 pm_initialize()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
 void pm_initialize(void);
 </pre></ul>
 <p><b>Description:</b>
@@ -3359,7 +3359,7 @@ None
 <h4><a name="pmregister">6.4.2.2 pm_register()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
 int pm_register(FAR struct pm_callback_s *callbacks);
 </pre></ul>
 <p><b>Description:</b>
@@ -3379,7 +3379,7 @@ Zero (<code>OK</code>) on success; otherwise a negater <code>errno</code> value 
 <h4><a name="pmactivity">6.4.2.3 pm_activity()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
 void pm_activity(int priority);
 </pre></ul>
 <p><b>Description:</b>
@@ -3406,7 +3406,7 @@ void pm_activity(int priority);
 <h4><a name="pmcheckstate">6.4.2.4 pm_checkstate()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
 enum pm_state_e pm_checkstate(void);
 </pre></ul>
 <p><b>Description:</b>
@@ -3433,7 +3433,7 @@ enum pm_state_e pm_checkstate(void);
 <h4><a name="pmchangestate">6.4.2.5 pm_changestate()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
  int pm_changestate(enum pm_state_e newstate);
 </pre></ul>
 <p><b>Description:</b>
@@ -3461,7 +3461,7 @@ enum pm_state_e pm_checkstate(void);
 <h3><a name="pmcallbacks">6.4.3 Callbacks</a></h3>
 <p>
   The <code>struct pm_callback_s</code> includes the pointers to the driver callback functions.
-  This structure is defined <code>include/nuttx/pm.h</code>.
+  This structure is defined <code>include/nuttx/power/pm.h</code>.
   These callback functions can be used to provide power management information to the driver.
 </p>
 
@@ -3496,7 +3496,7 @@ int (*prepare)(FAR struct pm_callback_s *cb, enum pm_state_e pmstate);
 <h4><a name="pmnotify">6.4.3.1 notify()</a></h4>
 <p><b>Function Prototype:</b></p>
 <ul><pre>
-#include &lt;nuttx/pm.h&gt;
+#include &lt;nuttx/power/pm.h&gt;
 void (*notify)(FAR struct pm_callback_s *cb, enum pm_state_e pmstate);
 </pre></ul>
 <p><b>Description:</b>
@@ -3730,6 +3730,9 @@ build
     If <code>CONFIG_DEBUG_VERBOSE</code> is defined in addition, then general debug comments will also be included in the console output.
   </li>
   <li>
+    <code>CONFIG_DEBUG_ENABLE</code>: Support an interface to enable or disable debug output.
+  </li>
+  <li>
     <code>CONFIG_DEBUG_SYMBOLS</code>: build without optimization and with debug symbols (needed for use with a debugger).
     This option has nothing to do with debug output.
   </li>
@@ -3856,8 +3859,10 @@ build
     You must also define <code>CONFIG_GREGORIAN_TIME</code> in order to use Julian time.
   </li>
   <li>
-    <code>CONFIG_DEV_CONSOLE</code>: Set if architecture-specific logic
-    provides /dev/console.  Enables stdout, stderr, stdin.
+    <code>CONFIG_DEV_CONSOLE</code>: Set if architecture-specific logic provides <code>/dev/console</code>.
+    Enables <code>stdout</code>, <code>stderr</code>, and <code>stdin</code>.
+    This implies the &quot;normal&quot; serial driver provides the console unless another console device is specified
+    (See <code>CONFIG_DEV_LOWCONSOLE</code>).
   </li>
   <li>
     <code>CONFIG_MUTEX_TYPES</code>: Set to enable support for recursive and
@@ -3936,6 +3941,49 @@ build
   <li>
     <code>CONFIG_SIG_SIGWORK</code>: The signal number that will be used to wake-up
     the worker thread.  Default: 4
+  </li>
+</ul>
+
+<p>
+  System Logging:
+</p>
+<ul>
+  <li>
+    <code>CONFIG_SYSLOG</code>:  Enables general system logging support.
+  </li>
+  <p>
+    At present, the only system loggin device is a circular buffer in RAM.
+    If <code>CONFIG_SYSLOG</code> is selected, then these options are also available.
+  </p>
+  <li>
+    <code>CONFIG_RAMLOG</code>: Enables the RAM logging feature
+  </li>
+  <li>
+    <code>CONFIG_RAMLOG_CONSOLE</code>: Use the RAM logging device as a system console.
+    If this feature is enabled (along with <code>CONFIG_DEV_CONSOLE</code>), then all
+    console output will be re-directed to a circular buffer in RAM.  This
+    is useful, for example, if the only console is a Telnet console.  Then
+    in that case, console output from non-Telnet threads will go to the
+    circular buffer and can be viewed using the NSH 'dmesg' command.
+  </li>
+  <li>
+    <code>CONFIG_RAMLOG_SYSLOG</code>: Use the RAM logging device for the syslogging
+    interface.  If this feature is enabled (along with <code>CONFIG_SYSLOG</code>),
+    then all debug output (only) will be re-directed to the circular
+    buffer in RAM.  This RAM log can be view from NSH using the 'dmesg'
+    command.
+  </li>
+  <li>
+    <code>CONFIG_RAMLOG_NPOLLWAITERS</code>: The number of threads than can be waiting
+    for this driver on poll().  Default: 4
+  </li>
+  <p>
+    If <code>CONFIG_RAMLOG_CONSOLE</code> or <code>CONFIG_RAMLOG_SYSLOG</code> is selected, then the
+    following may also be provided:
+  </p>
+  </li>
+  <li>
+    <code>CONFIG_RAMLOG_CONSOLE_BUFSIZE</code>: Size of the console RAM log.  Default: 1024
   </li>
 </ul>
 
@@ -4866,11 +4914,44 @@ build
   </li>
 </ul>
 
+<h3>FTP Server</h3>
+<ul>
+  <li>
+    <code>CONFIG_FTPD_VENDORID</code>: The vendor name to use in FTP communications.  Default: "NuttX"
+  </li>
+  <li>
+    <code>CONFIG_FTPD_SERVERID</code>: The server name to use in FTP communications.  Default: "NuttX FTP Server"
+  </li>
+  <li>
+    <code>CONFIG_FTPD_CMDBUFFERSIZE</code>: The maximum size of one command.  Default: 512 bytes.
+  </li>
+  <li>
+    <code>CONFIG_FTPD_DATABUFFERSIZE</code>: The size of the I/O buffer for data transfers.  Default: 2048 bytes.
+  </li>
+  <li>
+    <code>CONFIG_FTPD_WORKERSTACKSIZE</code>: The stacksize to allocate for each FTP daemon worker thread.  Default:  2048 bytes.
+  </li>
+</ul>
+<p>
+  Other required FTPD configuration settings:  Of course TCP networking support is required.  But here are a couple that are less obvious:
+</p>
+<ul>
+  <li>
+    <code>CONFIG_DISABLE_PTHREAD=n</code>: pthread support is required
+  </li>
+  <li>
+    <code>CONFIG_DISABLE_POLL=n</code>: poll() support is required
+  </li>
+</ul>
+
 <h2>USB Device-Side Support</h2>
 <h3>USB Device Controller Driver</h3>
 <ul>
   <li>
     <code>CONFIG_USBDEV</code>: Enables USB device support
+  </li>
+  <li>
+    <code>CONFIG_USBDEV_COMPOSITE</code>: Enables USB composite device support
   </li>
   <li>
     <code>CONFIG_USBDEV_ISOCHRONOUS</code>: Build in extra support for isochronous endpoints
@@ -4895,122 +4976,213 @@ build
 <h3>USB Serial Device Class Driver (Prolific PL2303 Emulation)</h3> 
 <ul>
   <li>
-    <code>CONFIG_USBSER</code>: Enable compilation of the USB serial driver
+    <code>CONFIG_PL2303</code>: Enable compilation of the USB serial driver
   </li>
   <li>
-    <code>CONFIG_USBSER_EPINTIN</code>: The logical 7-bit address of a hardware endpoint that supports interrupt IN operation
+    <code>CONFIG_PL2303_EPINTIN</code>: The logical 7-bit address of a hardware endpoint that supports interrupt IN operation
   </li>
   <li>
-    <code>CONFIG_USBSER_EPBULKOUT</code>: The logical 7-bit address of a hardware endpoint that supports bulk OUT operation
+    <code>CONFIG_PL2303_EPBULKOUT</code>: The logical 7-bit address of a hardware endpoint that supports bulk OUT operation
   </li>
   <li>
-    <code>CONFIG_USBSER_EPBULKIN</code>: The logical 7-bit address of a hardware endpoint that supports bulk IN operation
+    <code>CONFIG_PL2303_EPBULKIN</code>: The logical 7-bit address of a hardware endpoint that supports bulk IN operation
   </li>
   <li>
-    <code>CONFIG_USBSER_NWRREQS</code> and <code>CONFIG_USBSER_NRDREQS</code>: The number of write/read requests that can be in flight
+    <code>CONFIG_PL2303_NWRREQS</code> and <code>CONFIG_PL2303_NRDREQS</code>: The number of write/read requests that can be in flight
   </li>
   <li>
-    <code>CONFIG_USBSER_VENDORID</code> and <code>CONFIG_USBSER_VENDORSTR</code>: The vendor ID code/string
+    <code>CONFIG_PL2303_VENDORID</code> and <code>CONFIG_PL2303_VENDORSTR</code>: The vendor ID code/string
   </li>
   <li>
-    <code>CONFIG_USBSER_PRODUCTID</code> and <code>CONFIG_USBSER_PRODUCTSTR</code>: The product ID code/string
+    <code>CONFIG_PL2303_PRODUCTID</code> and <code>CONFIG_PL2303_PRODUCTSTR</code>: The product ID code/string
   </li>
   <li>
-    <code>CONFIG_USBSER_RXBUFSIZE</code> and <code>CONFIG_USBSER_TXBUFSIZE</code>: Size of the serial receive/transmit buffers
+    <code>CONFIG_PL2303_RXBUFSIZE</code> and <code>CONFIG_PL2303_TXBUFSIZE</code>: Size of the serial receive/transmit buffers
   </li>
 </ul>
 
 <h3>USB serial device class driver (Standard CDC ACM class)</h3>
 <ul>
   <li>
-    <code>CONFIG_CDCSER</code>:  Enable compilation of the USB serial driver
+    <code>CONFIG_CDCACM</code>:  Enable compilation of the USB serial driver
   </li>
   <li>
-    <code>CONFIG_CDCSER_EP0MAXPACKET</code>:  Endpoint 0 max packet size. Default 64.
+    <code>CONFIG_CDCACM_COMPOSITE</code>:
+    Configure the CDC serial driver as part of a composite driver
+    (only if <code>CONFIG_USBDEV_COMPOSITE</code> is also defined)
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPINTIN</code>:  The logical 7-bit address of a hardware endpoint that supports
+    <code>CONFIG_CDCACM_IFNOBASE</code>:
+    If the CDC driver is part of a composite device, then this may need to 
+    be defined to offset the CDC/ACM interface numbers so that they are
+    unique and contiguous.  When used with the Mass Storage driver, the
+    correct value for this offset is zero.
+  </li>
+  <li>
+    <code>CONFIG_CDCACM_STRBASE</code>:
+    If the CDC driver is part of a composite device, then this may need to 
+    be defined to offset the CDC/ACM string numbers so that they are
+    unique and contiguous.  When used with the Mass Storage driver, the
+    correct value for this offset is four (this value actuallly only needs
+    to be defined if names are provided for the Notification interface,
+    <code>CONFIG_CDCACM_NOTIFSTR</code>, or the data interface, <code>CONFIG_CDCACM_DATAIFSTR</code>).
+  </li>
+  <li>
+    <code>CONFIG_CDCACM_EP0MAXPACKET</code>:  Endpoint 0 max packet size. Default 64.
+  </li>
+  <li>
+    <code>CONFIG_CDCACM_EPINTIN</code>:  The logical 7-bit address of a hardware endpoint that supports
   interrupt IN operation.  Default 2.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPINTIN_FSSIZE</code>:  Max package size for the interrupt IN endpoint if full speed mode. Default 64.
+    <code>CONFIG_CDCACM_EPINTIN_FSSIZE</code>:  Max package size for the interrupt IN endpoint if full speed mode. Default 64.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPINTIN_HSSIZE</code>:  Max package size for the interrupt IN endpoint if high speed mode. Default 64.
+    <code>CONFIG_CDCACM_EPINTIN_HSSIZE</code>:  Max package size for the interrupt IN endpoint if high speed mode. Default 64.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKOUT</code>:  The logical 7-bit address of a hardware endpoint that supports
+    <code>CONFIG_CDCACM_EPBULKOUT</code>:  The logical 7-bit address of a hardware endpoint that supports
   bulk OUT operation.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKOUT_FSSIZE</code>:  Max package size for the bulk OUT endpoint if full speed mode.  Default 64.
+    <code>CONFIG_CDCACM_EPBULKOUT_FSSIZE</code>:  Max package size for the bulk OUT endpoint if full speed mode.  Default 64.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKOUT_HSSIZE</code>:  Max package size for the bulk OUT  endpoint if high speed mode.  Default 512.
+    <code>CONFIG_CDCACM_EPBULKOUT_HSSIZE</code>:  Max package size for the bulk OUT  endpoint if high speed mode.  Default 512.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKIN</code>:  The logical 7-bit address of a hardware endpoint that supports
+    <code>CONFIG_CDCACM_EPBULKIN</code>:  The logical 7-bit address of a hardware endpoint that supports
   bulk IN operation
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKIN_FSSIZE</code>:  Max package size for the bulk IN endpoint if full speed mode.  Default 64.
+    <code>CONFIG_CDCACM_EPBULKIN_FSSIZE</code>:  Max package size for the bulk IN endpoint if full speed mode.  Default 64.
   </li>
   <li>
-    <code>CONFIG_CDCSER_EPBULKIN_HSSIZE</code>:  Max package size for the bulk IN  endpoint if high speed mode.  Default 512.
+    <code>CONFIG_CDCACM_EPBULKIN_HSSIZE</code>:  Max package size for the bulk IN  endpoint if high speed mode.  Default 512.
   </li>
   <li>
-    <code>CONFIG_CDCSER_NWRREQS</code> and <code>CONFIG_CDCSER_NRDREQS</code>:  The number of write/read requests that can be in flight.
-    <code>CONFIG_CDCSER_NWRREQS</code> includes write requests used for both the interrupt and bulk IN endpoints.
+    <code>CONFIG_CDCACM_NWRREQS</code> and <code>CONFIG_CDCACM_NRDREQS</code>:  The number of write/read requests that can be in flight.
+    <code>CONFIG_CDCACM_NWRREQS</code> includes write requests used for both the interrupt and bulk IN endpoints.
     Default 4.
   </li>
   <li>
-    <code>CONFIG_CDCSER_VENDORID</code> and <code>CONFIG_CDCSER_VENDORSTR</code>:  The vendor ID code/string.  Default 0x0525 and &quot;NuttX,&quot;
+    <code>CONFIG_CDCACM_VENDORID</code> and <code>CONFIG_CDCACM_VENDORSTR</code>:  The vendor ID code/string.  Default 0x0525 and &quot;NuttX,&quot;
     0x0525 is the Netchip vendor and should not be used in any products.
     This default VID was selected for compatibility with the Linux CDC ACM default VID.
   </li>
   <li>
-    <code>CONFIG_CDCSER_PRODUCTID</code> and <code>CONFIG_CDCSER_PRODUCTSTR</code>:  The product ID code/string. Default 0xa4a7 and &quot;CDC/ACM Serial&quot;
+    <code>CONFIG_CDCACM_PRODUCTID</code> and <code>CONFIG_CDCACM_PRODUCTSTR</code>:  The product ID code/string. Default 0xa4a7 and &quot;CDC/ACM Serial&quot;
     0xa4a7 was selected for compatibility with the Linux CDC ACM default PID.
   </li>
   <li>
-    <code>CONFIG_CDCSER_RXBUFSIZE</code> and <code>CONFIG_CDCSER_TXBUFSIZE</code>:  Size of the serial receive/transmit buffers.  Default 256.
+    <code>CONFIG_CDCACM_RXBUFSIZE</code> and <code>CONFIG_CDCACM_TXBUFSIZE</code>:  Size of the serial receive/transmit buffers.  Default 256.
 </ul>
 
 <h3>USB Storage Device Configuration</h3>
 <ul>
   <li>
-    <code>CONFIG_USBSTRG</code>:
+    <code>CONFIG_USBMSC</code>:
     Enable compilation of the USB storage driver
   </li>
   <li>
-    <code>CONFIG_USBSTRG_EP0MAXPACKET</code>:
+    <code>CONFIG_USBMSC_COMPOSITE</code>:
+    Configure the mass storage driver as part of a composite driver
+    (only if <code>CONFIG_USBDEV_COMPOSITE</code> is also defined)
+  </li>
+  <li>
+    <code>CONFIG_USBMSC_IFNOBASE</code>:
+    If the CDC driver is part of a composite device, then this may need to 
+    be defined to offset the mass storage interface number so that it is
+    unique and contiguous.  When used with the CDC/ACM driver, the
+    correct value for this offset is two (because of the two CDC/ACM
+    interfaces that will precede it).
+  </li>
+  <li>
+    <code>CONFIG_USBMSC_STRBASE</code>:
+    If the CDC driver is part of a composite device, then this may need to 
+    be defined to offset the mass storage string numbers so that they are
+    unique and contiguous.  When used with the CDC/ACM driver, the
+    correct value for this offset is four (or perhaps 5 or 6, depending
+    on if <code>CONFIG_CDCACM_NOTIFSTR</code> or <code>CONFIG_CDCACM_DATAIFSTR</code> are defined).
+  </li>
+  <li>
+    <code>CONFIG_USBMSC_EP0MAXPACKET</code>:
     Max packet size for endpoint 0
   </li>
   <li>
-    <code>CONFIG_USBSTRGEPBULKOUT</code> and <code>CONFIG_USBSTRG_EPBULKIN</code>:
+    <code>CONFIG_USBMSCEPBULKOUT</code> and <code>CONFIG_USBMSC_EPBULKIN</code>:
     The logical 7-bit address of a hardware endpoints that support bulk OUT and IN operations
   </li>
   <li>
-    <code>CONFIG_USBSTRG_NWRREQS</code> and <code>CONFIG_USBSTRG_NRDREQS</code>:
+    <code>CONFIG_USBMSC_NWRREQS</code> and <code>CONFIG_USBMSC_NRDREQS</code>:
     The number of write/read requests that can be in flight
   </li>
   <li>
-    <code>CONFIG_USBSTRG_BULKINREQLEN</code> and <code>CONFIG_USBSTRG_BULKOUTREQLEN</code>:
+    <code>CONFIG_USBMSC_BULKINREQLEN</code> and <code>CONFIG_USBMSC_BULKOUTREQLEN</code>:
     The size of the buffer in each write/read request.
     This value needs to be at least as large as the endpoint maxpacket and
     ideally as large as a block device sector.
   </li>
   <li>
-    <code>CONFIG_USBSTRG_VENDORID</code> and <code>CONFIG_USBSTRG_VENDORSTR</code>:
+    <code>CONFIG_USBMSC_VENDORID</code> and <code>CONFIG_USBMSC_VENDORSTR</code>:
     The vendor ID code/string
   </li>
   <li>
-    <code>CONFIG_USBSTRG_PRODUCTID</code> and <code>CONFIG_USBSTRG_PRODUCTSTR</code>:
+    <code>CONFIG_USBMSC_PRODUCTID</code> and <code>CONFIG_USBMSC_PRODUCTSTR</code>:
     The product ID code/string
   </li>
   <li>
-    <code>CONFIG_USBSTRG_REMOVABLE</code>:
+    <code>CONFIG_USBMSC_REMOVABLE</code>:
     Select if the media is removable
+  </li>
+</ul>
+
+<h3>USB Composite Device Configuration</h3>
+<ul>
+  <li>
+    <code>CONFIG_USBDEV_COMPOSITE</code>:
+    Enables USB composite device support
+  </li>
+  <li>
+    <code>CONFIG_CDCACM_COMPOSITE</code>:
+    Configure the CDC serial driver as part of a composite driver
+    (only if CONFIG_USBDEV_COMPOSITE is also defined)
+  </li>
+  <li>
+    <code>CONFIG_UBMSC_COMPOSITE</code>:
+    Configure the mass storage driver as part of a composite driver
+    (only if CONFIG_USBDEV_COMPOSITE is also defined)
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_IAD</code>:
+    If one of the members of the composite has multiple interfaces
+    (such as CDC/ACM), then an Interface Association Descriptor (IAD)
+    will be necessary.  Default:  IAD will be used automatically if
+    needed.  It should not be necessary to set this.
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_EP0MAXPACKET</code>:
+    Max packet size for endpoint 0
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_VENDORID</code> and <code>CONFIG_COMPOSITE_VENDORSTR</code>:
+    The vendor ID code/string
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_PRODUCTID</code> and <code>CONFIG_COMPOSITE_PRODUCTSTR</code>:
+    The product ID code/string
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_SERIALSTR</code>:
+    Device serial number string
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_CONFIGSTR</code>:
+    Configuration string
+  </li>
+  <li>
+    <code>CONFIG_COMPOSITE_VERSIONNO</code>:
+    Interface version number.
   </li>
 </ul>
 

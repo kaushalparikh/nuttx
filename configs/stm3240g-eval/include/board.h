@@ -149,10 +149,10 @@
 /* Timers driven from APB2 will be twice PCLK2 */
 
 #define STM32_APB2_TIM1_CLKIN   (2*STM32_PCLK2_FREQUENCY)
-#define STM32_APB2_TIM8_CLKIN   (2*STM32_PCLK1_FREQUENCY)
-#define STM32_APB2_TIM9_CLKIN   (2*STM32_PCLK1_FREQUENCY)
-#define STM32_APB2_TIM10_CLKIN  (2*STM32_PCLK1_FREQUENCY)
-#define STM32_APB2_TIM11_CLKIN  (2*STM32_PCLK1_FREQUENCY)
+#define STM32_APB2_TIM8_CLKIN   (2*STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM9_CLKIN   (2*STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM10_CLKIN  (2*STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM11_CLKIN  (2*STM32_PCLK2_FREQUENCY)
 
 /* Timer Frequencies, if APBx is set to 1, frequency is same to APBx
  * otherwise frequency is 2xAPBx. 
@@ -409,6 +409,16 @@
 
 #define GPIO_CAN2_RX        GPIO_CAN2_RX_2
 #define GPIO_CAN2_TX        GPIO_CAN2_TX_1
+
+/* I2C.  Only I2C1 is available on the STM3240G-EVAL.  I2C1_SCL and I2C1_SDA are
+ * available on the following pins:
+ *
+ * - PB6  is I2C1_SCL
+ * - PB9  is I2C1_SDA
+ */
+ 
+#define GPIO_I2C1_SCL       GPIO_I2C1_SCL_1
+#define GPIO_I2C1_SDA       GPIO_I2C1_SDA_2
 
 /************************************************************************************
  * Public Data

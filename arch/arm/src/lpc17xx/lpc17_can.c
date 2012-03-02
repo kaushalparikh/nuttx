@@ -132,6 +132,31 @@
 #  endif
 #endif
 
+/* User-defined TSEG1 and TSEG2 settings may be used.
+ *
+ * CONFIG_CAN_TSEG1 = the number of CAN time quanta in segment 1
+ * CONFIG_CAN_TSEG2 = the number of CAN time quanta in segment 2
+ * CAN_BIT_QUANTA   = The number of CAN time quanta in on bit time
+ */
+
+#ifndef CONFIG_CAN_TSEG1
+#  define CONFIG_CAN_TSEG1 6
+#endif
+
+#if CONFIG_CAN_TSEG1 < 1 || CONFIG_CAN_TSEG1 > CAN_BTR_TSEG1_MAX
+#  errror "CONFIG_CAN_TSEG1 is out of range"
+#endif
+
+#ifndef CONFIG_CAN_TSEG2
+#  define CONFIG_CAN_TSEG2 7
+#endif
+
+#if CONFIG_CAN_TSEG2 < 1 || CONFIG_CAN_TSEG2 > CAN_BTR_TSEG2_MAX
+#  errror "CONFIG_CAN_TSEG2 is out of range"
+#endif
+
+#define CAN_BIT_QUANTA (CONFIG_CAN_TSEG1 + CONFIG_CAN_TSEG2 + 1)
+
 /* Debug ********************************************************************/
 /* Non-standard debug that may be enabled just for testing CAN */
 
@@ -720,18 +745,37 @@ static int can_remoterequest(FAR struct can_dev_s *dev, uint16_t id)
 static int can_send(FAR struct can_dev_s *dev, FAR struct can_msg_s *msg)
 {
   FAR struct up_dev_s *priv = (FAR struct up_dev_s *)dev->cd_priv;
-  uint32_t tid = CAN_ID(msg->cm_hdr);
-  uint32_t tfi = CAN_DLC(msg->cm_hdr) << 16;
+  uint32_t tid = (uint32_t)msg->cm_hdr.ch_id;
+  uint32_t tfi = (uint32_t)msg->cm_hdr.ch_dlc << 16;
   uint32_t regval;
   irqstate_t flags;
   int ret = OK;
 
-  canvdbg("CAN%d ID: %d DLC: %d\n",
-          priv->port, CAN_ID(msg->cm_hdr), CAN_DLC(msg->cm_hdr));
+  canvdbg("CAN%d ID: %d DLC: %d\n", priv->port, msg->cm_hdr.ch_id, msg->cm_hdr.ch_dlc);
 
-  if (CAN_RTR(msg->cm_hdr))
+  if (msg->cm_hdr.ch_rtr)
     {
       tfi |= CAN_TFI_RTR;
+    }
+
+  /* Set the FF bit in the TFI register if this message should be sent with
+   * the extended frame format (and 29-bit extened ID).
+   */
+
+#ifdef CONFIG_CAN_EXTID
+  if (msg->cm_hdr.ch_extid)
+    {
+      /* The provided ID should be 29 bits */
+
+      DEBUGASSERT((tid & ~CAN_TID_ID29_MASK) == 0);
+      tfi |= CAN_TFI_FF;
+    }
+  else
+#endif
+    {
+      /* The provided ID should be 11 bits */
+
+      DEBUGASSERT((tid & ~CAN_TID_ID11_MASK) == 0);
     }
 
   flags = irqsave();
@@ -902,14 +946,11 @@ static bool can_txempty(FAR struct can_dev_s *dev)
 static void can_interrupt(FAR struct can_dev_s *dev)
 {
   FAR struct up_dev_s *priv = (FAR struct up_dev_s *)dev->cd_priv;
+  struct can_hdr_s hdr;
   uint32_t data[2];
   uint32_t rfs;
   uint32_t rid;
   uint32_t regval;
-  uint16_t hdr;
-  uint16_t id;
-  uint16_t dlc;
-  uint16_t rtr;
 
   /* Read the interrupt and capture register (also clearing most status bits) */
 
@@ -931,14 +972,23 @@ static void can_interrupt(FAR struct can_dev_s *dev)
 
       /* Construct the CAN header */
 
-      id      = rid & CAN_RID_ID11_MASK;
-      dlc     = (rfs & CAN_RFS_DLC_MASK) >> CAN_RFS_DLC_SHIFT;
-      rtr     = ((rfs & CAN_RFS_RTR) != 0);
-      hdr     = CAN_HDR(id, rtr, dlc);
+      hdr.ch_id    = rid;
+      hdr.ch_rtr   = ((rfs & CAN_RFS_RTR) != 0);
+      hdr.ch_dlc   = (rfs & CAN_RFS_DLC_MASK) >> CAN_RFS_DLC_SHIFT;
+#ifdef CONFIG_CAN_EXTID
+      hdr.ch_extid = ((rfs & CAN_RFS_FF) != 0);
+#else
+      if ((rfs & CAN_RFS_FF) != 0)
+        {
+          canlldbg("ERROR: Received message with extended identifier.  Dropped\n");
+        }
+      else
+#endif
+        {
+          /* Process the received CAN packet */
 
-      /* Process the received CAN packet */
-
-      can_receive(dev, hdr, (uint8_t *)data);
+          can_receive(dev, &hdr, (uint8_t *)data);
+        }
     }
 
   /* Check for TX buffer 1 complete */
@@ -1062,10 +1112,10 @@ static int can12_interrupt(int irq, void *context)
  *   bit_time = Tq + Tbs1 + Tbs2
  *   Tbs1 = Tq * ts1
  *   Tbs2 = Tq * ts2
- *   Tq = brp * Tpclk1
+ *   Tq = brp * Tcan
  *
  * Where:
- *   Tpclk1 is the period of the APB clock (PCLK = CCLK / 4).
+ *   Tcan is the period of the APB clock (PCLK = CCLK / CONFIG_CAN1_DIVISOR).
  *
  * Input Parameter:
  *   priv - A reference to the CAN block status
@@ -1077,7 +1127,8 @@ static int can12_interrupt(int irq, void *context)
 
 static int can_bittiming(struct up_dev_s *priv)
 {
-  uint32_t canbtr;
+  uint32_t btr;
+  uint32_t nclks;
   uint32_t brp;
   uint32_t ts1;
   uint32_t ts2;
@@ -1086,54 +1137,52 @@ static int can_bittiming(struct up_dev_s *priv)
   canllvdbg("CAN%d PCLK: %d baud: %d\n", priv->port,
             CAN_CLOCK_FREQUENCY(priv->divisor), priv->baud);
 
-  /* Try to get 14 quanta in one bit_time.  That is based on the idea that the ideal
-   * would be ts1=6 nd ts2=7 and (1 + ts1 + ts2) = 14.
+  /* Try to get CAN_BIT_QUANTA quanta in one bit_time.
    *
-   *   bit_time = Tq*(1 +ts1 + ts2)
-   *   nquanta = bit_time/Tq
-   *   nquanta  = (1 +ts1 + ts2)
+   *   bit_time = Tq*(ts1 + ts2 + 1)
+   *   nquanta  = bit_time/Tq
+   *   Tq       = brp * Tcan
+   *   nquanta  = (ts1 + ts2 + 1)
    *
-   *   bit_time = brp * Tpclk1 * (1 + ts1 + ts2)
-   *   nquanta  = bit_time / brp / Tpclk1
-   *            = PCLK1 / baud / brp
-   *   brp      = PCLK1 / baud / nquanta;
+   *   bit_time = brp * Tcan * (ts1 + ts2 + 1)
+   *   nquanta  = bit_time / brp / Tcan
+   *   brp      = Fcan / baud / nquanta;
    *
-   * Example:
-   *   PCLK1 = 42,000,000 baud = 1,000,000 nquanta = 14 : brp = 3
-   *   PCLK1 = 42,000,000 baud =   700,000 nquanta = 14 : brp = 4
+   * First, calculate the number of CAN clocks in one bit time: Fcan / baud
    */
 
-  canbtr = CAN_CLOCK_FREQUENCY(priv->divisor) / priv->baud;
-  if (canbtr < 14)
+  nclks = CAN_CLOCK_FREQUENCY(priv->divisor) / priv->baud;
+  if (nclks < CAN_BIT_QUANTA)
     {
-      /* At the smallest brp value (1), there are already fewer bit times
-       * (CAN_CLOCK / baud) is already smaller than our goal.  brp must be one
-       * and we need make some reasonalble guesses about ts1 and ts2.
+      /* At the smallest brp value (1), there are already too few bit times
+       * (CAN_CLOCK / baud) to meet our goal.  brp must be one and we need
+       * make some reasonable guesses about ts1 and ts2.
        */
 
       brp = 1;
 
       /* In this case, we have to guess a good value for ts1 and ts2 */
 
-      ts1 = (canbtr - 1) >> 1;
-      ts2 = canbtr - ts1 - 1;
-      if (ts1 == ts2 && ts1 > 1 && ts2 < 16)
+      ts1 = (nclks - 1) >> 1;
+      ts2 = nclks - ts1 - 1;
+      if (ts1 == ts2 && ts1 > 1 && ts2 < CAN_BTR_TSEG2_MAX)
         {
           ts1--;
           ts2++;          
         }
     }
 
-  /* Otherwise, nquanta is 14, ts1 is 6, ts2 is 7 and we calculate brp to
-   * achieve 14 quanta in the bit time 
+  /* Otherwise, nquanta is CAN_BIT_QUANTA, ts1 is CONFIG_CAN_TSEG1, ts2 is
+   * CONFIG_CAN_TSEG2 and we calculate brp to achieve CAN_BIT_QUANTA quanta
+   * in the bit time 
    */
 
   else
     {
-      ts1 = 6;
-      ts2 = 7;
-      brp = (canbtr + 7) / 14;
-      DEBUGASSERT(brp >=1 && brp < 1024);
+      ts1 = CONFIG_CAN_TSEG1;
+      ts2 = CONFIG_CAN_TSEG2;
+      brp = (nclks + (CAN_BIT_QUANTA/2)) / CAN_BIT_QUANTA;
+      DEBUGASSERT(brp >=1 && brp <= CAN_BTR_BRP_MAX);
     }
     
   sjw = 1;
@@ -1142,21 +1191,21 @@ static int can_bittiming(struct up_dev_s *priv)
 
  /* Configure bit timing */
 
-  canbtr = ((brp - 1) << CAN_BTR_BRP_SHIFT)   |
-           ((ts1 - 1) << CAN_BTR_TESG1_SHIFT) |
-           ((ts2 - 1) << CAN_BTR_TESG2_SHIFT) |
-           ((sjw - 1) << CAN_BTR_SJW_SHIFT);
+  btr = (((brp - 1) << CAN_BTR_BRP_SHIFT)   |
+         ((ts1 - 1) << CAN_BTR_TSEG1_SHIFT) |
+         ((ts2 - 1) << CAN_BTR_TSEG2_SHIFT) |
+         ((sjw - 1) << CAN_BTR_SJW_SHIFT));
 
 #ifdef CONFIG_CAN_SAM
   /* The bus is sampled 3 times (recommended for low to medium speed buses
    * to spikes on the bus-line).
    */
 
-  canbtr |= CAN_BTR_SAM;
+  btr |= CAN_BTR_SAM;
 #endif
 
-  canllvdbg("Setting CANxBTR= 0x%08x\n", canbtr);
-  can_putreg(priv, LPC17_CAN_BTR_OFFSET, canbtr);        /* Set bit timing */
+  canllvdbg("Setting CANxBTR= 0x%08x\n", btr);
+  can_putreg(priv, LPC17_CAN_BTR_OFFSET, btr);        /* Set bit timing */
   return OK;
 }
 

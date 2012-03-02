@@ -1,8 +1,8 @@
 ############################################################################
 # configs/mcu123-lpc214x/src/Makefile
 #
-#   Copyright (C) 2007-2010 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Copyright (C) 2007-2010, 2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -48,11 +48,17 @@ endif
 ASRCS		= 
 AOBJS		= $(ASRCS:.S=$(OBJEXT))
 CSRCS		= up_spi.c up_leds.c
+
 ifeq ($(CONFIG_NSH_ARCHINIT),y)
 CSRCS		+= up_nsh.c
 endif
-ifeq ($(CONFIG_USBSTRG),y)
-CSRCS		+= up_usbstrg.c
+
+ifeq ($(CONFIG_USBMSC),y)
+CSRCS		+= up_usbmsc.c
+endif
+
+ifeq ($(CONFIG_USBDEV_COMPOSITE),y)
+CSRCS		+= up_composite.c
 endif
 
 COBJS		= $(CSRCS:.c=$(OBJEXT))

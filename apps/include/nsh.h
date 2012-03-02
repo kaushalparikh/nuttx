@@ -67,27 +67,51 @@ extern "C" {
  * Public Function Prototypes
  ****************************************************************************/
 
-/* Interfaces needed to initialize and execute the NuttShell (NSH).
+/****************************************************************************
+ * Name: nsh_initialize
  *
- * nsh_initialize() - This function function should be called one during
- *   application start-up prior to executing nsh_consolemain() or
- *   nsh_telnetmain().
- */
+ * Description:
+ *   This nterfaces is used to initialize the NuttShell (NSH).
+ *   nsh_initialize() should be called one during application start-up prior
+ *   to executing either nsh_consolemain() or nsh_telnetstart().
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
 
 EXTERN void nsh_initialize(void);
 
-/* The following interfaces maybe to called or started with task_start to
- * start an NSH instance.
+/****************************************************************************
+ * Name: nsh_consolemain
  *
- * nsh_consolemain() starts NSH on the console (/dev/console).
- * nsh_telnetmain() starts a telnet daemon that will allow multiple
- *   connections via telnet.
+ * Description:
+ *   This interfaces maybe to called or started with task_start to start a
+ *   single an NSH instance that operates on stdin and stdout (/dev/console).
+ *   This function does not return.
  *
- * These functions do not return.
- */
+ * Input Parameters:
+ *   Standard task start-up arguements.  These are not used.  argc may be
+ *   zero and argv may be NULL.
+ *
+ * Returned Values:
+ *   This function does not normally return.  exit() is usually called to
+ *   terminate the NSH session.  This function will return in the event of
+ *   an error.  In that case, a nonzero value is returned (1).
+ *  
+ ****************************************************************************/
 
 EXTERN int nsh_consolemain(int argc, char *argv[]);
-EXTERN int nsh_telnetmain(int argc, char *argv[]);
+
+/* nsh_telnetstart() starts a telnet daemon that will allow multiple
+ * NSH connections via telnet.  This function returns immediately after
+ * the daemon has been started.
+ */
+
+EXTERN int nsh_telnetstart(void);
 
 #undef EXTERN
 #ifdef __cplusplus

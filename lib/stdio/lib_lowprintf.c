@@ -1,8 +1,8 @@
 /****************************************************************************
  * lib/stdio/lib_lowprintf.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,10 @@
 #include <stdio.h>
 #include <debug.h>
 #include "lib_internal.h"
+
+/* This interface can only be used from within the kernel */
+
+#if !defined(CONFIG_NUTTX_KERNEL) || defined(__KERNEL__)
 
 /****************************************************************************
  * Definitions
@@ -82,17 +86,19 @@
  * Name: lib_lowvprintf
  ****************************************************************************/
 
-#ifdef CONFIG_ARCH_LOWPUTC
+#if defined(CONFIG_ARCH_LOWPUTC) || defined(CONFIG_SYSLOG)
 
 int lib_lowvprintf(const char *fmt, va_list ap)
 {
   struct lib_outstream_s stream;
 
-  /* Wrap the stdout in a stream object and let lib_vsprintf
-   * do the work.
-   */
+  /* Wrap the stdout in a stream object and let lib_vsprintf do the work. */
 
+#if defined(CONFIG_RAMLOG_CONSOLE) || defined(CONFIG_RAMLOG_SYSLOG)
+  lib_syslogstream((FAR struct lib_outstream_s *)&stream);
+#else
   lib_lowoutstream((FAR struct lib_outstream_s *)&stream);
+#endif
   return lib_vsprintf((FAR struct lib_outstream_s *)&stream, fmt, ap);
 }
 
@@ -105,10 +111,18 @@ int lib_lowprintf(const char *fmt, ...)
   va_list ap;
   int     ret;
 
-  va_start(ap, fmt);
-  ret= lib_lowvprintf(fmt, ap);
-  va_end(ap);
+#ifdef CONFIG_DEBUG_ENABLE
+  ret = 0;
+  if (g_dbgenable)
+#endif
+    {
+      va_start(ap, fmt);
+      ret = lib_lowvprintf(fmt, ap);
+      va_end(ap);
+    }
+
   return ret;
 }
 
-#endif /* CONFIG_ARCH_LOWPUTC */
+#endif /* CONFIG_ARCH_LOWPUTC || CONFIG_SYSLOG */
+#endif /* __KERNEL__ */

@@ -472,6 +472,8 @@ HY-Mini specific Configuration Options
 
 	CONFIG_CAN - Enables CAN support (one or both of CONFIG_STM32_CAN1 or
 	  CONFIG_STM32_CAN2 must also be defined)
+	CONFIG_CAN_EXTID - Enables support for the 29-bit extended ID.  Default
+	  Standard 11-bit IDs.
 	CONFIG_CAN_FIFOSIZE - The size of the circular buffer of CAN messages.
 	  Default: 8
 	CONFIG_CAN_NPENDINGRTR - The size of the list of pending RTR requests.
@@ -480,6 +482,8 @@ HY-Mini specific Configuration Options
 	  mode for testing. The STM32 CAN driver does support loopback mode.
 	CONFIG_CAN1_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN1 is defined.
 	CONFIG_CAN2_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN2 is defined.
+	CONFIG_CAN_TSEG1 - The number of CAN time quanta in segment 1. Default: 6
+	CONFIG_CAN_TSEG2 - the number of CAN time quanta in segment 2. Default: 7
 	CONFIG_CAN_REGDEBUG - If CONFIG_DEBUG is set, this will generate an
 	  dump of all CAN registers.
 
@@ -576,7 +580,7 @@ Where <subdir> is one of the following:
         long file names in the FAT file system.  Please refer to the
         details in the top-level COPYING file.  Please do not use FAT
         long file name unless you are familiar with these patent issues.
-    (5) When built as an NSH add-on command (CONFIG_EXAMPLES_USBSTRG_BUILTIN=y),
+    (5) When built as an NSH add-on command (CONFIG_EXAMPLES_USBMSC_BUILTIN=y),
         Caution should be used to assure that the SD drive is not in use when
         the USB storage device is configured.  Specifically, the SD driver
         should be unmounted like:
@@ -643,11 +647,11 @@ Where <subdir> is one of the following:
     to use the CDC/ACM serial class by making the following changes
     to the configuration file:
 
-    -CONFIG_USBSER=y
-    +CONFIG_USBSER=n
+    -CONFIG_PL2303=y
+    +CONFIG_PL2303=n
 
-    -CONFIG_CDCSER=n
-    +CONFIG_CDCSER=y
+    -CONFIG_CDCACM=n
+    +CONFIG_CDCACM=y
 
     The example can also be converted to use the alternative
     USB serial example at apps/examples/usbterm by changing the 

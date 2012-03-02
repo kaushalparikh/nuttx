@@ -1,8 +1,8 @@
 ############################################################################
 # apps/netutils/telnetd/Makefile
 #
-#   Copyright (C) 2011 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@ ASRCS		=
 CSRCS		= 
 
 ifeq ($(CONFIG_NET_TCP),y)
-CSRCS		+= telnetd.c shell.c
+CSRCS		+= telnetd_daemon.c telnetd_driver.c
 endif
 
 AOBJS		= $(ASRCS:.S=$(OBJEXT))

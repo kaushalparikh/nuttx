@@ -1,4 +1,4 @@
-NuttX TODO List (Last updated January 3, 2012)
+NuttX TODO List (Last updated February 12, 2012)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file summarizes known NuttX bugs, limitations, inconsistencies with 
@@ -13,16 +13,16 @@ nuttx/
   (1)  pthreads (sched/)
   (2)  C++ Support
   (5)  Binary loaders (binfmt/)
- (16)  Network (net/, drivers/net)
+ (17)  Network (net/, drivers/net)
   (2)  USB (drivers/usbdev, drivers/usbhost)
-  (9)  Libraries (lib/)
+  (8)  Libraries (lib/)
  (10)  File system/Generic drivers (fs/, drivers/)
   (1)  Graphics subystem (graphics/)
   (1)  Pascal add-on (pcode/)
   (1)  Documentation (Documentation/)
   (7)  Build system / Toolchains
-  (6)  Linux/Cywgin simulation (arch/sim)
-  (4)  ARM (arch/arm/)
+  (5)  Linux/Cywgin simulation (arch/sim)
+  (5)  ARM (arch/arm/)
   (1)  ARM/C5471 (arch/arm/src/c5471/)
   (3)  ARM/DM320 (arch/arm/src/dm320/)
   (2)  ARM/i.MX (arch/arm/src/imx/)
@@ -35,7 +35,7 @@ nuttx/
   (3)  AVR (arch/avr)
   (0)  Intel x86 (arch/x86)
   (4)  8051 / MCS51 (arch/8051/)
-  (1)  MIPS (arch/mips)
+  (1)  MIPS/PIC32 (arch/mips)
   (1)  Hitachi/Renesas SH-1 (arch/sh/src/sh1)
   (4)  Renesas M16C/26 (arch/sh/src/m16c)
  (10)  z80/z8/ez80 (arch/z80/)
@@ -45,7 +45,8 @@ nuttx/
 apps/
 
   (5)  Network Utilities (apps/netutils/)
-  (5)  NuttShell (NSH) (apps/nshlib)
+  (4)  NuttShell (NSH) (apps/nshlib)
+  (1)  System libraries apps/system (apps/system)
   (5)  Other Applications & Tests (apps/examples/)
 
 o Task/Scheduler (sched/)
@@ -389,13 +390,6 @@ o Network (net/, drivers/net)
   Status:      Open
   Priority:    Low unless you need it.
 
-  Title:       UNFINISHED ENC28J60 DRIVER
-  Description: So far, I have not come up with a usable hardware platform to
-               verify the ENC28J60 Ethernet driver (drivers/net/enc28j60.c).
-               So it is untested.
-  Status:      Open
-  Priority:    Low unless you need it.
-
   Title:       UNTESTED IGMPv2
   Description: Support for client-side IGMPv2 multicast has been added but not yet
                tested (because I don't have a proper environment for multicast testing).
@@ -436,6 +430,13 @@ o Network (net/, drivers/net)
   Status:      Open
   Priority:    Low... fix defconfig files as necessary.
 
+  Title:       UNFINISHED ENC28J60 DRIVER
+  Description: So far, I have not come up with a usable hardware platform to
+               verify the ENC28J60 Ethernet driver (drivers/net/enc28j60.c).
+               So it is untested.
+  Status:      Open
+  Priority:    Low unless you need it.
+
 o USB (drivers/usbdev, drivers/usbhost)
   ^^^^^^^^^^^^^^^^^^^^
 
@@ -461,15 +462,6 @@ o Libraries (lib/)
                representation of the environment is not an arry of pointers.
   Status:      Open
   Priority:    Medium
-
-  Title:       FGETS IMPLEMENTATION
-  Description: fgets implementation does not use C-buffered I/O, but rather
-               talks to serial driver directly via read().  It includes VT-100
-               specific editting commands.  This gets should be renamed readline()
-               and a more generic fgets() should be implemented.
-  Status:      Open
-  Priority:    Low (unless you are using mixed C-buffered I/O with fgets and
-               fgetc, for example).
 
   Title:       TERMIOS
   Description: Need some minimal termios support... at a minimum, enough to
@@ -592,12 +584,6 @@ o File system / Generic drivers (fs/, drivers/)
   Status:      Open
   Priority:    Low
 
-  Title:       ENC29J60 DRIVER UNTESTED
-  Description: ENC28J60 driver is complete, but untested (I still haven't got
-               a good ENC28J60 test platform).
-  Status:      Open
-  Priority:    Low
-
   Title:       SERIAL DRIVER DOES NOT RETURN WHEN SIGNAL RECEIVED
   Description: The serial driver (drivers/serial) should return with an
                error and errno=EINTR when an interrupt is received.  However,
@@ -618,6 +604,13 @@ o File system / Generic drivers (fs/, drivers/)
                POLLHUP event when the driver is closedd.
   Status:      Open
   Priority:    Medium-Low
+
+  Title:       CONFIG_RAMLOG_CONSOLE DOES NOT WORK
+  Description: When I enable CONFIG_RAMLOG_CONSOLE, the system does not come up
+               propertly (using configuration stm3240g-eval/nsh2).  The problem
+               may be an assertion that is occuring before we have a console.
+  Status:      Open
+  Priority:    Medium
 
 o Graphics subystem (graphics/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -668,6 +661,12 @@ o Build system
   Title:       DEPENDENCIES IN THE BOARD DIRECTORY
   Description: Dependencies do not work correctly under configs/<board>/src
                (same as arch/<arch>/src/board).
+               UPDATE:  Added the following to each arch/*/src/Makefile:
+               
+               PHONY: board/libboard$(LIBEXT)
+
+               However, I have not confirmed that this a full-proof fix in
+               all cases -- still under test (thanks to Mike Smith).
   Status:      Open
   Priority:    Medium (maybe higher for z80 target)
 
@@ -751,21 +750,6 @@ o Linux/Cywgin simulation (arch/sim)
                all C buffered I/O.
   Status:      Open
   Priority:    Low (because the simulator is only a test/development platform)
-
-  Title:       SIMULATOR BUILD ON 64-BIT MACHINES
-  Description: Simulator does not build correctly on 64-bit machines.  Two
-               issues:
-               1) It saves addresses in 32-bit types and these fail when cast
-                  to pointers on a 64-bit host.
-               2) up_setjmp.S does not build
-  Status:      Open
-  Priority:    Medium and increasing (as 32-bit hosts gradually disappear).  NOTE
-               is it possible to work-around this limitation by building the sim
-               target for 32-bit operation on a 64-bit platform.  Modify the
-               Make.defs file in the appropriate places so that -m32 is included
-               in the CFLAGS and -m32 and -melf_386 are included in the LDFLAGS.
-               See the patch 0001-Quick-hacks-to-build-sim-nsh-ostest-on-x86_64-as-32-.patch
-               that can be found at http://tech.groups.yahoo.com/group/nuttx/files.
 
   Title:       SIMULATOR NETWORKING SUPPORT
   Description: I never did get networking to work on the sim Linux target.  On Linux,
@@ -857,6 +841,44 @@ o ARM (arch/arm/)
   Priority:    Low until I get around to implementng security or kernel mode for
                the ARM platform.
 
+  Title:       CORTEX-M3 STACK OVERFLOW
+  Description: There is bit bit logic inf up_fullcontextrestore() that executes on
+               return from interrupts (and other context switches) that looks like:
+
+                 ldr r1, [r0, #(4*REG_CPSR)] /* Fetch the stored CPSR value */
+                 msr cpsr, r1 /* Set the CPSR */
+
+                 /* Now recover r0 and r1 */
+
+                 ldr r0, [sp]
+                 ldr r1, [sp, #4]
+                 add sp, sp, #(2*4)
+
+                 /* Then return to the address at the stop of the stack,
+                  * destroying the stack frame
+                  */
+
+                 ldr pc, [sp], #4
+
+               Under conditions of excessivley high interrupt conditions, many
+               nested interrupts can oocur just after the 'msr cpsr' instruction.
+               At that time, there are 4 bytes on the stack and, with each
+               interrupt, the stack pointer may increment and possibly overflow.
+
+               This can happen only under conditions of continuous interrupts.
+               See this email thread: http://tech.groups.yahoo.com/group/nuttx/message/1261
+               On suggested change is:
+
+                 ldr  r1, [r0, #(4*REG_CPSR)] /* Fetch the stored CPSR value */
+                 msr spsr_cxsf, r1 /* Set the CPSR */
+                 ldmia     r0, {r0-r15}^
+
+               But this has not been proven to be a solution.
+  Status:      Open
+  Priority:    Low.  The conditions of continous interrupts is really the problem.
+               If your design needs continous interrupts like this, please try
+               the above change and, please, submit a patch with the working fix.
+ 
 o ARM/C5471 (arch/arm/src/c5471/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -990,14 +1012,18 @@ o ARM/LPC214x (arch/arm/src/lpc214x/)
   Status:      Open
   Priority:    Uncertain
 
-  Title:       USB DEVICE DRIVER ISSUES?
-  Description: Possible errors in USB device driver reported "I suspect there's a few
-               issues in the lpc214x USB driver - in particular it doesn't stall both
-               in/out endpoints for unsupported setup requests and it doesn't call
-               CLASS_DISCONNCET on a USB reset - I don't have any access to that hardware
-               so can't pursue it really."
+  Title:       USB BROKEN?
+  Description: I tried to bring up the new configuration at configs/mcu123-214x/composite,
+               and Linux failed to enumerate the device.  I don't know if this is 
+               a problem with the lpc214x USB driver (bit rot), or due to recent
+               changed (e.g., -r4359 is suspicious), or an incompatibility between the
+               Composite driver and the LPC214x USB driver.  It will take more work
+               to find out which -- like checking if the other USB configurations are
+               also broken.
   Status:      Open
-  Priority:    Medium
+  Priority:    It would be high if the LPC2148 were a current, main stream architecture.
+               I am not aware of anyone using LPC2148 now so I think the priority has
+               to be low.
 
 o ARM/LPC313x (arch/arm/src/lpc313x/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1519,14 +1545,6 @@ o Network Utilities (apps/netutils/)
 o NuttShell (NSH) (apps/nshlib)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-  Title:       EACH TCP PACKET CAUSES PROMPT
-  Description: When the telnetd front end is received, each TCP packet
-               received causes a prompt (nsh >) to be presented.  The
-               prompt should only be presented when the user enters a
-               carriage return.
-  Status:      Open
-  Priority:    Low
-
   Title:       WGET UNTESTED
   Description: The wget command has been incorporated into NSH, however
                it is still untested as of this writing (only because I
@@ -1554,8 +1572,20 @@ o NuttShell (NSH) (apps/nshlib)
   Status:      Open
   Priority:    Low (enhancement)
 
+o System libraries apps/system (apps/system)
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  Title:       READLINE IMPLEMENTATION
+  Description: readline implementation does not use C-buffered I/O, but rather
+               talks to serial driver directly via read().  It includes VT-100
+               specific editting commands.  A more generic readline() should be
+               implemented.
+  Status:      Open
+  Priority:    Low (unless you are using mixed C-buffered I/O with readline and
+               fgetc, for example).
+
 o Other Applications & Tests (apps/examples/)
-  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   Title:       EXAMPLES/PIPE ON CYGWIN
   Description: The redirection test (part of examples/pipe) terminates

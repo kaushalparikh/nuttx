@@ -1,8 +1,8 @@
 ############################################################################
 # apps/netutils/Makefile
 #
-#   Copyright (C) 2011 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -38,10 +38,11 @@
 # Sub-directories
 
 ifeq ($(CONFIG_NET),y)
-SUBDIRS = uiplib dhcpc dhcpd ftpc resolv smtp telnetd webclient webserver tftpc thttpd
+SUBDIRS = uiplib dhcpc dhcpd ftpc ftpd resolv smtp telnetd webclient webserver tftpc thttpd
 endif
 
 all: nothing
+
 .PHONY: nothing context depend clean distclean
 
 nothing:

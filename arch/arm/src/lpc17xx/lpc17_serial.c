@@ -1,8 +1,8 @@
 /****************************************************************************
  * arch/arm/src/lpc17xx/lpc17_serial.c
  *
- *   Copyright (C) 2010-2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2010-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,7 +72,7 @@
  * provide some minimal implementation of up_putc.
  */
 
-#if defined(CONFIG_USE_SERIALDRIVER) && defined(HAVE_UART)
+#if defined(USE_SERIALDRIVER) && defined(HAVE_UART)
 
 /* Configuration ************************************************************/
 
@@ -314,7 +314,7 @@ static uart_dev_t g_uart3port =
 #  elif defined(CONFIG_UART1_SERIAL_CONSOLE)
 #    define CONSOLE_DEV     g_uart1port     /* UART1=console */
 #    define TTYS0_DEV       g_uart1port     /* UART1=ttyS0 */
-#    ifdef CONFIG_LPC17_UART
+#    ifdef CONFIG_LPC17_UART0
 #      define TTYS1_DEV     g_uart0port     /* UART1=ttyS0;UART0=ttyS1 */
 #      ifdef CONFIG_LPC17_UART2
 #        define TTYS2_DEV   g_uart2port     /* UART1=ttyS0;UART0=ttyS1;UART2=ttyS2 */
@@ -353,7 +353,7 @@ static uart_dev_t g_uart3port =
 #  elif defined(CONFIG_UART2_SERIAL_CONSOLE)
 #    define CONSOLE_DEV     g_uart2port     /* UART2=console */
 #    define TTYS0_DEV       g_uart2port     /* UART2=ttyS0 */
-#    ifdef CONFIG_LPC17_UART
+#    ifdef CONFIG_LPC17_UART2
 #      define TTYS1_DEV     g_uart0port     /* UART2=ttyS0;UART0=ttyS1 */
 #      ifdef CONFIG_LPC17_UART1
 #        define TTYS2_DEV   g_uart1port     /* UART2=ttyS0;UART0=ttyS1;UART1=ttyS2 */
@@ -392,7 +392,7 @@ static uart_dev_t g_uart3port =
 #  elif defined(CONFIG_UART3_SERIAL_CONSOLE)
 #    define CONSOLE_DEV     g_uart3port    /* UART3=console */
 #    define TTYS0_DEV       g_uart3port    /* UART3=ttyS0 */
-#    ifdef CONFIG_LPC17_UART
+#    ifdef CONFIG_LPC17_UART0
 #      define TTYS1_DEV     g_uart0port    /* UART3=ttyS0;UART0=ttyS1 */
 #      ifdef CONFIG_LPC17_UART1
 #        define TTYS2_DEV   g_uart1port    /* UART3=ttyS0;UART0=ttyS1;UART1=ttyS2 */
@@ -1417,7 +1417,7 @@ int up_putc(int ch)
   return ch;
 }
 
-#else /* CONFIG_USE_SERIALDRIVER */
+#else /* USE_SERIALDRIVER */
 
 /****************************************************************************
  * Name: up_putc
@@ -1444,4 +1444,4 @@ int up_putc(int ch)
   return ch;
 }
 
-#endif /* CONFIG_USE_SERIALDRIVER */
+#endif /* USE_SERIALDRIVER */

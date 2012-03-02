@@ -1,7 +1,7 @@
 ############################################################################
 # configs/stm3240g-eval/src/Makefile
 #
-#   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -62,6 +62,10 @@ endif
 
 ifeq ($(CONFIG_CAN),y)
 CSRCS		+= up_can.c
+endif
+
+ifeq ($(CONFIG_NSH_ARCHINIT),y)
+CSRCS		+= up_nsh.c
 endif
 
 COBJS		= $(CSRCS:.c=$(OBJEXT))

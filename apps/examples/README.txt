@@ -110,6 +110,83 @@ examples/can
       built-in, the default is 32.  Otherwise messages are sent and received
       indefinitely.
 
+examples/composite
+^^^^^^^^^^^^^^^^^^
+
+  This example test a USB composite device.  The only supported composite is
+  CDC/ACM serial with a USB mass storage device.
+
+  Required overall configuration:
+
+  CONFIG_USBDEV=y           - USB device support
+  CONFIG_USBDEV_COMPOSITE=y - USB composite device support
+  CONFIG_COMPOSITE_IAD=y    - Interface associate descriptor needed
+
+  CONFIG_CDCACM=y           - USB CDC/ACM serial device support
+  CONFIG_CDCACM_COMPOSITE=y - USB CDC/ACM serial composite device support
+  CONFIG_CDCACM_IFNOBASE=0  - CDC/ACM interfaces start with number 0
+  CONFIG_CDCACM_STRBASE=4   - Base of string numbers (not really needed)
+  CONFIG_CDCACM_EPINTIN=1   - Endpoint numbers must be unique
+  CONFIG_CDCACM_EPBULKIN=2
+  CONFIG_CDCACM_EPBULKOUT=3
+
+  CONFIG_USBMSC             - USB mass storage device support
+  CONFIG_USBMSC_COMPOSITE=y - USB mass storage composite device support
+  CONFIG_USBMSC_IFNOBASE=2  - USB mass storage interfaces start with number 2
+  CONFIG_USBMSC_STRBASE=4   - Base of string numbers (needed)
+  CONFIG_USBMSC_EPBULKOUT=4 - Endpoint numbers must be unique
+  CONFIG_USBMSC_EPBULKIN=5
+
+  CONFIG_NSH_BUILTIN_APPS
+    This example can be built as two NSH "built-in" commands if this option
+    is selected: 'conn' will connect the USB composite device; 'msdis'
+    will disconnect the USB composite device.
+
+  Configuration options unique to this example:
+
+  CONFIG_EXAMPLES_COMPOSITE_DEBUGMM
+    Enables some debug tests to check for memory usage and memory leaks.
+
+  CONFIG_EXAMPLES_COMPOSITE_NLUNS
+    Defines the number of logical units (LUNs) exported by the USB storage
+    driver.  Each LUN corresponds to one exported block driver (or partition
+    of a block driver).  May be 1, 2, or 3.  Default is 1.
+  CONFIG_EXAMPLES_COMPOSITE_DEVMINOR1
+    The minor device number of the block driver for the first LUN. For
+    example, N in /dev/mmcsdN.  Used for registering the block driver. Default
+    is zero.
+  CONFIG_EXAMPLES_COMPOSITE_DEVPATH1
+    The full path to the registered block driver.  Default is "/dev/mmcsd0"
+  CONFIG_EXAMPLES_COMPOSITE_DEVMINOR2 and CONFIG_EXAMPLES_COMPOSITE_DEVPATH2
+    Similar parameters that would have to be provided if CONFIG_EXAMPLES_COMPOSITE_NLUNS
+    is 2 or 3.  No defaults.
+  CONFIG_EXAMPLES_COMPOSITE_DEVMINOR3 and CONFIG_EXAMPLES_COMPOSITE_DEVPATH2
+    Similar parameters that would have to be provided if CONFIG_EXAMPLES_COMPOSITE_NLUNS
+    is 3.  No defaults.
+  CONFIG_EXAMPLES_COMPOSITE_BUFLEN. Default 256.
+
+  CONFIG_EXAMPLES_COMPOSITE_TTYUSB - The minor number of the USB serial device.
+    Default is zero (corresponding to /dev/ttyUSB0.  Default is zero.
+  CCONFIG_EXAMPLES_COMPOSITE_SERDEV - The string corresponding to
+    CONFIG_EXAMPLES_COMPOSITE_TTYUSB.  The default is "/dev/ttyUSB0".
+  CONFIG_EXAMPLES_COMPOSITE_BUFSIZE - The size of the serial I/O buffer in
+    bytes.  Default 256 bytes.
+ 
+  If CONFIG_USBDEV_TRACE is enabled (or CONFIG_DEBUG and CONFIG_DEBUG_USB), then
+  the example code will also manage the USB trace output.  The amount of trace output
+  can be controlled using:
+
+  CONFIG_EXAMPLES_COMPOSITE_TRACEINIT
+    Show initialization events
+  CONFIG_EXAMPLES_COMPOSITE_TRACECLASS
+    Show class driver events
+  CONFIG_EXAMPLES_COMPOSITE_TRACETRANSFERS
+    Show data transfer events
+  CONFIG_EXAMPLES_COMPOSITE_TRACECONTROLLER
+    Show controller events
+  CONFIG_EXAMPLES_COMPOSITE_TRACEINTERRUPTS
+    Show interrupt-related events.
+
 examples/dhcpd
 ^^^^^^^^^^^^^^
 
@@ -167,9 +244,20 @@ examples/ftpc
   where xx.xx.xx.xx is the IP address of the FTP server and pp is an
   optional port number.
 
-  NOTE: The ftpc task uses the system console for input/output.  It will
-  not work from NSH over a telnet NSH connection (Well, it will work you 
-  just won't be able to access the command line).
+  NOTE:  By default, FTPC uses readline to get data from stdin.  So your
+  appconfig file must have the following build path:
+
+    CONFIGURED_APPS += system/readline
+
+  NOTE: If you use the ftpc task over a telnet NSH connection, then you
+  should set the following configuration item:
+
+    CONFIG_EXAMPLES_FTPC_FGETS=y
+
+  By default, the FTPC client will use readline() to get characters from
+  the console.  Readline includes and command-line editor and echos
+  characters received in stdin back through stdout.  Neither of these
+  behaviors are desire-able if Telnet is used.
 
   You may also want to define the following in your configuration file.
   Otherwise, you will have not feeback about what is going on:
@@ -177,6 +265,65 @@ examples/ftpc
     CONFIG_DEBUG=y
     CONFIG_DEBUG_VERBOSE=y
     CONFIG_DEBUG_FTPC=y
+
+examples/ftpd
+^^^^^^^^^^^^^^
+
+  This example exercises the FTPD daemon at apps/netuils/ftpd.  Below are
+  configurations specific to the FTPD example (the FTPD daemon itself may
+  require other configuration options as well).
+
+   CONFIG_EXAMPLES_FTPD_PRIO - Priority of the FTP daemon.
+     Default: SCHED_PRIORITY_DEFAULT
+   CONFIG_EXAMPLES_FTPD_STACKSIZE - Stack size allocated for the
+     FTP daemon. Default: 2048
+   CONFIG_EXAMPLES_FTPD_NONETINIT - Define to suppress configuration of the
+     network by apps/examples/ftpd.  You would need to suppress network
+     configuration if the network is configuration prior to running the
+     example.
+
+  NSH always initializes the network so if CONFIG_NSH_BUILTIN_APPS is
+  defined, so is CONFIG_EXAMPLES_FTPD_NONETINIT (se it does not explicitly
+  need to be defined in that case):
+
+    CONFIG_NSH_BUILTIN_APPS - Build the FTPD daemon example test as an
+      NSH built-in function.  By default the FTPD daemon will be built
+      as a standalone application.
+
+  If CONFIG_EXAMPLES_FTPD_NONETINIT is not defined, then the following may
+  be specified to customized the network configuration:
+
+    CONFIG_EXAMPLE_FTPD_NOMAC - If the hardware has no MAC address of its
+      own, define this =y to provide a bogus address for testing.
+    CONFIG_EXAMPLE_FTPD_IPADDR - The target IP address.  Default 10.0.0.2
+    CONFIG_EXAMPLE_FTPD_DRIPADDR - The default router address. Default
+      10.0.0.1
+    CONFIG_EXAMPLE_FTPD_NETMASK - The network mask.  Default: 255.255.255.0
+
+  Other required configuration settings:  Of course TCP networking support
+  is required.  But here are a couple that are less obvious:
+
+    CONFIG_DISABLE_PTHREAD - pthread support is required
+    CONFIG_DISABLE_POLL - poll() support is required
+
+  Other FTPD configuration options thay may be of interest:
+
+    CONFIG_FTPD_VENDORID - The vendor name to use in FTP communications.
+      Default: "NuttX"
+    CONFIG_FTPD_SERVERID - The server name to use in FTP communications.
+      Default: "NuttX FTP Server"
+    CONFIG_FTPD_CMDBUFFERSIZE - The maximum size of one command.  Default:
+      512 bytes.
+    CONFIG_FTPD_DATABUFFERSIZE - The size of the I/O buffer for data
+      transfers.  Default: 2048 bytes.
+    CONFIG_FTPD_WORKERSTACKSIZE - The stacksize to allocate for each
+      FTP daemon worker thread.  Default:  2048 bytes.
+
+  The appconfig file (apps/.config) should include:
+
+    CONFIGURED_APPS += examples/ftpd
+    CONFIGURED_APPS += netutils/uiplib
+    CONFIGURED_APPS += netutils/ftpd
 
 examples/hello
 ^^^^^^^^^^^^^^
@@ -316,6 +463,11 @@ examples/nsh
 
   CONFIGURED_APPS += nshlib
 
+  NOTE:  If the NSH serial console is used, then following is also
+  required to build the readline() library:
+
+  CONFIGURED_APPS += system/readline
+
   And if networking is included:
 
   CONFIGURED_APPS += uiplib
@@ -323,6 +475,19 @@ examples/nsh
   CONFIGURED_APPS += resolv
   CONFIGURED_APPS += tftp
   CONFIGURED_APPS += webclient
+
+  If the Telnet console is enabled, then the appconfig file (apps/.config)
+  should also include:
+
+  CONFIGURED_APPS += netutils/telnetd
+
+  Also if the Telnet console is enabled, make sure that you have the
+  following set in the NuttX configuration file or else the performance
+  will be very bad (because there will be only one character per TCP
+  transfer):
+  
+  CONFIG_STDIO_BUFFER_SIZE - Some value >= 64
+  CONFIG_STDIO_LINEBUFFER=y
 
 examples/nx
 ^^^^^^^^^^^
@@ -817,6 +982,41 @@ examples/serloop
       Use C buffered I/O (getchar/putchar) vs. raw console I/O
       (read/read).
 
+examples/telnetd
+^^^^^^^^^^^^^^^^
+
+  This directory contains a functional port of the tiny uIP shell.  In
+  the NuttX environment, the NuttShell (at apps/nshlib) supercedes this
+  tiny shell and also supports telnetd.
+
+    CONFIG_EXAMPLES_TELNETD_DAEMONPRIO - Priority of the Telnet daemon.
+      Default: SCHED_PRIORITY_DEFAULT
+    CONFIG_EXAMPLES_TELNETD_DAEMONSTACKSIZE - Stack size allocated for the
+      Telnet daemon. Default: 2048
+    CONFIG_EXAMPLES_TELNETD_CLIENTPRIO- Priority of the Telnet client.
+      Default: SCHED_PRIORITY_DEFAULT
+    CONFIG_EXAMPLES_TELNETD_CLIENTSTACKSIZE - Stack size allocated for the
+      Telnet client. Default: 2048
+    CONFIG_EXAMPLE_TELNETD_NOMAC - If the hardware has no MAC address of its
+      own, define this =y to provide a bogus address for testing.
+    CONFIG_EXAMPLE_TELNETD_IPADDR - The target IP address.  Default 10.0.0.2
+    CONFIG_EXAMPLE_TELNETD_DRIPADDR - The default router address. Default
+      10.0.0.1
+    CONFIG_EXAMPLE_TELNETD_NETMASK - The network mask.  Default: 255.255.255.0
+ 
+  The appconfig file (apps/.config) should include:
+
+    CONFIGURED_APPS += examples/telnetd
+    CONFIGURED_APPS += netutils/uiplib
+    CONFIGURED_APPS += netutils/telnetd
+
+  Also, make sure that you have the following set in the NuttX configuration
+  file or else the performance will be very bad (because there will be only
+  one character per TCP transfer):
+  
+    CONFIG_STDIO_BUFFER_SIZE - Some value >= 64
+    CONFIG_STDIO_LINEBUFFER=y
+
 examples/thttpd
 ^^^^^^^^^^^^^^^
 
@@ -829,11 +1029,11 @@ examples/thttpd
     CONFIG_EXAMPLE_THTTPD_NETMASK  - Network mask
 
   Applications using this example will need to provide an appconfig
-  file in the configuration driver with instruction to build applications
+  file in the configuration directory with instruction to build applications
   like:
 
-  CONFIGURED_APPS += uiplib
-  CONFIGURED_APPS += thttpd
+    CONFIGURED_APPS += uiplib
+    CONFIGURED_APPS += thttpd
 
 examples/tiff
 ^^^^^^^^^^^^^
@@ -1034,57 +1234,57 @@ examples/usbstorage
   the device using the USB storage class driver.  In order to use this
   example, your board-specific logic must provide the function:
 
-    void usbstrg_archinitialize(void);
+    void usbmsc_archinitialize(void);
 
   This function will be called by the example/usbstorage in order to
   do the actual registration of the block device drivers.  For examples
-  of the implementation of usbstrg_archinitialize() see
-  configs/mcu123-lpc124x/src/up_usbstrg.c or
-  configs/stm3210e-eval/src/usbstrg.c
+  of the implementation of usbmsc_archinitialize() see
+  configs/mcu123-lpc124x/src/up_usbmsc.c or
+  configs/stm3210e-eval/src/usbmsc.c
 
   Configuration options:
 
-  CONFIG_EXAMPLES_USBSTRG_BUILTIN
+  CONFIG_EXAMPLES_USBMSC_BUILTIN
     This example can be built as two NSH "built-in" commands if this option
-    is selection: 'msconn' will connect the USB mass storage device; 'msdis'
+    is selected: 'msconn' will connect the USB mass storage device; 'msdis'
     will disconnect the USB storage device.
-  CONFIG_EXAMPLES_USBSTRG_NLUNS
+  CONFIG_EXAMPLES_USBMSC_NLUNS
     Defines the number of logical units (LUNs) exported by the USB storage
     driver.  Each LUN corresponds to one exported block driver (or partition
     of a block driver).  May be 1, 2, or 3.  Default is 1.
-  CONFIG_EXAMPLES_USBSTRG_DEVMINOR1
+  CONFIG_EXAMPLES_USBMSC_DEVMINOR1
     The minor device number of the block driver for the first LUN. For
     example, N in /dev/mmcsdN.  Used for registering the block driver. Default
     is zero.
-  CONFIG_EXAMPLES_USBSTRG_DEVPATH1
+  CONFIG_EXAMPLES_USBMSC_DEVPATH1
     The full path to the registered block driver.  Default is "/dev/mmcsd0"
-  CONFIG_EXAMPLES_USBSTRG_DEVMINOR2 and CONFIG_EXAMPLES_USBSTRG_DEVPATH2
-    Similar parameters that would have to be provided if CONFIG_EXAMPLES_USBSTRG_NLUNS
+  CONFIG_EXAMPLES_USBMSC_DEVMINOR2 and CONFIG_EXAMPLES_USBMSC_DEVPATH2
+    Similar parameters that would have to be provided if CONFIG_EXAMPLES_USBMSC_NLUNS
     is 2 or 3.  No defaults.
-  CONFIG_EXAMPLES_USBSTRG_DEVMINOR3 and CONFIG_EXAMPLES_USBSTRG_DEVPATH3
-    Similar parameters that would have to be provided if CONFIG_EXAMPLES_USBSTRG_NLUNS
+  CONFIG_EXAMPLES_USBMSC_DEVMINOR3 and CONFIG_EXAMPLES_USBMSC_DEVPATH3
+    Similar parameters that would have to be provided if CONFIG_EXAMPLES_USBMSC_NLUNS
     is 3.  No defaults.
-  CONFIG_EXAMPLES_USBSTRG_DEBUGMM
+  CONFIG_EXAMPLES_USBMSC_DEBUGMM
     Enables some debug tests to check for memory usage and memory leaks.
 
   If CONFIG_USBDEV_TRACE is enabled (or CONFIG_DEBUG and CONFIG_DEBUG_USB), then
   the example code will also manage the USB trace output.  The amount of trace output
   can be controlled using:
 
-  CONFIG_EXAMPLES_USBSTRG_TRACEINIT
+  CONFIG_EXAMPLES_USBMSC_TRACEINIT
     Show initialization events
-  CONFIG_EXAMPLES_USBSTRG_TRACECLASS
+  CONFIG_EXAMPLES_USBMSC_TRACECLASS
     Show class driver events
-  CONFIG_EXAMPLES_USBSTRG_TRACETRANSFERS
+  CONFIG_EXAMPLES_USBMSC_TRACETRANSFERS
     Show data transfer events
-  CONFIG_EXAMPLES_USBSTRG_TRACECONTROLLER
+  CONFIG_EXAMPLES_USBMSC_TRACECONTROLLER
     Show controller events
-  CONFIG_EXAMPLES_USBSTRG_TRACEINTERRUPTS
+  CONFIG_EXAMPLES_USBMSC_TRACEINTERRUPTS
     Show interrupt-related events.
 
   Error results are always shown in the trace output
 
-  NOTE 1: When built as an NSH add-on command (CONFIG_EXAMPLES_USBSTRG_BUILTIN=y),
+  NOTE 1: When built as an NSH add-on command (CONFIG_EXAMPLES_USBMSC_BUILTIN=y),
   Caution should be used to assure that the SD drive (or other storage device) is
   not in use when the USB storage device is configured.  Specifically, the SD
   driver should be unmounted like:
@@ -1158,9 +1358,24 @@ examples/usbterm
   CONFIG_EXAMPLES_USBTERM_TRACEINTERRUPTS
     Show interrupt-related events.
 
+  NOTE:  By default, USBterm uses readline to get data from stdin.  So your
+  appconfig file must have the following build path:
+
+    CONFIGURED_APPS += system/readline
+
+  NOTE: If you use the USBterm task over a telnet NSH connection, then you
+  should set the following configuration item:
+
+    CONFIG_EXAMPLES_USBTERM_FGETS=y
+
+  By default, the USBterm client will use readline() to get characters from
+  the console.  Readline includes and command-line editor and echos
+  characters received in stdin back through stdout.  Neither of these
+  behaviors are desire-able if Telnet is used.
+
   Error results are always shown in the trace output
 
-  Other relevant configuration options:  CONFIG_CDCSER selected by the
+  Other relevant configuration options:  CONFIG_CDCACM selected by the
   Prolifics emulation (not defined) and the CDC serial implementation
   (when defined). CONFIG_USBDEV_TRACE_INITIALIDSET.
 

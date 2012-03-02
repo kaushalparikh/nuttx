@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/mips/src/common/up_initialize.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,8 @@
 
 #include <nuttx/arch.h>
 #include <nuttx/fs.h>
+#include <nuttx/ramlog.h>
+
 #include <arch/board/board.h>
 
 #include "up_arch.h"
@@ -149,12 +151,20 @@ void up_initialize(void)
   devnull_register();   /* Standard /dev/null */
 #endif
 
-  /* Initialize the serial device driver */
+  /* Initialize the console device driver */
 
-#ifdef CONFIG_USE_SERIALDRIVER
+#if defined(USE_SERIALDRIVER)
   up_serialinit();
 #elif defined(CONFIG_DEV_LOWCONSOLE)
   lowconsole_init();
+#elif defined(CONFIG_RAMLOG_CONSOLE)
+  ramlog_consoleinit();
+#endif
+
+  /* Initialize the system logging device */
+
+#ifdef CONFIG_RAMLOG_SYSLOG
+  ramlog_sysloginit();
 #endif
 
   /* Initialize the netwok */

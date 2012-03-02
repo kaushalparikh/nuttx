@@ -1,8 +1,8 @@
 /************************************************************************
  * sched/atexit.c
  *
- *   Copyright (C) 2007, 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007, 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 #ifdef CONFIG_SCHED_ATEXIT
 
 /************************************************************************
- * Definitions
+ * Pre-processor Definitions
  ************************************************************************/
 
 /************************************************************************
@@ -72,7 +72,7 @@
  ************************************************************************/
 
 /************************************************************************
- * Private Functionss
+ * Private Functions
  ************************************************************************/
 
 /************************************************************************
@@ -101,9 +101,9 @@ int atexit(void (*func)(void))
   /* The following must be atomic */
 
   sched_lock();
-  if (func && !tcb->exitfunc)
+  if (func && !tcb->atexitfunc)
     {
-      tcb->exitfunc = func;
+      tcb->atexitfunc = func;
       ret = OK;
     }
 

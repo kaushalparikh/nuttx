@@ -1,8 +1,8 @@
 /****************************************************************************
  * arch/sh/src/common/up_initialize.c
  *
- *   Copyright (C) 2008-2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 
 #include <nuttx/arch.h>
 #include <nuttx/fs.h>
+#include <nuttx/ramlog.h>
 
 #include "up_arch.h"
 #include "up_internal.h"
@@ -142,10 +143,18 @@ void up_initialize(void)
    * will have to detect that case.
    */
 
-#ifdef CONFIG_USE_SERIALDRIVER
+#if defined(USE_SERIALDRIVER)
   up_consoleinit();
 #elif defined(CONFIG_DEV_LOWCONSOLE)
   lowconsole_init();
+#elif defined(CONFIG_RAMLOG_CONSOLE)
+  ramlog_consoleinit();
+#endif
+
+  /* Initialize the system logging device */
+
+#ifdef CONFIG_RAMLOG_SYSLOG
+  ramlog_sysloginit();
 #endif
 
   /* Initialize the netwok */

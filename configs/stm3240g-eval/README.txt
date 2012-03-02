@@ -273,7 +273,9 @@ Configuration Options:
 
   CONFIG_CAN - Enables CAN support (one or both of CONFIG_STM32_CAN1 or
     CONFIG_STM32_CAN2 must also be defined)
-  CONFIG_CAN_FIFOSIZE - The size of the circular buffer of CAN messages.
+  CONFIG_CAN_EXTID - Enables support for the 29-bit extended ID.  Default
+    Standard 11-bit IDs.
+ CONFIG_CAN_FIFOSIZE - The size of the circular buffer of CAN messages.
     Default: 8
   CONFIG_CAN_NPENDINGRTR - The size of the list of pending RTR requests.
     Default: 4
@@ -282,6 +284,8 @@ Configuration Options:
   CONFIG_CAN1_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN1 is defined.
   CONFIG_STM32_CAN2 - Enable support for CAN2
   CONFIG_CAN2_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN2 is defined.
+  CONFIG_CAN_TSEG1 - The number of CAN time quanta in segment 1. Default: 6
+  CONFIG_CAN_TSEG2 - the number of CAN time quanta in segment 2. Default: 7
   CONFIG_CAN_REGDEBUG - If CONFIG_DEBUG is set, this will generate an
     dump of all CAN registers.
 
@@ -535,6 +539,8 @@ STM3240G-EVAL-specific Configuration Options
 	  mode for testing. The STM32 CAN driver does support loopback mode.
 	CONFIG_CAN1_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN1 is defined.
 	CONFIG_CAN2_BAUD - CAN1 BAUD rate.  Required if CONFIG_STM32_CAN2 is defined.
+	CONFIG_CAN_TSEG1 - The number of CAN time quanta in segment 1. Default: 6
+	CONFIG_CAN_TSEG2 - the number of CAN time quanta in segment 2. Default: 7
 	CONFIG_CAN_REGDEBUG - If CONFIG_DEBUG is set, this will generate an
 	  dump of all CAN registers.
 
@@ -576,14 +582,6 @@ Where <subdir> is one of the following:
     CONFIG_EXAMPLE_NETTEST_IPADDR=(10<<24|0<<16|0<<8|2)   : Target side is IP: 10.0.0.2
     CONFIG_EXAMPLE_NETTEST_DRIPADDR=(10<<24|0<<16|0<<8|1) : Host side is IP: 10.0.0.1
     CONFIG_EXAMPLE_NETTEST_CLIENTIP=(10<<24|0<<16|0<<8|1) : Server address used by which ever is client.
-
-  ostest:
-  ------
-    This configuration directory, performs a simple OS test using
-    examples/ostest.  By default, this project assumes that you are
-    using the DFU bootloader.
-
-    CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
 
   nsh:
   ---
@@ -652,6 +650,7 @@ Where <subdir> is one of the following:
        must be manually enabled by selecting:
 
        CONFIG_CAN=y             : Enable the generic CAN infrastructure
+       CONFIG_CAN_EXID=y or n   : Enable to support extended ID frames
        CONFIG_STM32_CAN1=y      : Enable CAN1
        CONFIG_CAN_LOOPBACK=y    : Enable CAN loopback mode
 
@@ -661,3 +660,83 @@ Where <subdir> is one of the following:
 
        CONFIG_DEBUG_CAN
        CONFIG_CAN_REGDEBUG
+
+    5. This example can support an FTP client.  In order to build in FTP client
+       support simply uncomment the following lines in the appconfig file (before
+       configuring) or in the apps/.config file (after configuring):
+
+       #CONFIGURED_APPS += netutils/ftpc
+       #CONFIGURED_APPS += examples/ftpc
+
+    6. This example can support an FTP server.  In order to build in FTP server
+       support simply uncomment the following lines in the appconfig file (before
+       configuring) or in the apps/.config file (after configuring):
+
+       #CONFIGURED_APPS += netutils/ftpd
+       #CONFIGURED_APPS += examples/ftpd
+
+       And enable poll() support in the NuttX configuration file:
+
+       CONFIG_DISABLE_POLL=n
+
+    7. This configuration requires that jumper JP22 be set to enable RS-232 operation.
+
+  nsh2:
+  -----
+
+    This is an alternaitve NSH configuration.  One limitation of the STM3240G-EVAL
+    board is that you cannot have both a UART-based NSH console and SDIO support.
+    The nsh2 differs from the nsh configuration in the following ways:
+
+    -CONFIG_STM32_USART3=y      : USART3 is disabled
+    + CONFIG_STM32_USART3=n
+
+    -CONFIG_STM32_SDIO=n        : SDIO is enabled
+    +CONFIG_STM32_SDIO=y
+
+    Logically, that is the only difference:  This configuration has SDIO (and
+    the SD card) enabled and the serial console disabled. There is ONLY a
+    Telnet console!.
+    
+    There are some special settings to make life with only a Telnet 
+
+    CONFIG_SYSLOG=y - Enables the System Logging feature.
+    CONFIG_RAMLOG=y - Enable the RAM-based logging feature.
+    CONFIG_RAMLOG_CONSOLE=y - Use the RAM logger as the default console.
+      This means that any console output from non-Telnet threads will
+      go into the circular buffer in RAM.
+    CONFIG_RAMLOG_SYSLOG - This enables the RAM-based logger as the
+      system logger.  This means that (1) in addition to the console
+      output from other tasks, ALL of the debug output will also to
+      to the circular buffer in RAM, and (2) NSH will now support a
+      command called 'dmesg' that can be used to dump the RAM log.
+
+    There are a few other configuration differences as necessary to support
+    this different device configuration. Just the do the 'diff' if you are
+    curious.
+
+    NOTES:
+    1. See the notes for the nsh configuration.  Most also apply to the nsh2
+       configuration.
+
+    2. RS-232 is disabled, but Telnet is still available for use as a console.
+
+    3. This configuration requires that jumper JP22 be set to enable SDIO operation.
+
+  ostest:
+  ------
+    This configuration directory, performs a simple OS test using
+    examples/ostest.  By default, this project assumes that you are
+    using the DFU bootloader.
+
+    CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+
+  telnetd:
+  --------
+
+    A simple test of the Telnet daemon(see apps/netutils/README.txt,
+    apps/examples/README.txt, and apps/examples/telnetd).  This is
+    the same daemon that is used in the nsh configuration so if you
+    use NSH, then you don't care about this.  This test is good for
+    testing the Telnet daemon only because it works in a simpler
+    environment than does the nsh configuration.

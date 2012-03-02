@@ -50,11 +50,13 @@
 #include <errno.h>
 #include <debug.h>
 
+#include <apps/readline.h>
+
 #include <nuttx/usb/usbdev.h>
 #include <nuttx/usb/usbdev_trace.h>
 
-#ifdef CONFIG_CDCSER
-#  include <nuttx/usb/cdc_serial.h>
+#ifdef CONFIG_CDCACM
+#  include <nuttx/usb/cdcacm.h>
 #endif
 
 #include "usbterm.h"
@@ -196,8 +198,8 @@ int MAIN_NAME(int argc, char *argv[])
   /* Initialize the USB serial driver */
 
   message(MAIN_STRING "Registering USB serial driver\n");
-#ifdef CONFIG_CDCSER
-  ret = cdcser_initialize(0);
+#ifdef CONFIG_CDCACM
+  ret = cdcacm_initialize(0);
 #else
   ret = usbdev_serialinitialize(0);
 #endif
@@ -297,9 +299,32 @@ int MAIN_NAME(int argc, char *argv[])
       fputs("usbterm> ", stdout);
       fflush(stdout);
 
-      /* Get the next line of input from stdin */
+      /* Get the next line of input */
 
-      if (fgets(g_usbterm.outbuffer, CONFIG_EXAMPLES_USBTERM_BUFLEN, stdin))
+#ifdef CONFIG_EXAMPLES_USBTERM_FGETS
+      /* fgets returns NULL on end-of-file or any I/O error */
+
+      if (fgets(g_usbterm.outbuffer, CONFIG_EXAMPLES_USBTERM_BUFLEN, stdin) == NULL)
+        {
+          printf("ERROR: fgets failed: %d\n", errno);
+          return 1;
+        }
+#else
+      ret = readline(g_usbterm.outbuffer, CONFIG_EXAMPLES_USBTERM_BUFLEN, stdin, stdout);
+
+      /* Readline normally returns the number of characters read,
+       * but will return 0 on end of file or a negative value
+       * if an error occurs.  Either will cause the session to
+       * terminate.
+       */
+
+      if (ret <= 0)
+        {
+          printf("ERROR: readline failed: %d\n", ret);
+          return 1;
+        }
+#endif
+      else
         {
           /* Send the line of input via USB */
 

@@ -1,8 +1,8 @@
 ############################################################################
 # configs/pjrc-8051/defconfig
 #
-#   Copyright (C) 2007-2011 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Copyright (C) 2007-2011, 2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -345,7 +345,6 @@ CONFIG_NSH_CONSOLE=y
 CONFIG_NSH_TELNET=n
 CONFIG_NSH_IOBUFFER_SIZE=512
 CONFIG_NSH_CMD_SIZE=40
-CONFIG_NSH_STACKSIZE=4096
 CONFIG_NSH_DHCPC=n
 CONFIG_NSH_NOMAC=n
 CONFIG_NSH_IPADDR=(10<<24|0<<16|0<<8|2)

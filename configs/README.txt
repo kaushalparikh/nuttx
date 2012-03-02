@@ -246,6 +246,7 @@ defconfig -- This is a configuration file similar to the Linux
 
 		CONFIG_DEBUG - enables built-in debug options
 		CONFIG_DEBUG_VERBOSE - enables verbose debug output
+		CCONFIG_DEBUG_ENABLE - Support an interface to enable or disable debug output.
 		CONFIG_DEBUG_SYMBOLS - build without optimization and with
 		  debug symbols (needed for use with a debugger).
 		CONFIG_DEBUG_SCHED - enable OS debug output (disabled by
@@ -303,6 +304,9 @@ defconfig -- This is a configuration file similar to the Linux
 		  CONFIG_GREGORIAN_TIME in order to use Julian time.
 		CONFIG_DEV_CONSOLE - Set if architecture-specific logic
 		  provides /dev/console.  Enables stdout, stderr, stdin.
+		  This implies the "normal" serial driver provides the
+		  console unless another console device is specified
+		  (See CONFIG_DEV_LOWCONSOLE).
 		CONFIG_MUTEX_TYPES - Set to enable support for recursive and
 		  errorcheck mutexes.  Enables pthread_mutexattr_settype().
 		CONFIG_PRIORITY_INHERITANCE - Set to enable support for
@@ -353,6 +357,32 @@ defconfig -- This is a configuration file similar to the Linux
 		  thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
 		CONFIG_SIG_SIGWORK - The signal number that will be used to wake-up
 		  the worker thread.  Default: 4
+
+	System Logging:
+		CONFIG_SYSLOG enables general system logging support.
+
+		At present, the only system loggin device is a circular buffer in RAM.
+		If CONFIG_SYSLOG is selected, then these options are also available.
+
+		CONFIG_RAMLOG - Enables the RAM logging feature
+		CONFIG_RAMLOG_CONSOLE - Use the RAM logging device as a system console.
+		  If this feature is enabled (along with CONFIG_DEV_CONSOLE), then all
+		  console output will be re-directed to a circular buffer in RAM.  This
+		  is useful, for example, if the only console is a Telnet console.  Then
+		  in that case, console output from non-Telnet threads will go to the
+		  circular buffer and can be viewed using the NSH 'dmesg' command.
+		CONFIG_RAMLOG_SYSLOG - Use the RAM logging device for the syslogging
+		  interface.  If this feature is enabled (along with CONFIG_SYSLOG),
+		  then all debug output (only) will be re-directed to the circular
+		  buffer in RAM.  This RAM log can be view from NSH using the 'dmesg'
+		  command.
+		CONFIG_RAMLOG_NPOLLWAITERS - The number of threads than can be waiting
+		 for this driver on poll().  Default: 4
+
+		If CONFIG_RAMLOG_CONSOLE or CONFIG_RAMLOG_SYSLOG is selected, then the
+		following may also be provided:
+
+		CONFIG_RAMLOG_CONSOLE_BUFSIZE - Size of the console RAM log.  Default: 1024
 
 	Kernel build options:
 		CONFIG_NUTTX_KERNEL - Builds NuttX as a separately compiled kernel.
@@ -646,13 +676,15 @@ defconfig -- This is a configuration file similar to the Linux
 
 		CONFIG_CAN - Enables CAN support (one or both of CONFIG_STM32_CAN1 or
 		  CONFIG_STM32_CAN2 must also be defined)
+		CONFIG_CAN_EXTID - Enables support for the 29-bit extended ID.  Default
+		  Standard 11-bit IDs.
 		CONFIG_CAN_FIFOSIZE - The size of the circular buffer of CAN messages.
 		  Default: 8
 		CONFIG_CAN_NPENDINGRTR - The size of the list of pending RTR requests.
 		  Default: 4
 		CONFIG_CAN_LOOPBACK - A CAN driver may or may not support a loopback
-		mode for testing. If the driver does support loopback mode, the setting
-		will enable it. (If the driver does not, this setting will have no effect).
+		  mode for testing. If the driver does support loopback mode, the setting
+		  will enable it. (If the driver does not, this setting will have no effect).
 
 	SPI driver
 
@@ -914,9 +946,30 @@ defconfig -- This is a configuration file similar to the Linux
 		CONFIG_THTTPD_URLPATTERN - If defined, then it will be used to match
 		  and verify referrers.
 
+	FTP Server
+
+		CONFIG_FTPD_VENDORID - The vendor name to use in FTP communications.
+		  Default: "NuttX"
+		CONFIG_FTPD_SERVERID - The server name to use in FTP communications.
+		  Default: "NuttX FTP Server"
+		CONFIG_FTPD_CMDBUFFERSIZE - The maximum size of one command.  Default:
+		  512 bytes.
+		CONFIG_FTPD_DATABUFFERSIZE - The size of the I/O buffer for data
+		  transfers.  Default: 2048 bytes.
+		CONFIG_FTPD_WORKERSTACKSIZE - The stacksize to allocate for each
+		  FTP daemon worker thread.  Default:  2048 bytes.
+
+		Other required configuration settings:  Of course TCP networking support
+		is required.  But here are a couple that are less obvious:
+
+		  CONFIG_DISABLE_PTHREAD - pthread support is required
+		  CONFIG_DISABLE_POLL - poll() support is required
+
 	USB device controller driver
 
 		CONFIG_USBDEV - Enables USB device support
+		CONFIG_USBDEV_COMPOSITE
+		  Enables USB composite device support
 		CONFIG_USBDEV_ISOCHRONOUS - Build in extra support for isochronous
 		  endpoints
 		CONFIG_USBDEV_DUALSPEED -Hardware handles high and full speed
@@ -974,96 +1027,154 @@ defconfig -- This is a configuration file similar to the Linux
 
 	USB serial device class driver (Prolific PL2303 Emulation)
 
-		CONFIG_USBSER
+		CONFIG_PL2303
 		  Enable compilation of the USB serial driver
-		CONFIG_USBSER_EPINTIN
+		CONFIG_PL2303_EPINTIN
 		  The logical 7-bit address of a hardware endpoint that supports
 		  interrupt IN operation
-		CONFIG_USBSER_EPBULKOUT
+		CONFIG_PL2303_EPBULKOUT
 		  The logical 7-bit address of a hardware endpoint that supports
 		  bulk OUT operation
-		CONFIG_USBSER_EPBULKIN
+		CONFIG_PL2303_EPBULKIN
 		  The logical 7-bit address of a hardware endpoint that supports
 		  bulk IN operation
-		CONFIG_USBSER_NWRREQS and CONFIG_USBSER_NRDREQS
+		CONFIG_PL2303_NWRREQS and CONFIG_PL2303_NRDREQS
 		  The number of write/read requests that can be in flight
-		CONFIG_USBSER_VENDORID and CONFIG_USBSER_VENDORSTR
+		CONFIG_PL2303_VENDORID and CONFIG_PL2303_VENDORSTR
 		  The vendor ID code/string
-		CONFIG_USBSER_PRODUCTID and CONFIG_USBSER_PRODUCTSTR
+		CONFIG_PL2303_PRODUCTID and CONFIG_PL2303_PRODUCTSTR
 		  The product ID code/string
-		CONFIG_USBSER_RXBUFSIZE and CONFIG_USBSER_TXBUFSIZE
+		CONFIG_PL2303_RXBUFSIZE and CONFIG_PL2303_TXBUFSIZE
 		  Size of the serial receive/transmit buffers
 
 	USB serial device class driver (Standard CDC ACM class)
 
-		CONFIG_CDCSER
+		CONFIG_CDCACM
 		  Enable compilation of the USB serial driver
-		CONFIG_CDCSER_EP0MAXPACKET
+		CONFIG_CDCACM_COMPOSITE
+		  Configure the CDC serial driver as part of a composite driver
+		  (only if CONFIG_USBDEV_COMPOSITE is also defined)
+		CONFIG_CDCACM_IFNOBASE
+ 		  If the CDC driver is part of a composite device, then this may need to 
+		  be defined to offset the CDC/ACM interface numbers so that they are
+		  unique and contiguous.  When used with the Mass Storage driver, the
+		  correct value for this offset is zero.
+		CONFIG_CDCACM_STRBASE
+		  If the CDC driver is part of a composite device, then this may need to 
+		  be defined to offset the CDC/ACM string numbers so that they are
+		  unique and contiguous.  When used with the Mass Storage driver, the
+		  correct value for this offset is four (this value actuallly only needs
+		  to be defined if names are provided for the Notification interface,
+		  CONFIG_CDCACM_NOTIFSTR, or the data interface, CONFIG_CDCACM_DATAIFSTR).
+		CONFIG_CDCACM_EP0MAXPACKET
 		  Endpoint 0 max packet size. Default 64.
-		CONFIG_CDCSER_EPINTIN
+		CONFIG_CDCACM_EPINTIN
 		  The logical 7-bit address of a hardware endpoint that supports
 		  interrupt IN operation.  Default 2.
-		CONFIG_CDCSER_EPINTIN_FSSIZE
+		CONFIG_CDCACM_EPINTIN_FSSIZE
 		  Max package size for the interrupt IN endpoint if full speed mode.
 		  Default 64.
-		CONFIG_CDCSER_EPINTIN_HSSIZE
+		CONFIG_CDCACM_EPINTIN_HSSIZE
 		  Max package size for the interrupt IN endpoint if high speed mode.
 		  Default 64.
-		CONFIG_CDCSER_EPBULKOUT
+		CONFIG_CDCACM_EPBULKOUT
 		  The logical 7-bit address of a hardware endpoint that supports
 		  bulk OUT operation
-		CONFIG_CDCSER_EPBULKOUT_FSSIZE
+		CONFIG_CDCACM_EPBULKOUT_FSSIZE
 		  Max package size for the bulk OUT endpoint if full speed mode.
 		  Default 64.
-		CONFIG_CDCSER_EPBULKOUT_HSSIZE
+		CONFIG_CDCACM_EPBULKOUT_HSSIZE
 		  Max package size for the bulk OUT endpoint if high speed mode.
 		  Default 512.
-		CONFIG_CDCSER_EPBULKIN
+		CONFIG_CDCACM_EPBULKIN
 		  The logical 7-bit address of a hardware endpoint that supports
 		  bulk IN operation
-		CONFIG_CDCSER_EPBULKIN_FSSIZE
+		CONFIG_CDCACM_EPBULKIN_FSSIZE
 		  Max package size for the bulk IN endpoint if full speed mode.
 		  Default 64.
-		CONFIG_CDCSER_EPBULKIN_HSSIZE
+		CONFIG_CDCACM_EPBULKIN_HSSIZE
 		  Max package size for the bulk IN endpoint if high speed mode.
 		  Default 512.
-		CONFIG_CDCSER_NWRREQS and CONFIG_CDCSER_NRDREQS
+		CONFIG_CDCACM_NWRREQS and CONFIG_CDCACM_NRDREQS
 		  The number of write/read requests that can be in flight.
-		  CONFIG_CDCSER_NWRREQS includes write requests used for both the
+		  CONFIG_CDCACM_NWRREQS includes write requests used for both the
 		  interrupt and bulk IN endpoints.  Default 4.
-		CONFIG_CDCSER_VENDORID and CONFIG_CDCSER_VENDORSTR
+		CONFIG_CDCACM_VENDORID and CONFIG_CDCACM_VENDORSTR
 		  The vendor ID code/string.  Default 0x0525 and "NuttX"
 		  0x0525 is the Netchip vendor and should not be used in any
 		  products.  This default VID was selected for compatibility with
 		  the Linux CDC ACM default VID.
-		CONFIG_CDCSER_PRODUCTID and CONFIG_CDCSER_PRODUCTSTR
+		CONFIG_CDCACM_PRODUCTID and CONFIG_CDCACM_PRODUCTSTR
 		  The product ID code/string. Default 0xa4a7 and "CDC/ACM Serial"
 		  0xa4a7 was selected for compatibility with the Linux CDC ACM
 		  default PID.
-		CONFIG_CDCSER_RXBUFSIZE and CONFIG_CDCSER_TXBUFSIZE
+		CONFIG_CDCACM_RXBUFSIZE and CONFIG_CDCACM_TXBUFSIZE
 		  Size of the serial receive/transmit buffers. Default 256.
 
 	USB Storage Device Configuration
 
-		CONFIG_USBSTRG
+		CONFIG_USBMSC
 		  Enable compilation of the USB storage driver
-		CONFIG_USBSTRG_EP0MAXPACKET
+		CONFIG_USBMSC_COMPOSITE
+		  Configure the mass storage driver as part of a composite driver
+		  (only if CONFIG_USBDEV_COMPOSITE is also defined)
+		CONFIG_USBMSC_IFNOBASE
+		  If the CDC driver is part of a composite device, then this may need to 
+		  be defined to offset the mass storage interface number so that it is
+		  unique and contiguous.  When used with the CDC/ACM driver, the
+		  correct value for this offset is two (because of the two CDC/ACM
+		  interfaces that will precede it).
+		CONFIG_USBMSC_STRBASE
+		  If the CDC driver is part of a composite device, then this may need to 
+		  be defined to offset the mass storage string numbers so that they are
+		  unique and contiguous.  When used with the CDC/ACM driver, the
+		  correct value for this offset is four (or perhaps 5 or 6, depending
+		  on if CONFIG_CDCACM_NOTIFSTR or CONFIG_CDCACM_DATAIFSTR are defined).
+		CONFIG_USBMSC_EP0MAXPACKET
 		  Max packet size for endpoint 0
-		CONFIG_USBSTRGEPBULKOUT and CONFIG_USBSTRG_EPBULKIN
+		CONFIG_USBMSCEPBULKOUT and CONFIG_USBMSC_EPBULKIN
 		  The logical 7-bit address of a hardware endpoints that support
 		  bulk OUT and IN operations
-		CONFIG_USBSTRG_NWRREQS and CONFIG_USBSTRG_NRDREQS
+		CONFIG_USBMSC_NWRREQS and CONFIG_USBMSC_NRDREQS
 		  The number of write/read requests that can be in flight
-		CONFIG_USBSTRG_BULKINREQLEN and CONFIG_USBSTRG_BULKOUTREQLEN
+		CONFIG_USBMSC_BULKINREQLEN and CONFIG_USBMSC_BULKOUTREQLEN
 		  The size of the buffer in each write/read request.  This
 		  value needs to be at least as large as the endpoint
 		  maxpacket and ideally as large as a block device sector.
-		CONFIG_USBSTRG_VENDORID and CONFIG_USBSTRG_VENDORSTR
+		CONFIG_USBMSC_VENDORID and CONFIG_USBMSC_VENDORSTR
 		  The vendor ID code/string
-		CONFIG_USBSTRG_PRODUCTID and CONFIG_USBSTRG_PRODUCTSTR
+		CONFIG_USBMSC_PRODUCTID and CONFIG_USBMSC_PRODUCTSTR
 		  The product ID code/string
-		CONFIG_USBSTRG_REMOVABLE
+		CONFIG_USBMSC_REMOVABLE
 		  Select if the media is removable
+
+	USB Composite Device Configuration
+
+		CONFIG_USBDEV_COMPOSITE
+		  Enables USB composite device support
+		CONFIG_CDCACM_COMPOSITE
+		  Configure the CDC serial driver as part of a composite driver
+		  (only if CONFIG_USBDEV_COMPOSITE is also defined)
+		CONFIG_USBMSC_COMPOSITE
+		  Configure the mass storage driver as part of a composite driver
+		  (only if CONFIG_USBDEV_COMPOSITE is also defined)
+		CONFIG_COMPOSITE_IAD
+		  If one of the members of the composite has multiple interfaces
+		  (such as CDC/ACM), then an Interface Association Descriptor (IAD)
+		  will be necessary.  Default:  IAD will be used automatically if
+		  needed.  It should not be necessary to set this.
+		CONFIG_COMPOSITE_EP0MAXPACKET
+		  Max packet size for endpoint 0
+		CONFIG_COMPOSITE_VENDORID and CONFIG_COMPOSITE_VENDORSTR
+		  The vendor ID code/string
+		CONFIG_COMPOSITE_PRODUCTID and CONFIG_COMPOSITE_PRODUCTSTR
+		  The product ID code/string
+		CONFIG_COMPOSITE_SERIALSTR
+		  Device serial number string
+		CONFIG_COMPOSITE_CONFIGSTR
+		  Configuration string
+		CONFIG_COMPOSITE_VERSIONNO
+		  Interface version number.
 
 	Graphics related configuration settings
 

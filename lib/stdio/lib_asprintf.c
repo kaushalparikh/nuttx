@@ -1,8 +1,8 @@
 /****************************************************************************
  * lib/stdio/lib_asprintf.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,10 +38,7 @@
  ****************************************************************************/
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-
-#include "lib_internal.h"
+#include <stdarg.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -95,56 +92,14 @@
 
 int asprintf (FAR char **ptr, const char *fmt, ...)
 {
-  struct lib_outstream_s nulloutstream;
-  struct lib_memoutstream_s memoutstream;
-  FAR char *buf;
   va_list ap;
-  int     nbytes;
+  int ret;
 
-  DEBUGASSERT(ptr && fmt);
-
-  /* First, use a nullstream to get the size of the buffer.  The number
-   * of bytes returned may or may not include the null terminator.
-   */
-  
-  lib_nulloutstream(&nulloutstream);
-  va_start(ap, fmt);
-  nbytes = lib_vsprintf((FAR struct lib_outstream_s *)&nulloutstream, fmt, ap);
-  va_end(ap);
-
-  /* Then allocate a buffer to hold that number of characters, adding one
-   * for the null terminator.
-   */
-
-  buf = (FAR char *)malloc(nulloutstream.nput + 1);
-  if (!buf)
-    {
-      return ERROR;
-    }
-
-  /* Initialize a memory stream to write into the allocated buffer.  The
-   * memory stream will reserve one byte at the end of the buffer for the
-   * null terminator and will not report this in the number of output bytes.
-   */
-
-  lib_memoutstream((FAR struct lib_memoutstream_s *)&memoutstream,
-                   buf, nulloutstream.nput + 1);
-
-  /* Then let lib_vsprintf do it's real thing */
+  /* Let avsprintf do all of the work */
 
   va_start(ap, fmt);
-  nbytes = lib_vsprintf((FAR struct lib_outstream_s *)&memoutstream.public, fmt, ap);
+  ret = avsprintf(ptr, fmt, ap);
   va_end(ap);
 
-  /* Return a pointer to the string to the caller.  NOTE: the memstream put()
-   * method has already added the NUL terminator to the end of the string (not
-   * included in the nput count).
-   *
-   * Hmmm.. looks like the memory would be stranded if lib_vsprintf() returned
-   * an error.  Does that ever happen?
-   */
-
-  DEBUGASSERT(nbytes < 0 || nbytes == nulloutstream.nput);
-  *ptr = buf;
-  return nbytes;
+  return ret;
 }

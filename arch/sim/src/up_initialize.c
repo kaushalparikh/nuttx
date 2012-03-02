@@ -1,8 +1,8 @@
 /****************************************************************************
  * up_initialize.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 
 #include <nuttx/arch.h>
 #include <nuttx/fs.h>
+#include <nuttx/ramlog.h>
 
 #include "up_internal.h"
 
@@ -97,7 +98,18 @@ void up_initialize(void)
 
   devnull_register();       /* Standard /dev/null */
   devzero_register();       /* Standard /dev/zero */
+
+  /* Register a console (or not) */
+
+#if defined(USE_DEVCONSOLE)
   up_devconsole();          /* Our private /dev/console */
+#elif defined(CONFIG_RAMLOG_CONSOLE)
+  ramlog_consoleinit();
+#endif
+
+#ifdef CONFIG_RAMLOG_SYSLOG
+  ramlog_sysloginit();      /* System logging device */
+#endif
 
 #if defined(CONFIG_FS_FAT) && !defined(CONFIG_DISABLE_MOUNTPOINT)
   up_registerblockdevice(); /* Our FAT ramdisk at /dev/ram0 */

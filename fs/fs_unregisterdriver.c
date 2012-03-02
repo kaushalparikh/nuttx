@@ -1,8 +1,8 @@
 /****************************************************************************
  * fs/fs_unregisterdriver.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,7 +71,7 @@
  * Name: unregister_driver()
  ****************************************************************************/
 
-int unregister_driver(const char *path)
+int unregister_driver(FAR const char *path)
 {
   int ret;
   inode_semtake();

@@ -49,6 +49,13 @@
 /****************************************************************************
  * Public Type Definitions
  ****************************************************************************/
+/*  Length of the string form for IP address (excludes NULL termination) */
+
+#define INET_ADDRSTRLEN 16
+
+/*  Length of the string form for IPv6 address (excludes NULL termination) */
+
+#define INET6_ADDRSTRLEN 46
 
 /* This macro to convert a 16/32-bit constant values quantity from host byte
  * order to network byte order.  The 16-bit version of this macro is required
@@ -118,8 +125,8 @@ EXTERN in_addr_t   _inet_netof(in_addr_t in);
 #endif
 EXTERN struct in_addr inet_makeaddr(in_addr_t net, in_addr_t host);
 
-EXTERN int         inet_pton(int af, FAR const char *cp, FAR void *buf);
-EXTERN const char *inet_ntop(int af, FAR const void *cp, FAR char *buf, socklen_t len);
+EXTERN int         inet_pton(int af, FAR const char *src, FAR void *dst);
+EXTERN const char *inet_ntop(int af, FAR const void *src, FAR char *dst, socklen_t size);
 
 #undef EXTERN
 #ifdef __cplusplus

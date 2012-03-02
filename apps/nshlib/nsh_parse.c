@@ -1,8 +1,8 @@
 /****************************************************************************
  * apps/nshlib/nsh_parse.c
  *
- *   Copyright (C) 2007-2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,6 +64,7 @@
 #include <apps/nsh.h>
 
 #include "nsh.h"
+#include "nsh_console.h"
 
 /****************************************************************************
  * Definitions
@@ -165,6 +166,9 @@ static const struct cmdmap_s g_cmdmap[] =
 #if CONFIG_NFILE_DESCRIPTORS > 0
 # ifndef CONFIG_NSH_DISABLE_DD
   { "dd",       cmd_dd,       3, 6, "if=<infile> of=<outfile> [bs=<sectsize>] [count=<sectors>] [skip=<sectors>]" },
+# endif
+# if defined(CONFIG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
+  { "dmesg",    cmd_dmesg,    1, 1, NULL },
 # endif
 #endif
 
@@ -475,7 +479,7 @@ static int cmd_unrecognized(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 #ifndef CONFIG_NSH_DISABLE_EXIT
 static int cmd_exit(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
-  nsh_exit(vtbl);
+  nsh_exit(vtbl, 0);
   return OK;
 }
 #endif
@@ -1029,28 +1033,11 @@ static inline int nsh_nice(FAR struct nsh_vtbl_s *vtbl, FAR char **ppcmd, FAR ch
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_initialize
- ****************************************************************************/
-
-void nsh_initialize(void)
-{
-  /* Mount the /etc filesystem */
-
-  (void)nsh_romfsetc();
-
-  /* Perform architecture-specific initialization (if available) */
-
-#ifdef CONFIG_NSH_ARCHINIT
-  (void)nsh_archinitialize();
-#endif
-
-  /* Bring up the network */
-
-  (void)nsh_netinit();
-}
-
-/****************************************************************************
  * Name: nsh_parse
+ *
+ * Description:
+ *   This function parses and executes one NSH command.
+ *
  ****************************************************************************/
 
 int nsh_parse(FAR struct nsh_vtbl_s *vtbl, char *cmdline)

@@ -1,8 +1,8 @@
 /************************************************************************************
- * serial.h
+ * include/nuttx/serial.h
  *
- *   Copyright (C) 2007, 2008 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2008, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,8 @@
  *
  ************************************************************************************/
 
-#ifndef __SERIAL_H
-#define __SERIAL_H
+#ifndef __INCLUDE_NUTTX_SERIAL_H
+#define __INCLUDE_NUTTX_SERIAL_H
 
 /************************************************************************************
  * Included Files
@@ -54,8 +54,8 @@
 
 /* Maximum number of threads than can be waiting for POLL events */
 
-#ifndef CONFIG_DEV_CONSOLE_NPOLLWAITERS
-#  define CONFIG_DEV_CONSOLE_NPOLLWAITERS 2
+#ifndef CONFIG_SERIAL_NPOLLWAITERS
+#  define CONFIG_SERIAL_NPOLLWAITERS 2
 #endif
 
 /* vtable access helpers */
@@ -211,7 +211,7 @@ struct uart_dev_s
    */
 
 #ifndef CONFIG_DISABLE_POLL
-  struct pollfd *fds[CONFIG_DEV_CONSOLE_NPOLLWAITERS];
+  struct pollfd *fds[CONFIG_SERIAL_NPOLLWAITERS];
 #endif
 
 };
@@ -299,4 +299,4 @@ EXTERN void uart_datasent(FAR uart_dev_t *dev);
 }
 #endif
 
-#endif /* __SERIAL_H */
+#endif /* __INCLUDE_NUTTX_SERIAL_H */

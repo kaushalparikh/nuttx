@@ -1,8 +1,8 @@
 /************************************************************************************
  * include/nuttx/usb/usbdev.h
  *
- *   Copyright (C) 2008-2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * NOTE:  This interface was inspired by the Linux gadget interface by
  * David Brownell. That work was very helpful in determining a usable
@@ -51,6 +51,11 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#include <nuttx/usb/pl2303.h>
+#include <nuttx/usb/cdcacm.h>
+#include <nuttx/usb/usbmsc.h>
+#include <nuttx/usb/composite.h>
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -151,27 +156,29 @@
 
 /* Invoked when the driver is bound to a USB device driver. */
 
-#define CLASS_BIND(drvr,dev)      (drvr)->ops->bind(dev, drvr)
+#define CLASS_BIND(drvr,dev)      (drvr)->ops->bind(drvr,dev)
 
 /* Invoked when the driver is unbound from a USB device driver */
 
-#define CLASS_UNBIND(drvr,dev)    (drvr)->ops->unbind(dev)
+#define CLASS_UNBIND(drvr,dev)    (drvr)->ops->unbind(drvr,dev)
 
 /* Invoked after all transfers have been stopped, when the host is disconnected. */
 
-#define CLASS_DISCONNECT(drvr,dev) (drvr)->ops->disconnect(dev)
+#define CLASS_DISCONNECT(drvr,dev) (drvr)->ops->disconnect(drvr,dev)
 
 /* Invoked for ep0 control requests */
 
-#define CLASS_SETUP(drvr,dev,ctrl) (drvr)->ops->setup(dev, ctrl)
+#define CLASS_SETUP(drvr,dev,ctrl) (drvr)->ops->setup(drvr,dev,ctrl)
 
 /* Invoked on USB suspend. */
 
-#define CLASS_SUSPEND(drvr,dev)   (drvr)->ops->suspend ? (drvr)->ops->suspend(dev) : (void)
+#define CLASS_SUSPEND(drvr,dev)   \
+  do { if ((drvr)->ops->suspend) (drvr)->ops->suspend(drvr,dev); } while (0)
 
 /* Invoked on USB resume */
 
-#define CLASS_RESUME(drvr,dev)    (drvr)->ops->resume ? (drvr)->ops->resume(dev) : (void)
+#define CLASS_RESUME(drvr,dev)  \
+  do { if ((drvr)->ops->resume) (drvr)->ops->resume(drvr,dev); } while (0)
 
 /* Request flags */
 
@@ -250,7 +257,8 @@ struct usbdev_ops_s
 {
   /* Allocate and free endpoints */
 
-  FAR struct usbdev_ep_s *(*allocep)(FAR struct usbdev_s *dev, uint8_t epphy, bool in, uint8_t eptype);
+  FAR struct usbdev_ep_s *(*allocep)(FAR struct usbdev_s *dev, uint8_t epphy,
+                                     bool in, uint8_t eptype);
   void (*freeep)(FAR struct usbdev_s *dev, FAR struct usbdev_ep_s *ep);
 
   /* Get the frame number from the last SOF */
@@ -272,7 +280,7 @@ struct usbdev_s
 {
   const struct usbdev_ops_s *ops; /* Access to hardware specific features */
   struct usbdev_ep_s *ep0;        /* Endpoint zero */
-  uint8_t  speed;                 /* Current speed of host connection */
+  uint8_t  speed;                 /* Current speed of the host connection */
   uint8_t  dualspeed:1;           /* 1:supports high and full speed operation */
 };
 
@@ -281,12 +289,14 @@ struct usbdev_s
 struct usbdevclass_driver_s;
 struct usbdevclass_driverops_s
 {
-  int  (*bind)(FAR struct usbdev_s *dev, FAR struct usbdevclass_driver_s *driver);
-  void (*unbind)(FAR struct usbdev_s *dev);
-  int  (*setup)(FAR struct usbdev_s *dev, const struct usb_ctrlreq_s *ctrl);
-  void (*disconnect)(FAR struct usbdev_s *dev);
-  void (*suspend)(FAR struct usbdev_s *dev);
-  void (*resume)(FAR struct usbdev_s *dev);
+  int  (*bind)(FAR struct usbdevclass_driver_s *driver, FAR struct usbdev_s *dev);
+  void (*unbind)(FAR struct usbdevclass_driver_s *driver, FAR struct usbdev_s *dev);
+  int  (*setup)(FAR struct usbdevclass_driver_s *driver, FAR struct usbdev_s *dev,
+          FAR const struct usb_ctrlreq_s *ctrl);
+  void (*disconnect)(FAR struct usbdevclass_driver_s *driver,
+          FAR struct usbdev_s *dev);
+  void (*suspend)(FAR struct usbdevclass_driver_s *driver, FAR struct usbdev_s *dev);
+  void (*resume)(FAR struct usbdevclass_driver_s *driver, FAR struct usbdev_s *dev);
 };
 
 struct usbdevclass_driver_s
@@ -334,113 +344,6 @@ EXTERN int usbdev_register(FAR struct usbdevclass_driver_s *driver);
  ************************************************************************************/
 
 EXTERN int usbdev_unregister(FAR struct usbdevclass_driver_s *driver);
-
-/****************************************************************************
- * Name: usbdev_serialinit
- *
- * Description:
- *   Register USB serial port (and USB serial console if so configured).
- *
- ****************************************************************************/
-
-EXTERN int usbdev_serialinitialize(int minor);
-
-/****************************************************************************
- * Name: usbstrg_configure
- *
- * Description:
- *   One-time initialization of the USB storage driver.  The initialization
- *   sequence is as follows:
- *
- *   1. Call usbstrg_configure to perform one-time initialization specifying
- *      the number of luns.
- *   2. Call usbstrg_bindlun to configure each supported LUN
- *   3. Call usbstrg_exportluns when all LUNs are configured
- *
- * Input Parameters:
- *   nluns  - the number of LUNs that will be registered
- *   handle - Location to return a handle that is used in other API calls.
- *
- * Returned Value:
- *   0 on success; a negated errno on failure
- *
- ****************************************************************************/
-
-EXTERN int usbstrg_configure(unsigned int nluns, void **handle);
-
-/****************************************************************************
- * Name: usbstrg_bindlun
- *
- * Description:
- *   Bind the block driver specified by drvrpath to a USB storage LUN.
- *
- * Input Parameters:
- *   handle      - The handle returned by a previous call to usbstrg_configure().
- *   drvrpath    - the full path to the block driver
- *   startsector - A sector offset into the block driver to the start of the
- *                 partition on drvrpath (0 if no partitions)
- *   nsectors    - The number of sectors in the partition (if 0, all sectors
- *                 to the end of the media will be exported).
- *   lunno       - the LUN to bind to
- *
- * Returned Value:
- *  0 on success; a negated errno on failure.
- *
- ****************************************************************************/
-
-EXTERN int usbstrg_bindlun(FAR void *handle, FAR const char *drvrpath,
-                           unsigned int lunno, off_t startsector, size_t nsectors,
-                            bool readonly);
-
-/****************************************************************************
- * Name: usbstrg_unbindlun
- *
- * Description:
- *   Un-bind the block driver for the specified LUN
- *
- * Input Parameters:
- *   handle - The handle returned by a previous call to usbstrg_configure().
- *   lun    - the LUN to unbind from
- *
- * Returned Value:
- *  0 on success; a negated errno on failure.
- *
- ****************************************************************************/
-
-EXTERN int usbstrg_unbindlun(FAR void *handle, unsigned int lunno);
-
-/****************************************************************************
- * Name: usbstrg_exportluns
- *
- * Description:
- *   After all of the LUNs have been bound, this function may be called
- *   in order to export those LUNs in the USB storage device.
- *
- * Input Parameters:
- *   handle - The handle returned by a previous call to usbstrg_configure().
- *
- * Returned Value:
- *   0 on success; a negated errno on failure
- *
- ****************************************************************************/
-
-EXTERN int usbstrg_exportluns(FAR void *handle);
-
-/****************************************************************************
- * Name: usbstrg_uninitialize
- *
- * Description:
- *   Un-initialize the USB storage class driver
- *
- * Input Parameters:
- *   handle - The handle returned by a previous call to usbstrg_configure().
- *
- * Returned Value:
- *   None
- *
- ****************************************************************************/
-
-EXTERN void usbstrg_uninitialize(FAR void *handle);
 
 #undef EXTERN
 #if defined(__cplusplus)

@@ -1,8 +1,8 @@
 /************************************************************************************
  * include/nuttx/usb/usb.h
  *
- *   Copyright (C) 2008, 2009-2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008, 2009-2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -198,6 +198,7 @@
 #define USB_CLASS_CONTENT_SEC                   (0x0d)
 #define USB_CLASS_VIDEO                         (0x0e)
 #define USB_CLASS_WIRELESS_CONTROLLER           (0xe0)
+#define USB_CLASS_MISC                          (0xef)
 #define USB_CLASS_APP_SPEC                      (0xfe)
 #define USB_CLASS_VENDOR_SPEC                   (0xff)
 
@@ -285,7 +286,7 @@ struct usb_devdesc_s
   uint8_t len;               /* Descriptor length */
   uint8_t type;              /* Descriptor type */
   uint8_t usb[2];            /* USB version */
-  uint8_t class;             /* Device class */
+  uint8_t classid;           /* Device class */
   uint8_t subclass;          /* Device sub-class */
   uint8_t protocol;          /* Device protocol */
   uint8_t mxpacketsize;      /* Max packet size (ep0) */
@@ -345,7 +346,7 @@ struct usb_ifdesc_s
   uint8_t ifno;              /* Interface number */
   uint8_t alt;               /* Alternate setting */
   uint8_t neps;              /* Number of endpoints */
-  uint8_t class;             /* Interface class */
+  uint8_t classid;           /* Interface class */
   uint8_t subclass;          /* Interface sub-class */
   uint8_t protocol;          /* Interface protocol */
   uint8_t iif;               /* iInterface */
@@ -380,7 +381,7 @@ struct usb_qualdesc_s
   uint8_t  len;               /* Descriptor length */
   uint8_t  type;              /* Descriptor type */
   uint8_t  usb[2];            /* USB version */
-  uint8_t  class;             /* Qualifier class */
+  uint8_t  classid;           /* Qualifier class */
   uint8_t  subclass;          /* Qualifier sub-class */
   uint8_t  protocol;          /* Qualifier protocol */
   uint8_t  mxpacketsize;      /* Max packet size (ep0) */
@@ -388,6 +389,29 @@ struct usb_qualdesc_s
   uint8_t  reserved;
 };
 #define USB_SIZEOF_QUALDESC 10
+
+/* Interface association descriptor
+ *
+ * The Universal Serial Bus Specification, revision 2.0, does not support grouping
+ * more than one interface of a composite device within a single function. However,
+ * the USB Device Working Group (DWG) created USB device classes that allow for
+ * functions with multiple interfaces, and the USB Implementor's Forum issued an
+ * Engineering Change Notification (ECN) that defines a mechanism for grouping
+ * interfaces. 
+ */
+
+struct usb_iaddesc_s
+{
+  uint8_t  len;               /* Descriptor length */
+  uint8_t  type;              /* Descriptor type */
+  uint8_t  firstif;           /* Number of first interface of the function */
+  uint8_t  nifs;              /* Number of interfaces associated with the function */
+  uint8_t  classid;           /* Class code */
+  uint8_t  subclass;          /* Sub-class code */
+  uint8_t  protocol;          /* Protocol code */
+  uint8_t  ifunction;         /* Index to string identifying the function */
+};
+#define USB_SIZEOF_IADDESC 8
 
 /************************************************************************************
  * Public Data

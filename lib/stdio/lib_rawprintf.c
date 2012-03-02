@@ -1,8 +1,8 @@
 /****************************************************************************
  * lib/stdio/lib_rawprintf.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,8 +42,15 @@
 #include "lib_internal.h"
 
 /****************************************************************************
- * Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
+
+/* Some output destinations are only available from within the kernel */
+
+#if defined(CONFIG_NUTTX_KERNEL) && !defined(__KERNEL__)
+#  undef CONFIG_SYSLOG
+#  undef CONFIG_ARCH_LOWPUTC
+#endif
 
 /****************************************************************************
  * Private Type Declarations
@@ -83,7 +90,18 @@
 
 int lib_rawvprintf(const char *fmt, va_list ap)
 {
-#if CONFIG_NFILE_DESCRIPTORS > 0
+#if defined(CONFIG_SYSLOG)
+
+  struct lib_outstream_s stream;
+
+  /* Wrap the low-level output in a stream object and let lib_vsprintf
+   * do the work.
+   */
+
+  lib_syslogstream((FAR struct lib_outstream_s *)&stream);
+  return lib_vsprintf((FAR struct lib_outstream_s *)&stream, fmt, ap);
+
+#elif CONFIG_NFILE_DESCRIPTORS > 0
 
   struct lib_rawoutstream_s rawoutstream;
 
@@ -119,8 +137,15 @@ int lib_rawprintf(const char *fmt, ...)
   va_list ap;
   int     ret;
 
-  va_start(ap, fmt);
-  ret= lib_rawvprintf(fmt, ap);
-  va_end(ap);
+#ifdef CONFIG_DEBUG_ENABLE
+  ret = 0;
+  if (g_dbgenable)
+#endif
+    {
+      va_start(ap, fmt);
+      ret = lib_rawvprintf(fmt, ap);
+      va_end(ap);
+    }
+
   return ret;
 }

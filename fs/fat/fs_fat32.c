@@ -1,8 +1,8 @@
 /****************************************************************************
  * fs/fat/fs_fat32.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * References:
  *   Microsoft FAT documentation
@@ -2200,7 +2200,7 @@ static int fat_stat(struct inode *mountpt, const char *relpath, struct stat *buf
 
   ret = fat_finddirentry(fs, &dirinfo, relpath);
 
-  /* If nothing was found, then we fail with EEXIST */
+  /* If nothing was found, then we fail with the reported error */
 
   if (ret < 0)
     {

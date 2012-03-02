@@ -40,6 +40,7 @@
 
 #include <nuttx/config.h>
 
+#include <errno.h>
 #include <debug.h>
 
 #include <nuttx/analog/adc.h>
@@ -56,8 +57,7 @@
 /************************************************************************************
  * Definitions
  ************************************************************************************/
-
-/* Configuration ************************************************************/
+/* Configuration ********************************************************************/
 /* Up to 3 ADC interfaces are supported */
 
 #if STM32_NADC < 3
@@ -137,7 +137,7 @@ int adc_devinit(void)
       if (adc == NULL)
         {
           adbg("ERROR: Failed to get ADC interface\n");
-          return;
+          return -ENODEV;
         }
 
       /* Register the ADC driver at "/dev/adc0" */

@@ -1195,7 +1195,6 @@ static int usbhost_connect(FAR struct usbhost_class_s *hubclass,
 
       ret = usbhost_intxfer(hubclass, &hubpriv->intxfer,
                             usbhost_callback);
-      
     }
  
   return ret;

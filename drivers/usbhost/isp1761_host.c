@@ -148,6 +148,9 @@ static int ehci_rhctrl(FAR struct usbhost_driver_s *drvr,
                        FAR struct usbhost_transfer_s *xfer,
                        FAR const struct usb_ctrlreq_s *cmd);
 
+static int ehci_rhstatus(FAR struct usbhost_driver_s *drvr,
+                         FAR struct usbhost_transfer_s *xfer);
+
 static int isp1761_hw_modectrl(void);
 
 static int isp1761_handshake(uint32_t addr, uint32_t mask,
@@ -258,7 +261,7 @@ static struct ehci_driver_s g_ehci =
       .transfer     = NULL, 
       .disconnect   = NULL,  
       .rhctrl       = ehci_rhctrl,
-      .rhstatus     = NULL,
+      .rhstatus     = ehci_rhstatus,
     },
 };
 
@@ -866,6 +869,20 @@ static int ehci_rhctrl(FAR struct usbhost_driver_s *drvr,
   xfer->callback(xfer);
 
   return ret;
+}
+
+/*******************************************************************************
+ * Name: ehci_rhstatus
+ *
+ * Description:
+ *   Root hub control
+ *
+ *******************************************************************************/
+ 
+static int ehci_rhstatus(FAR struct usbhost_driver_s *drvr,
+                         FAR struct usbhost_transfer_s *xfer)
+{
+  return OK;
 }
 
 /*******************************************************************************

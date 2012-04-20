@@ -1,8 +1,8 @@
 /****************************************************************************
  * arch/arm/src/stm32/stm32_sdio.c
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +71,32 @@
  ****************************************************************************/
 
 /* Configuration ************************************************************/
+/* Required system configuration options:
+ *
+ *   CONFIG_ARCH_DMA - Enable architecture-specific DMA subsystem
+ *     initialization.  Required if CONFIG_SDIO_DMA is enabled.
+ *   CONFIG_STM32_DMA2 - Enable STM32 DMA2 support.  Required if
+ *     CONFIG_SDIO_DMA is enabled
+ *   CONFIG_SCHED_WORKQUEUE -- Callback support requires work queue support.
+ *
+ * Driver-specific configuration options:
+ *
+ *   CONFIG_SDIO_MUXBUS - Setting this configuration enables some locking
+ *     APIs to manage concurrent accesses on the SDIO bus.  This is not
+ *     needed for the simple case of a single SD card, for example.
+ *   CONFIG_SDIO_DMA - Enable SDIO.  This is a marginally optional.  For
+ *     most usages, SDIO will cause data overruns if used without DMA.
+ *     NOTE the above system DMA configuration options.
+ *   CONFIG_SDIO_WIDTH_D1_ONLY - This may be selected to force the driver
+ *     operate with only a single data line (the default is to use all
+ *     4 SD data lines).
+ *   CONFIG_SDIO_PRI - SDIO interrupt priority.  This setting is not very
+ *     important since interrupt nesting is not currently supported.
+ *   CONFIG_SDM_DMAPRIO - SDIO DMA priority.  This can be selecte if
+ *     CONFIG_SDIO_DMA is enabled.
+ *   CONFIG_SDIO_XFRDEBUG - Enables some very low-level debug output
+ *     This also requires CONFIG_DEBUG_FS and CONFIG_DEBUG_VERBOSE
+ */
 
 #if defined(CONFIG_SDIO_DMA) && !defined(CONFIG_STM32_DMA2)
 #  warning "CONFIG_SDIO_DMA support requires CONFIG_STM32_DMA2"
@@ -88,11 +114,32 @@
 #  define CONFIG_SDIO_PRI        NVIC_SYSH_PRIORITY_DEFAULT
 #endif
 
-#ifndef CONFIG_SDIO_DMAPRIO
-#  define CONFIG_SDIO_DMAPRIO    DMA_CCR_PRIMED
+#ifdef CONFIG_SDIO_DMA
+#  ifndef CONFIG_SDIO_DMAPRIO
+#    if defined(CONFIG_STM32_STM32F10XX)
+#      define CONFIG_SDIO_DMAPRIO  DMA_CCR_PRIMED
+#    elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#      define CONFIG_SDIO_DMAPRIO  DMA_SCR_PRIVERYHI
+#    else
+#      error "Unknown STM32 DMA"
+#    endif
+#  endif
+#  if defined(CONFIG_STM32_STM32F10XX)
+#    if (CONFIG_SDIO_DMAPRIO & ~DMA_CCR_PL_MASK) != 0
+#      error "Illegal value for CONFIG_SDIO_DMAPRIO"
+#    endif
+#  elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#    if (CONFIG_SDIO_DMAPRIO & ~DMA_SCR_PL_MASK) != 0
+#      error "Illegal value for CONFIG_SDIO_DMAPRIO"
+#    endif
+#  else
+#    error "Unknown STM32 DMA"
+#  endif
+#else
+#  undef CONFIG_SDIO_DMAPRIO
 #endif
 
-#if !defined(CONFIG_DEBUG_FS) || !defined(CONFIG_DEBUG_VERBOSE)
+#if !defined(CONFIG_DEBUG_FS) || !defined(CONFIG_DEBUG)
 #  undef CONFIG_SDIO_XFRDEBUG
 #endif
 
@@ -105,7 +152,7 @@
  * be defined in the board-specific board.h header file: SDIO_INIT_CLKDIV,
  * SDIO_MMCXFR_CLKDIV, and SDIO_SDXFR_CLKDIV.
  */
-  
+
 #define STM32_CLCKCR_INIT        (SDIO_INIT_CLKDIV|SDIO_CLKCR_RISINGEDGE|\
                                   SDIO_CLKCR_WIDBUS_D1)
 #define SDIO_CLKCR_MMCXFR        (SDIO_MMCXFR_CLKDIV|SDIO_CLKCR_RISINGEDGE|\
@@ -124,12 +171,50 @@
 
 #define SDIO_DTIMER_DATATIMEOUT  (0x000fffff)
 
-/* DMA CCR register settings */
+/* DMA channel/stream configuration register settings.  The following
+ * must be selected.  The DMA driver will select the remaining fields.
+ *
+ * - 32-bit DMA
+ * - Memory increment
+ * - Direction (memory-to-peripheral, peripheral-to-memory)
+ * - Memory burst size (F4 only)
+ */
 
-#define SDIO_RXDMA32_CONFIG      (CONFIG_SDIO_DMAPRIO|DMA_CCR_MSIZE_32BITS|\
+/* STM32 F1 channel configuration register (CCR) settings */
+
+#if defined(CONFIG_STM32_STM32F10XX)
+#  define SDIO_RXDMA32_CONFIG    (CONFIG_SDIO_DMAPRIO|DMA_CCR_MSIZE_32BITS|\
                                   DMA_CCR_PSIZE_32BITS|DMA_CCR_MINC)
-#define SDIO_TXDMA32_CONFIG      (CONFIG_SDIO_DMAPRIO|DMA_CCR_MSIZE_32BITS|\
+#  define SDIO_TXDMA32_CONFIG    (CONFIG_SDIO_DMAPRIO|DMA_CCR_MSIZE_32BITS|\
                                   DMA_CCR_PSIZE_32BITS|DMA_CCR_MINC|DMA_CCR_DIR)
+
+/* STM32 F4 stream configuration register (SCR) settings. */
+
+#elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#  define SDIO_RXDMA32_CONFIG    (DMA_SCR_PFCTRL|DMA_SCR_DIR_P2M|DMA_SCR_MINC|\
+                                  DMA_SCR_PSIZE_32BITS|DMA_SCR_MSIZE_32BITS|\
+                                  CONFIG_SDIO_DMAPRIO|DMA_SCR_PBURST_INCR4|\
+                                  DMA_SCR_MBURST_INCR4)
+#  define SDIO_TXDMA32_CONFIG    (DMA_SCR_PFCTRL|DMA_SCR_DIR_M2P|DMA_SCR_MINC|\
+                                  DMA_SCR_PSIZE_32BITS|DMA_SCR_MSIZE_32BITS|\
+                                  CONFIG_SDIO_DMAPRIO|DMA_SCR_PBURST_INCR4|\
+                                  DMA_SCR_MBURST_INCR4)
+#else
+#  error "Unknown STM32 DMA"
+#endif
+
+/* SDIO DMA Channel/Stream selection.  For the the case of the STM32 F4, there
+ * are multiple DMA stream options that must be dis-ambiguated in the board.h
+ * file.
+ */
+
+#if defined(CONFIG_STM32_STM32F10XX)
+#  define SDIO_DMACHAN           DMACHAN_SDIO
+#elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#  define SDIO_DMACHAN           DMAMAP_SDIO
+#else
+#  error "Unknown STM32 DMA"
+#endif
 
 /* FIFO sizes */
 
@@ -297,7 +382,7 @@ static void stm32_dumpsamples(struct stm32_dev_s *priv);
 #endif
 
 #ifdef CONFIG_SDIO_DMA
-static void stm32_dmacallback(DMA_HANDLE handle, uint8_t isr, void *arg);
+static void stm32_dmacallback(DMA_HANDLE handle, uint8_t status, void *arg);
 #endif
 
 /* Data Transfer Helpers ****************************************************/
@@ -723,7 +808,7 @@ static void stm32_dumpsample(struct stm32_dev_s *priv,
  ****************************************************************************/
 
 #ifdef CONFIG_SDIO_XFRDEBUG
-static void  stm32_dumpsamples(struct stm32_dev_s *priv)
+static void stm32_dumpsamples(struct stm32_dev_s *priv)
 {
   stm32_dumpsample(priv, &g_sampleregs[SAMPLENDX_BEFORE_SETUP], "Before setup");
 #if defined(CONFIG_DEBUG_DMA) && defined(CONFIG_SDIO_DMA)
@@ -752,25 +837,42 @@ static void  stm32_dumpsamples(struct stm32_dev_s *priv)
  ****************************************************************************/
 
 #ifdef CONFIG_SDIO_DMA
-static void stm32_dmacallback(DMA_HANDLE handle, uint8_t isr, void *arg)
+static void stm32_dmacallback(DMA_HANDLE handle, uint8_t status, void *arg)
 {
   FAR struct stm32_dev_s *priv = (FAR struct stm32_dev_s *)arg;
   DEBUGASSERT(priv->dmamode);
+  sdio_eventset_t result;
 
-  /* The SDIO appears to handle the End-Of-Transfer interrupt first with the
-   * End-Of-DMA event occurring significantly later.
+  /* In the normal case, SDIO appears to handle the End-Of-Transfer interrupt
+   * first with the End-Of-DMA event occurring significantly later.  On
+   * transfer errors, however, the DMA error will occur before the End-of-
+   * Transfer.
    */
 
   stm32_sample((struct stm32_dev_s*)arg, SAMPLENDX_DMA_CALLBACK);
-  
-  /* Then terminate the transfer (we should already have the SDIO transfer
-   * done interrupt.  If not, the transfer will appropriately time out).
+
+  /* Get the result of the DMA transfer */
+
+  if ((status & DMA_STATUS_ERROR) != 0)
+    {
+      flldbg("DMA error %02x, remaining: %d\n", status, priv->remaining);
+      result = SDIOWAIT_ERROR;
+    }
+  else
+    {
+      result = SDIOWAIT_TRANSFERDONE;
+    }
+
+  /* Then terminate the transfer if this completes all of the steps in the
+   * transfer OR if a DMA error occurred.  In the non-error case, we should
+   * already have the SDIO transfer done interrupt.  If not, the transfer
+   * will appropriately time out.
    */
 
   priv->xfrflags |= SDIO_DMADONE_FLAG;
-  if (priv->xfrflags == SDIO_ALLDONE)
+  if (priv->xfrflags == SDIO_ALLDONE || result == SDIOWAIT_ERROR)
     {
-      stm32_endtransfer(priv, SDIOWAIT_TRANSFERDONE);
+      stm32_endtransfer(priv, result);
     }
 }
 #endif
@@ -2240,6 +2342,7 @@ static sdio_eventset_t stm32_eventwait(FAR struct sdio_dev_s *dev,
 
 errout:
   irqrestore(flags);
+  stm32_dumpsamples(priv);
   return wkupevent;
 }
 
@@ -2396,7 +2499,7 @@ static int stm32_dmarecvsetup(FAR struct sdio_dev_s *dev, FAR uint8_t *buffer,
       stm32_dmasetup(priv->dma, STM32_SDIO_FIFO, (uint32_t)buffer,
                      (buflen + 3) >> 2, SDIO_RXDMA32_CONFIG);
  
-     /* Start the DMA */
+      /* Start the DMA */
 
       stm32_sample(priv, SAMPLENDX_BEFORE_ENABLE);
       stm32_dmastart(priv->dma, stm32_dmacallback, priv, false);
@@ -2617,7 +2720,8 @@ FAR struct sdio_dev_s *sdio_initialize(int slotno)
   /* Allocate a DMA channel */
 
 #ifdef CONFIG_SDIO_DMA
-  priv->dma = stm32_dmachannel(DMACHAN_SDIO);
+  priv->dma = stm32_dmachannel(SDIO_DMACHAN);
+  DEBUGASSERT(priv->dma);
 #endif
 
   /* Configure GPIOs for 4-bit, wide-bus operation (the chip is capable of

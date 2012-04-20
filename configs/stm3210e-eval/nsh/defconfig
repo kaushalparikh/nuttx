@@ -1,7 +1,7 @@
 ############################################################################
 # configs/stm3210e-eval/nsh/defconfig
 #
-#   Copyright (C) 2009-2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2009-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -140,7 +140,7 @@ CONFIG_STM32_UART5=n
 CONFIG_STM32_I2C1=n
 CONFIG_STM32_I2C2=n
 CONFIG_STM32_USB=n
-CONFIG_STM32_CAN=n
+CONFIG_STM32_CAN1=n
 CONFIG_STM32_BKP=n
 CONFIG_STM32_PWR=n
 CONFIG_STM32_DAC=n
@@ -270,7 +270,10 @@ CONFIG_HAVE_LIBM=n
 # CONFIG_DEBUG_VERBOSE - enables verbose debug output
 # CONFIG_DEBUG_SYMBOLS - build without optimization and with
 #   debug symbols (needed for use with a debugger).
-# CONFIG_HAVE_CXX - Enable support for C++S
+# CONFIG_HAVE_CXX - Enable support for C++
+# CONFIG_HAVE_CXXINITIALIZE - The platform-specific logic includes support
+#   for initialization of static C++ instances for this architecture
+#   and for the selected toolchain (via up_cxxinitialize()).
 # CONFIG_MM_REGIONS - If the architecture includes multiple
 #   regions of memory to allocate from, this specifies the
 #   number of memory regions that the memory manager must
@@ -362,6 +365,7 @@ CONFIG_DEBUG_LCD=n
 CONFIG_DEBUG_USB=y
 CONFIG_DEBUG_SYMBOLS=n
 CONFIG_HAVE_CXX=n
+CONFIG_HAVE_CXXINITIALIZE=n
 CONFIG_DEBUG_FS=n
 CONFIG_DEBUG_DMA=y
 CONFIG_MM_REGIONS=1

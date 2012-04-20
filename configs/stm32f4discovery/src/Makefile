@@ -42,6 +42,10 @@ AOBJS		= $(ASRCS:.S=$(OBJEXT))
 
 CSRCS		= up_boot.c up_spi.c
 
+ifeq ($(CONFIG_HAVE_CXX),y)
+CSRCS		+= up_cxxinitialize.c
+endif
+
 ifeq ($(CONFIG_ARCH_LEDS),y)
 CSRCS		+= up_autoleds.c
 else
@@ -54,6 +58,10 @@ endif
 
 ifeq ($(CONFIG_PWM),y)
 CSRCS		+= up_pwm.c
+endif
+
+ifeq ($(CONFIG_QENCODER),y)
+CSRCS		+= up_qencoder.c
 endif
 
 COBJS		= $(CSRCS:.c=$(OBJEXT))

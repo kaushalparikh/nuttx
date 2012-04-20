@@ -226,6 +226,12 @@ CONFIG_UART1_2STOP=0
 CONFIG_UART2_2STOP=0
 
 #
+# PIC32MX-specific USB device setup
+#
+CONFIG_PIC32MX_USBDEV_REGDEBUG=n
+CONFIG_PIC32MX_USBDEV_BDTDEBUG=n
+ 
+#
 # General build options
 #
 # CONFIG_RRLOAD_BINARY - make the rrload binary format used with
@@ -257,6 +263,9 @@ CONFIG_HAVE_LIBM=n
 # CONFIG_DEBUG_SYMBOLS - build without optimization and with
 #   debug symbols (needed for use with a debugger).
 # CONFIG_HAVE_CXX - Enable support for C++
+# CONFIG_HAVE_CXXINITIALIZE - The platform-specific logic includes support
+#   for initialization of static C++ instances for this architecture
+#   and for the selected toolchain (via up_cxxinitialize()).
 # CONFIG_MM_REGIONS - If the architecture includes multiple
 #   regions of memory to allocate from, this specifies the
 #   number of memory regions that the memory manager must
@@ -346,9 +355,11 @@ CONFIG_DEBUG_VERBOSE=n
 CONFIG_DEBUG_SYMBOLS=n
 CONFIG_DEBUG_SCHED=n
 CONFIG_DEBUG_USB=n
-CONFIG_PIC32MX_USBDEV_REGDEBUG=n
+CONFIG_DEBUG_FS=n
+CONFIG_DEBUG_SPI=n
 
 CONFIG_HAVE_CXX=n
+CONFIG_HAVE_CXXINITIALIZE=n
 CONFIG_MM_REGIONS=1
 CONFIG_ARCH_LOWPUTC=y
 CONFIG_RR_INTERVAL=0
@@ -711,6 +722,8 @@ CONFIG_PL2303_TXBUFSIZE=512
 #
 # CONFIG_CDCACM
 #   Enable compilation of the USB serial driver
+# CONFIG_CDCACM_CONSOLE
+#   Configures the CDC/ACM serial port as the console device.
 # CONFIG_CDCACM_EP0MAXPACKET
 #   Endpoint 0 max packet size. Default 64
 # CONFIG_CDCACM_EPINTIN
@@ -756,6 +769,7 @@ CONFIG_PL2303_TXBUFSIZE=512
 #   Size of the serial receive/transmit buffers. Default 256.
 #
 CONFIG_CDCACM=n
+CONFIG_CDCACM_CONSOLE=n
 #CONFIG_CDCACM_EP0MAXPACKET
 #CONFIG_CDCACM_EPINTIN
 #CONFIG_CDCACM_EPINTIN_FSSIZE
@@ -898,7 +912,7 @@ CONFIG_NSH_DISABLEBG=n
 CONFIG_NSH_ROMFSETC=n
 CONFIG_NSH_CONSOLE=y
 CONFIG_NSH_TELNET=n
-CONFIG_NSH_ARCHINIT=n
+CONFIG_NSH_ARCHINIT=y
 CONFIG_NSH_IOBUFFER_SIZE=512
 CONFIG_NSH_DHCPC=n
 CONFIG_NSH_NOMAC=n
@@ -917,7 +931,7 @@ CONFIG_NSH_FATMOUNTPT=/tmp
 #
 # Architecture-specific NSH options
 #
-CONFIG_NSH_MMCSDSPIPORTNO=1
+CONFIG_NSH_MMCSDSPIPORTNO=2
 CONFIG_NSH_MMCSDSLOTNO=0
 CONFIG_NSH_MMCSDMINOR=0
 
@@ -1026,6 +1040,37 @@ CONFIG_EXAMPLES_USBTERM_TRACECLASS=n
 CONFIG_EXAMPLES_USBTERM_TRACETRANSFERS=n
 CONFIG_EXAMPLES_USBTERM_TRACECONTROLLER=n
 CONFIG_EXAMPLES_USBTERM_TRACEINTERRUPTS=n
+
+#
+# Settings for examples/cdcacm
+#
+# Configuration prequisites:
+#
+#   CONFIG_USBDEV=y         : USB device support must be enabled
+#   CONFIG_CDCACM=y         : The CDC/ACM driver must be built
+#   CONFIG_NSH_BUILTIN_APPS : NSH built-in application support must be enabled
+#
+# Configuration options specific to this example:
+#
+# CONFIG_EXAMPLES_CDCACM_DEVMINOR
+#  The minor number of the CDC/ACM device.
+# CONFIG_EXAMPLES_CDCACM_TRACEINIT
+#   Show initialization events
+# CONFIG_EXAMPLES_CDCACM_TRACECLASS
+#   Show class driver events
+# CONFIG_EXAMPLES_CDCACM_TRACETRANSFERS
+#   Show data transfer events
+# CONFIG_EXAMPLES_CDCACM_TRACECONTROLLER
+#   Show controller events
+# CONFIG_EXAMPLES_CDCACM_TRACEINTERRUPTS
+#   Show interrupt-related events.
+#
+CONFIG_EXAMPLES_CDCACM_DEVMINOR=0
+CONFIG_EXAMPLES_CDCACM_TRACEINIT=n
+CONFIG_EXAMPLES_CDCACM_TRACECLASS=n
+CONFIG_EXAMPLES_CDCACM_TRACETRANSFERS=n
+CONFIG_EXAMPLES_CDCACM_TRACECONTROLLER=n
+CONFIG_EXAMPLES_CDCACM_TRACEINTERRUPTS=n
 
 #
 # Stack and heap information

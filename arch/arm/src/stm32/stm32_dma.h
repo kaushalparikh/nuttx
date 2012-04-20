@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/arm/src/stm32/stm32_dma.h
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,20 +45,62 @@
 
 #include "chip.h"
 
+/* Include the correct DMA register definitions for this STM32 family */
+
 #if defined(CONFIG_STM32_STM32F10XX)
 #  include "chip/stm32f10xxx_dma.h"
+#elif defined(CONFIG_STM32_STM32F20XX)
+#  include "chip/stm32f20xxx_dma.h"
 #elif defined(CONFIG_STM32_STM32F40XX)
 #  include "chip/stm32f40xxx_dma.h"
 #else
 #  error "Unknown STM32 DMA"
 #endif
 
+/* These definitions provide the bit encoding of the 'status' parameter passed to the
+ * DMA callback function (see dma_callback_t).
+ */
+
+#if defined(CONFIG_STM32_STM32F10XX)
+#  define DMA_STATUS_FEIF         0                     /* (Not available in F1) */
+#  define DMA_STATUS_DMEIF        0                     /* (Not available in F1) */
+#  define DMA_STATUS_TEIF         DMA_CHAN_TEIF_BIT     /* Channel Transfer Error */
+#  define DMA_STATUS_HTIF         DMA_CHAN_HTIF_BIT     /* Channel Half Transfer */
+#  define DMA_STATUS_TCIF         DMA_CHAN_TCIF_BIT     /* Channel Transfer Complete */
+#elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#  define DMA_STATUS_FEIF         0                    /* Stream FIFO error (ignored) */
+#  define DMA_STATUS_DMEIF        DMA_STREAM_DMEIF_BIT /* Stream direct mode error */
+#  define DMA_STATUS_TEIF         DMA_STREAM_TEIF_BIT  /* Stream Transfer Error */
+#  define DMA_STATUS_HTIF         DMA_STREAM_HTIF_BIT  /* Stream Half Transfer */
+#  define DMA_STATUS_TCIF         DMA_STREAM_TCIF_BIT  /* Stream Transfer Complete */
+#endif
+
+#define DMA_STATUS_ERROR          (DMA_STATUS_FEIF|DMA_STATUS_DMEIF|DMA_STATUS_TEIF)
+#define DMA_STATUS_SUCCESS        (DMA_STATUS_TCIF|DMA_STATUS_HTIF)
+
 /************************************************************************************
  * Public Types
  ************************************************************************************/
 
+/* DMA_HANDLE provides an opaque are reference that can be used to represent a DMA
+ * channel (F1) or a DMA stream (F4).
+ */
+
 typedef FAR void *DMA_HANDLE;
-typedef void (*dma_callback_t)(DMA_HANDLE handle, uint8_t isr, void *arg);
+
+/* Description:
+ *   This is the type of the callback that is used to inform the user of the the
+ *   completion of the DMA.
+ *
+ * Input Parameters:
+ *   handle - Refers tot he DMA channel or stream
+ *   status - A bit encoded value that provides the completion status.  See the
+ *            DMASTATUS_* definitions above.
+ *   arg    - A user-provided value that was provided when stm32_dmastart() was
+ *            called.
+ */
+
+typedef void (*dma_callback_t)(DMA_HANDLE handle, uint8_t status, void *arg);
 
 #ifdef CONFIG_DEBUG_DMA
 #if defined(CONFIG_STM32_STM32F10XX)
@@ -70,7 +112,7 @@ struct stm32_dmaregs_s
   uint32_t cpar;
   uint32_t cmar;
 };
-#elif defined(CONFIG_STM32_STM32F40XX)
+#elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
 struct stm32_dmaregs_s
 {
   uint32_t lisr;
@@ -126,6 +168,13 @@ extern "C" {
  *   Hmm.. I suppose this interface could be extended to make a non-blocking
  *   version.  Feel free to do that if that is what you need.
  *
+ * Input parameter:
+ *   chan - Identifies the stream/channel resource
+ *     For the STM32 F1, this is simply the channel number as provided by
+ *     the DMACHAN_* definitions in chip/stm32f10xxx_dma.h.
+ *     For the STM32 F4, this is a bit encoded value as provided by the
+ *     the DMAMAP_* definitions in chip/stm32f40xxx_dma.h
+ *
  * Returned Value:
  *   Provided that 'chan' is valid, this function ALWAYS returns a non-NULL,
  *   void* DMA channel handle.  (If 'chan' is invalid, the function will
@@ -138,7 +187,7 @@ extern "C" {
  *
  ****************************************************************************/
 
-EXTERN DMA_HANDLE stm32_dmachannel(int chan);
+EXTERN DMA_HANDLE stm32_dmachannel(unsigned int chan);
 
 /****************************************************************************
  * Name: stm32_dmafree

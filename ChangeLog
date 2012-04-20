@@ -2459,4 +2459,96 @@
 	* lib/misc/lib_dbg.c: Add an interface enabled with CONFIG_DEBUG_ENABLE that
 	  can be used to turn debug output on and off.
 
-6.16 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.16 2012-03-10 Gregory Nutt <gnutt@nuttx.org>
+
+	* drivers/sensors/qencoder.c and include/nuttx/sensors/qencoder.h:  Add an
+	  implementation for a quadrature encoder upper half driver.
+	* arch/arm/src/stm32/stm32_qencoder.c/.h:  Add a initial implementation of
+	  a lower-half quadrature encoder driver for the STM32.  On initial check-in,
+	  this is little more than a "skeleton" file.
+	* Various files:  CAN ISO-11783 support contributed by Gary Teravskis.
+	* net/recv.c and net/recvfrom.c: Correct a bug in return value:  The the peer
+	  gracefully closes the connections, needs to return zero and not ENOTCONN.
+	* arch/arm/src/stm32/stm32_eth.c:  Fix an error in the STM32 ethernet driver.
+	  The received buffer size must be two bytes larger to account for the two byte
+	  checksum that is appended to the packet.  Otherwise, the last two bytes of
+	  real data in the packet will get clobbered.
+	* arch/arm/src/stm32f40xx_dma.c:  The STM32 F4 DMA has (finally) been verified
+	* arch/arm/src/stm32_sdio.c:  STM32 F4 SDIO DMA is now supported
+	* configs/stm3240g-eval/nsh/defconfig: This configuration now supports SDIO
+	  with DMA (see configs/stm3240g-eval/README.txt for some issues).
+	* arch/arm/src/armv7-m/up_vectors.S and arch/arm/src/armv7-m/up_vectors.S:  New,
+	  streamlined Cortex-M exception handling (with FPU supported).  Contributed byh
+	  Mike Smith
+	* net/accept.c, connect.c,and net_monitor.c:  Correct an error in the accept
+	  logic.  After a new connection is made via accept(), monitoring for losses
+	  of TCP connection must be set up (just as with connect()).  The new file
+	  net_monitor.c holds the common TCP connection monitoring logic used by both
+	  the accecpt() and connect() logic.  Contributed by Max Nekludov.
+	* net/recvfrom.c and net/uip/uip_tcpcallback.c:  Fix a leak in the TCP
+	  read-ahead logic.  This is a *critical* bug fix!
+	* net/uip/uip_tcpinput.c:  Correct an error in the TCP stack.  It was
+	  incrementing the received sequence number BEFORE determining if the
+	  incoming data could be handled.  If the data was dropped (usually because
+	  there is insufficient buffering space), then no ACK will be sent and the
+	  sequence number will be wrong.  The end consequence of the bad sequence
+	  number was that the when the dropped packet was re-transmitted, it was
+	  was ignored because its sequence number looked wrong.  Fix was, obviously,
+	  to only increment the recevied sequence number if the TCP data was
+	  accepted.
+	* configs/stm3240g-eval, configs/stm32f40discovery, and arch/*/src/Makefile:
+	  Add changes to support building with the Atollic "Lite" toolchain.
+	* fs/fs_select.c:  Correct select(), in the case of loss of network
+	  connection (POLLHUP), select() must report a read-ready event.  This
+	  is how the standard select() interface is supposed to work:  In the case
+	  of loss-of-connection, select() reports read-ready.  The next time you
+	  read from the socket, you detect the end-of-connection event.  Change
+	  submitted by Max Nekludov.
+	* arch/arm/src/armv7-m/up_fpu.S and arch/arm/src/stm32/stm32_vectors.S:  Fix
+	  lazy FPU register saving with CONFIG_ARCH_FPU is set in the configuration.
+	* arch/arm/src/armv7-m:  Lazy saving of floating point registers on context
+	  switches now seems to be functional.
+	* net/uip/uip_tcpinput.c:  Fix a TCP protocol error reported by Max Nekludov.
+	* configs/stm3240g-eval, configs/stm32f40discovery:  Add changes to support
+	  building with the Atollic "Pro" toolchain.
+	* Makefile:  Use the more common .hex extension for Intel hex files instead of
+	  more precise .ihx extension.  This change has ripple effects to many build-
+	  related scripts and programs and could cause some short-term problems.
+	* configs/stm3240g-eval/, arch/arm/src/stm32/up_allocateheap.c:  Add support
+	  for the 16-mbit SRAM on-board the STM3240G-EVAL board.
+	* drivers/usbdev/cdcacm.c and include/nuttx/usbdev/cdcacm.h:  The CDC/ACM
+	  driver can now be dynamically connected and disconnected from the host
+	  under software control.
+	* include/nuttx/arch.h, configs/stm3240g-eval/src/up_cxxinitialize.c, and
+	  configs/stm3240g-eval/src/up_cxxinitialize.c:  Add support for C++ static
+	  initializers.
+	* net/setsockopt.c, net/getsockopt.c, net/bind.c, net/socket.c:  Add more
+	  low level, thread-independent socket interfaces for use within the OS.
+	  Some of these are currently used by the FTP controlling terminal.  More will
+	  be used to support the NFS file system currenly underwork.
+	* include/nuttx/net/:  Major re-organization of networking headerf files.
+	  Moved all non-standard, NuttX-specific header files from include/net and
+	  include/nuttx into include/nuttx/net.
+	* arch/mips/src/pic32mx/pic32mx_usbdev.c:  The PIC32 USB driver now appears to
+	  be fully functional.
+	* configs/sure-pic32mx/usbnsh and configs/sure-pic32mx/src:  Add support for
+	  NSH using only USB serial I/O to support the console.  This is useful on
+	  devices that have USB, but no serial port.
+	* arch/mips/src/pic32mx/pic32mx_spi.c:  Add a PIC32 SPI driver.  Initial
+	  checkin is primitive, incomplete (lacks interrupt logic), and untested.
+	* configs/pic32-startkit/nsh:  Completed verification of the PIC32 Ethernet
+	  Starter Kit port.  Added and verified the NuttShell (NSH) on the PIC32
+	  Ethernet Starter Kit.  I can now (finally) claim to have complete the
+	  basic port to this board.
+	* configs/pic32-startkit/nsh/up_usbdev, up_nsh.c, and up_usbterm.c:  Verified
+	  the USB (device) driver on the PIC32 Ethernet Starter Kit.
+	* arch/mips/src/pic32mx/pic32mx_ethernet.c:  Verifed the PIC32 Ethernet
+	  driver on the PIC32 Starter Kit.  Status:  It is occasionally functional
+	  but no stable enough for use.
+	* arch/arm/include/stm32, arch/arm/src/stm32:  Add general support for
+	  the STM32 F2 family. Contributed by Gary Teravskis,
+	* configs/stm3220g-eval:  Add support for the STMicro STM3220G-EVAL board.
+	  Contributed by Gary Teravskis,
+ 
+6.17 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+

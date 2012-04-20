@@ -38,6 +38,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+
 #ifdef CONFIG_NET
 
 #include <sys/types.h>
@@ -49,7 +50,7 @@
 
 #include <arch/irq.h>
 #include <nuttx/clock.h>
-#include <net/uip/uip-arch.h>
+#include <nuttx/net/uip/uip-arch.h>
 
 #include "net_internal.h"
 #include "uip/uip_internal.h"
@@ -103,7 +104,7 @@ struct recvfrom_s
  *   pstate   recvfrom state structure
  *
  * Returned Value:
- *   None
+ *   The number of bytes taken from the packet.
  *
  * Assumptions:
  *   Running at the interrupt level
@@ -111,7 +112,8 @@ struct recvfrom_s
  ****************************************************************************/
 
 #if defined(CONFIG_NET_UDP) || defined(CONFIG_NET_TCP)
-static void recvfrom_newdata(struct uip_driver_s *dev, struct recvfrom_s *pstate)
+static size_t recvfrom_newdata(FAR struct uip_driver_s *dev,
+                               FAR struct recvfrom_s *pstate)
 {
   size_t recvlen;
 
@@ -137,11 +139,109 @@ static void recvfrom_newdata(struct uip_driver_s *dev, struct recvfrom_s *pstate
   pstate->rf_buffer  += recvlen;
   pstate->rf_buflen  -= recvlen;
 
+  return recvlen;
+}
+#endif /* CONFIG_NET_UDP || CONFIG_NET_TCP */
+
+/****************************************************************************
+ * Function: recvfrom_newtcpdata
+ *
+ * Description:
+ *   Copy the read data from the packet
+ *
+ * Parameters:
+ *   dev      The sructure of the network driver that caused the interrupt
+ *   pstate   recvfrom state structure
+ *
+ * Returned Value:
+ *   None.
+ *
+ * Assumptions:
+ *   Running at the interrupt level
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_TCP
+static inline void recvfrom_newtcpdata(FAR struct uip_driver_s *dev,
+                                       FAR struct recvfrom_s *pstate)
+{
+  /* Take as much data from the packet as we can */
+
+  size_t recvlen = recvfrom_newdata(dev, pstate);
+
+  /* If there is more data left in the packet that we could not buffer, than
+   * add it to the read-ahead buffers.
+   */
+
+ if (recvlen < dev->d_len)
+   {
+#if CONFIG_NET_NTCP_READAHEAD_BUFFERS > 0
+      FAR struct uip_conn *conn   = (FAR struct uip_conn *)pstate->rf_sock->s_conn;
+      FAR uint8_t         *buffer = (FAR uint8_t *)dev->d_appdata + recvlen;
+      uint16_t             buflen = dev->d_len - recvlen;
+      uint16_t             nsaved;
+
+      nsaved = uip_datahandler(conn, buffer, buflen);
+
+      /* There are complicated buffering issues that are not addressed fully
+       * here.  For example, what if up_datahandler() cannot buffer the
+       * remainder of the packet?  In that case, the data will be dropped but
+       * still ACKed.  Therefore it would not be resent.
+       * 
+       * This is probably not an issue here because we only get here if the
+       * read-ahead buffers are empty and there would have to be something
+       * serioulsy wrong with the configuration not to be able to buffer a
+       * partial packet in this context.
+       */
+
+#ifdef CONFIG_DEBUG_NET
+      if (nsaved < buflen)
+        {
+          ndbg("ERROR: packet data not saved (%d bytes)\n", buflen - nsaved);
+        }
+#endif
+#else
+      ndbg("ERROR: packet data lost (%d bytes)\n", dev->d_len - recvlen);
+#endif
+   }
+
   /* Indicate no data in the buffer */
 
   dev->d_len = 0;
 }
-#endif /* CONFIG_NET_UDP || CONFIG_NET_TCP */
+#endif /* CONFIG_NET_TCP */
+
+/****************************************************************************
+ * Function: recvfrom_newudpdata
+ *
+ * Description:
+ *   Copy the read data from the packet
+ *
+ * Parameters:
+ *   dev      The sructure of the network driver that caused the interrupt
+ *   pstate   recvfrom state structure
+ *
+ * Returned Value:
+ *   None.
+ *
+ * Assumptions:
+ *   Running at the interrupt level
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_TCP
+static inline void recvfrom_newudpdata(FAR struct uip_driver_s *dev,
+                                       FAR struct recvfrom_s *pstate)
+{
+  /* Take as much data from the packet as we can */
+
+  (void)recvfrom_newdata(dev, pstate);
+
+  /* Indicate no data in the buffer */
+
+  dev->d_len = 0;
+}
+#endif /* CONFIG_NET_TCP */
 
 /****************************************************************************
  * Function: recvfrom_readahead
@@ -164,9 +264,9 @@ static void recvfrom_newdata(struct uip_driver_s *dev, struct recvfrom_s *pstate
 #if defined(CONFIG_NET_TCP) && CONFIG_NET_NTCP_READAHEAD_BUFFERS > 0
 static inline void recvfrom_readahead(struct recvfrom_s *pstate)
 {
-  struct uip_conn        *conn = (struct uip_conn *)pstate->rf_sock->s_conn;
-  struct uip_readahead_s *readahead;
-  size_t                  recvlen;
+  FAR struct uip_conn        *conn = (FAR struct uip_conn *)pstate->rf_sock->s_conn;
+  FAR struct uip_readahead_s *readahead;
+  size_t                      recvlen;
 
   /* Check there is any TCP data already buffered in a read-ahead
    * buffer.
@@ -373,9 +473,11 @@ static uint16_t recvfrom_tcpinterrupt(struct uip_driver_s *dev, void *conn,
 
       if ((flags & UIP_NEWDATA) != 0)
         {
-          /* Copy the data from the packet */
+          /* Copy the data from the packet (saving any unused bytes from the
+           * packet in the read-ahead buffer).
+           */
 
-          recvfrom_newdata(dev, pstate);
+          recvfrom_newtcpdata(dev, pstate);
 
           /* Save the sender's address in the caller's 'from' location */
 
@@ -393,10 +495,8 @@ static uint16_t recvfrom_tcpinterrupt(struct uip_driver_s *dev, void *conn,
             {
               nllvdbg("TCP resume\n");
 
-              /* The TCP receive buffer is full.  Return now, perhaps truncating
-               * the received data (need to fix that).
-               *
-               * Don't allow any further TCP call backs.
+              /* The TCP receive buffer is full.  Return now and don't allow
+               * any further TCP call backs.
                */
 
               pstate->rf_cb->flags   = 0;
@@ -419,7 +519,12 @@ static uint16_t recvfrom_tcpinterrupt(struct uip_driver_s *dev, void *conn,
 #endif
         }
 
-      /* Check for a loss of connection */
+      /* Check for a loss of connection.
+       *
+       * UIP_CLOSE: The remote host has closed the connection
+       * UIP_ABORT: The remote host has aborted the connection
+       * UIP_TIMEDOUT: Connection aborted due to too many retransmissions.
+       */
 
       else if ((flags & (UIP_CLOSE|UIP_ABORT|UIP_TIMEDOUT)) != 0)
         {
@@ -431,9 +536,18 @@ static uint16_t recvfrom_tcpinterrupt(struct uip_driver_s *dev, void *conn,
           pstate->rf_cb->priv    = NULL;
           pstate->rf_cb->event   = NULL;
 
-          /* Report not connected */
+          /* If the peer gracefully closed the connection, then return zero
+           * (end-of-file).  Otherwise, report a not-connected error
+           */
 
-          pstate->rf_result = -ENOTCONN;
+          if ((flags & UIP_CLOSE) != 0)
+            {
+              pstate->rf_result = 0;
+            }
+          else
+            {
+              pstate->rf_result = -ENOTCONN;
+            }
 
           /* Wake up the waiting thread */
 
@@ -558,7 +672,7 @@ static uint16_t recvfrom_udpinterrupt(struct uip_driver_s *dev, void *pvconn,
         {
           /* Copy the data from the packet */
 
-          recvfrom_newdata(dev, pstate);
+          recvfrom_newudpdata(dev, pstate);
 
           /* We are finished. */
 
@@ -581,27 +695,6 @@ static uint16_t recvfrom_udpinterrupt(struct uip_driver_s *dev, void *pvconn,
            /* Wake up the waiting thread, returning the number of bytes
            * actually read.
            */
-
-          sem_post(&pstate->rf_sem);
-        }
-
-      /* Check for a loss of connection */
-
-      else if ((flags & (UIP_CLOSE|UIP_ABORT|UIP_TIMEDOUT)) != 0)
-        {
-          nllvdbg("error\n");
-
-          /* Stop further callbacks */
-
-          pstate->rf_cb->flags   = 0;
-          pstate->rf_cb->priv    = NULL;
-          pstate->rf_cb->event   = NULL;
-
-          /* Report not connected */
-
-          pstate->rf_result = -ENOTCONN;
-
-          /* Wake up the waiting thread */
 
           sem_post(&pstate->rf_sem);
         }
@@ -719,7 +812,9 @@ static ssize_t recvfrom_result(int result, struct recvfrom_s *pstate)
 
   if (pstate->rf_result < 0)
     {
-      /* Return EGAIN on a timeout or ENOTCONN on loss of connection */
+      /* This might return EGAIN on a timeout or ENOTCONN on loss of
+       * connection (TCP only)
+       */
 
       return pstate->rf_result;
     }
@@ -796,7 +891,7 @@ static ssize_t udp_recvfrom(FAR struct socket *psock, FAR void *buf, size_t len,
     {
       /* Set up the callback in the connection */
 
-      state.rf_cb->flags   = UIP_NEWDATA|UIP_POLL|UIP_CLOSE|UIP_ABORT|UIP_TIMEDOUT;
+      state.rf_cb->flags   = UIP_NEWDATA|UIP_POLL;
       state.rf_cb->priv    = (void*)&state;
       state.rf_cb->event   = recvfrom_udpinterrupt;
 
@@ -900,11 +995,20 @@ static ssize_t tcp_recvfrom(FAR struct socket *psock, FAR void *buf, size_t len,
   if (!_SS_ISCONNECTED(psock->s_flags))
     {
       /* Was any data transferred from the readahead buffer after we were
-       * disconnected?
+       * disconnected?  If so, then return the number of bytes received.  We
+       * will wait to return end disconnection indications the next time that
+       * recvfrom() is called.
+       *
+       * If no data was received (i.e.,  ret == 0  -- it will not be negative)
+       * and the connection was gracefully closed by the remote peer, then return
+       * success.  If rf_recvlen is zero, the caller of recvfrom() will get an
+       * end-of-file indication.
        */
 
 #if CONFIG_NET_NTCP_READAHEAD_BUFFERS > 0
-      if (ret <= 0)
+      if (ret <= 0 && !_SS_ISCLOSED(psock->s_flags))
+#else
+      if (!_SS_ISCLOSED(psock->s_flags))
 #endif
         {
           /* Nothing was previously received from the readahead buffers.
@@ -1008,8 +1112,10 @@ static ssize_t tcp_recvfrom(FAR struct socket *psock, FAR void *buf, size_t len,
  *   fromlen  The length of the address structure
  *
  * Returned Value:
- *   On success, returns the number of characters sent.  On  error,
- *   -1 is returned, and errno is set appropriately:
+ *   On success, returns the number of characters sent.  If no data is
+ *   available to be received and the peer has performed an orderly shutdown,
+ *   recv() will return 0.  Othwerwise, on errors, -1 is returned, and errno
+ *   is set appropriately:
  *
  *   EAGAIN
  *     The socket is marked non-blocking and the receive operation would block,

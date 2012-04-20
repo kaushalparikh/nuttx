@@ -163,10 +163,12 @@
 #define FSMC_BCR_WREN            (1 << 12)  /* Write enable bit */
 #define FSMC_BCR_WAITEN          (1 << 13)  /* Wait enable bit */
 #define FSMC_BCR_EXTMOD          (1 << 14)  /* Extended mode enable */
-#ifdef CONFIG_STM32_STM32F40XX
+#if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
 #  define FSMC_BCR_ASYNCWAIT     (1 << 15)  /* Wait signal during asynchronous transfers */
 #endif
 #define FSMC_BCR_CBURSTRW        (1 << 19)  /* Write burst enable */
+
+#define FSMC_BCR_RSTVALUE        0x000003d2
 
 #define FSMC_BTR_ADDSET_SHIFT    (0)        /* Address setup phase duration */
 #define FSMC_BTR_ADDSET_MASK     (15 << FSMC_BTR_ADDSET_SHIFT)
@@ -192,6 +194,8 @@
 #  define FSMC_BTR_ACCMODB       (1 << FSMC_BTR_ACCMOD_SHIFT)
 #  define FSMC_BTR_ACCMODC       (2 << FSMC_BTR_ACCMOD_SHIFT)
 #  define FSMC_BTR_ACCMODD       (3 << FSMC_BTR_ACCMOD_SHIFT)
+
+#define FSMC_BTR_RSTVALUE        0xffffffff
 
 #define FSMC_BWTR_ADDSET_SHIFT   (0)        /* Address setup phase duration */
 #define FSMC_BWTR_ADDSET_MASK    (15 << FSMC_BWTR_ADDSET_SHIFT)

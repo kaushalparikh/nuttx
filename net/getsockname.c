@@ -1,8 +1,8 @@
 /****************************************************************************
  * net/getsockname.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,8 +44,8 @@
 
 #include <errno.h>
 
-#include <nuttx/net.h>
-#include <net/uip/uip-arch.h>
+#include <nuttx/net/net.h>
+#include <nuttx/net/uip/uip-arch.h>
 
 #include "net_internal.h"
 
@@ -192,6 +192,7 @@ int getsockname(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
 
   /* Set the address family and the IP address */
 
+#if defined(CONFIG_NET_TCP) || defined(CONFIG_NET_UDP)
 #ifdef CONFIG_NET_IPv6
 #error "Not big enough for IPv6 address"
   outaddr->sin_family = AF_INET6;
@@ -201,6 +202,7 @@ int getsockname(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
   outaddr->sin_family = AF_INET;
   outaddr->sin_addr.s_addr = dev->d_ipaddr;
   *addrlen = sizeof(struct sockaddr_in);
+#endif
 #endif
   netdev_semgive();
 

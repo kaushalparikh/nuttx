@@ -49,15 +49,16 @@
 #include <debug.h>
 #include <wdog.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
-#include <nuttx/mii.h>
+#include <nuttx/net/mii.h>
 
-#include <net/uip/uip.h>
-#include <net/uip/uipopt.h>
-#include <net/uip/uip-arp.h>
-#include <net/uip/uip-arch.h>
+#include <nuttx/net/uip/uip.h>
+#include <nuttx/net/uip/uipopt.h>
+#include <nuttx/net/uip/uip-arp.h>
+#include <nuttx/net/uip/uip-arch.h>
 
 #include <arch/irq.h>
 #include <arch/board/board.h>
@@ -75,7 +76,6 @@
 /****************************************************************************
  * Definitions
  ****************************************************************************/
-
 /* Configuration ************************************************************/
 /* CONFIG_PIC32MX_NINTERFACES determines the number of physical interfaces
  * that will be supported -- unless it is more than actually supported by the
@@ -120,15 +120,26 @@
 #  define CONFIG_NET_NRXDESC 4
 #endif
 
+/* Make sure that the size of each buffer is a multiple of 4 bytes.  This
+ * will force alignment of all buffers to 4-byte boundaries (this is needed
+ * by the queuing logic which will cast each buffer address to a pointer
+ * type).
+ */
+
+#define PIC32MX_ALIGNED_BUFSIZE ((CONFIG_NET_BUFSIZE + 3) & ~3)
+
 /* The number of buffers will, then, be one for each descriptor plus one extra */
 
 #define PIC32MX_NBUFFERS (CONFIG_NET_NRXDESC + CONFIG_NET_NTXDESC + 1)
 
 /* Debug Configuration *****************************************************/
-/* Register debug -- can only happen of CONFIG_DEBUG is selected */
+/* Register/Descriptor debug -- can only happen of CONFIG_DEBUG is selected.
+ * This will probably generate much more output than you care to see.
+ */
 
 #ifndef CONFIG_DEBUG
-#  undef  CONFIG_NET_REGDEBUG
+#  undef CONFIG_NET_REGDEBUG
+#  undef CONFIG_NET_DESCDEBUG
 #endif
 
 /* CONFIG_NET_DUMPPACKET will dump the contents of each packet to the
@@ -155,6 +166,10 @@
 /* TX timeout = 1 minute */
 
 #define PIC32MX_TXTIMEOUT      (60*CLK_TCK)
+
+/* PHY timout = 1 minute */
+
+#define PIC32MX_MIITIMEOUT     (666666)
 
 /* Ethernet MII clocking.
  *
@@ -218,8 +233,6 @@
 #  warning "No PHY specified!"
 #  undef PIC32MX_HAVE_PHY
 #endif
-
-#define MII_BIG_TIMEOUT      666666
 
 /* These definitions are used to remember the speed/duplex settings */
 
@@ -340,7 +353,7 @@ struct pic32mx_driver_s
 
   struct pic32mx_rxdesc_s pd_rxdesc[CONFIG_NET_NRXDESC];
   struct pic32mx_txdesc_s pd_txdesc[CONFIG_NET_NTXDESC];
-  uint8_t pd_buffers[PIC32MX_NBUFFERS * CONFIG_NET_BUFSIZE];
+  uint8_t pd_buffers[PIC32MX_NBUFFERS * PIC32MX_ALIGNED_BUFSIZE];
 };
 
 /****************************************************************************
@@ -369,6 +382,14 @@ static void pic32mx_putreg(uint32_t val, uint32_t addr);
 
 /* Buffer and descriptor management */
 
+#ifdef CONFIG_NET_DESCDEBUG
+static void pic32mx_dumptxdesc(struct pic32mx_txdesc_s *txdesc, const char *msg);
+static void pic32mx_dumprxdesc(struct pic32mx_rxdesc_s *rxdesc, const char *msg);
+#else
+# define pic32mx_dumptxdesc(txdesc,msg)
+# define pic32mx_dumprxdesc(rxdesc,msg)
+#endif
+
 static inline void pic32mx_bufferinit(struct pic32mx_driver_s *priv);
 static uint8_t *pic32mx_allocbuffer(struct pic32mx_driver_s *priv);
 static void pic32mx_freebuffer(struct pic32mx_driver_s *priv, uint8_t *buffer);
@@ -376,6 +397,7 @@ static void pic32mx_freebuffer(struct pic32mx_driver_s *priv, uint8_t *buffer);
 static inline void pic32mx_txdescinit(struct pic32mx_driver_s *priv);
 static inline void pic32mx_rxdescinit(struct pic32mx_driver_s *priv);
 static struct pic32mx_txdesc_s *pic32mx_txdesc(struct pic32mx_driver_s *priv);
+static inline void pic32mx_rxreturn(struct pic32mx_rxdesc_s *rxdesc);
 static struct pic32mx_rxdesc_s *pic32mx_rxdesc(struct pic32mx_driver_s *priv);
 
 /* Common TX logic */
@@ -414,8 +436,9 @@ static void pic32mx_showmii(uint8_t phyaddr, const char *msg);
 #    define pic32mx_showmii(phyaddr,msg)
 #  endif
 
+static void pic32mx_phybusywait(void);
 static void pic32mx_phywrite(uint8_t phyaddr, uint8_t regaddr,
-                           uint16_t phydata);
+                             uint16_t phydata);
 static uint16_t pic32mx_phyread(uint8_t phyaddr, uint8_t regaddr);
 static inline int pic32mx_phyreset(uint8_t phyaddr);
 #  ifdef CONFIG_PHY_AUTONEG
@@ -447,7 +470,7 @@ static void pic32mx_ethreset(struct pic32mx_driver_s *priv);
 #ifdef CONFIG_NET_REGDEBUG
 static void pic32mx_printreg(uint32_t addr, uint32_t val, bool iswrite)
 {
-  dbg("%08x%s%08x\n", addr, iswrite ? "<-" : "->", val);
+  lldbg("%08x%s%08x\n", addr, iswrite ? "<-" : "->", val);
 }
 #endif
 
@@ -497,7 +520,7 @@ static void pic32mx_checkreg(uint32_t addr, uint32_t val, bool iswrite)
             {
               /* No.. More than one. */
 
-              dbg("[repeats %d more times]\n", count);
+              lldbg("[repeats %d more times]\n", count);
             }
         }
 
@@ -559,6 +582,60 @@ static void pic32mx_putreg(uint32_t val, uint32_t addr)
 #endif
 
 /****************************************************************************
+ * Function: pic32mx_dumptxdesc
+ *
+ * Description:
+ *   Dump the contents of the specified TX descriptor
+ *
+ * Parameters:
+ *   txdesc - Pointer to the TX descriptor to dump
+ *   msg    - Annotation for the TX descriptor
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_DESCDEBUG
+static void pic32mx_dumptxdesc(struct pic32mx_txdesc_s *txdesc, const char *msg)
+{
+  lldbg("TX Descriptor [%p]: %s\n", txdesc, msg);
+  lldbg("   status: %08x\n", txdesc->status);
+  lldbg("  address: %08x [%08x]\n", txdesc->address, VIRT_ADDR(txdesc->address));
+  lldbg("     tsv1: %08x\n", txdesc->tsv1);
+  lldbg("     tsv2: %08x\n", txdesc->tsv2);
+  lldbg("   nexted: %08x [%08x]\n", txdesc->nexted, VIRT_ADDR(txdesc->nexted));
+}
+#endif
+
+/****************************************************************************
+ * Function: pic32mx_dumprxdesc
+ *
+ * Description:
+ *   Dump the contents of the specified RX descriptor
+ *
+ * Parameters:
+ *   txdesc - Pointer to the RX descriptor to dump
+ *   msg    - Annotation for the RX descriptor
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NET_DESCDEBUG
+static void pic32mx_dumprxdesc(struct pic32mx_rxdesc_s *rxdesc, const char *msg)
+{
+  lldbg("RX Descriptor [%p]: %s\n", rxdesc, msg);
+  lldbg("   status: %08x\n", rxdesc->status);
+  lldbg("  address: %08x [%08x]\n", rxdesc->address, VIRT_ADDR(rxdesc->address));
+  lldbg("     rsv1: %08x\n", rxdesc->rsv1);
+  lldbg("     rsv2: %08x\n", rxdesc->rsv2);
+  lldbg("   nexted: %08x [%08x]\n", rxdesc->nexted, VIRT_ADDR(rxdesc->nexted));
+}
+#endif
+
+/****************************************************************************
  * Function: pic32mx_bufferinit
  *
  * Description:
@@ -579,8 +656,13 @@ static inline void pic32mx_bufferinit(struct pic32mx_driver_s *priv)
 
   for (i = 0, buffer = priv->pd_buffers; i < PIC32MX_NBUFFERS; i++)
    {
+     /* Add the buffer to the end of the list of free buffers */
+
      sq_addlast((sq_entry_t*)buffer, &priv->pd_freebuffers);
-     buffer += CONFIG_NET_BUFSIZE;
+
+     /* Get the address of the next buffer */
+ 
+     buffer += PIC32MX_ALIGNED_BUFSIZE;
    }
 }
 
@@ -600,6 +682,8 @@ static inline void pic32mx_bufferinit(struct pic32mx_driver_s *priv)
 
 static uint8_t *pic32mx_allocbuffer(struct pic32mx_driver_s *priv)
 {
+  /* Return the next free buffer from the head of the free buffer list */
+
   return (uint8_t*)sq_remfirst(&priv->pd_freebuffers);
 }
 
@@ -619,6 +703,8 @@ static uint8_t *pic32mx_allocbuffer(struct pic32mx_driver_s *priv)
 
 static void pic32mx_freebuffer(struct pic32mx_driver_s *priv, uint8_t *buffer)
 {
+  /* Add the buffer to the end of the free buffer list */
+
    sq_addlast((sq_entry_t*)buffer, &priv->pd_freebuffers);
 }
 
@@ -669,12 +755,14 @@ static inline void pic32mx_txdescinit(struct pic32mx_driver_s *priv)
 
       if (i == (CONFIG_NET_NRXDESC-1))
         {
-          txdesc->nexted = (uint32_t)priv->pd_txdesc;
+          txdesc->nexted = PHYS_ADDR(priv->pd_txdesc);
         }
       else
         {
-          txdesc->nexted = (uint32_t)&priv->pd_txdesc[i+1];
+          txdesc->nexted = PHYS_ADDR(&priv->pd_txdesc[i+1]);
         }
+
+      pic32mx_dumptxdesc(txdesc, "Initial");
     }
 
   /* Update the ETHTXST register with the physical address of the head of
@@ -722,10 +810,10 @@ static inline void pic32mx_rxdescinit(struct pic32mx_driver_s *priv)
        * for reception.
        */
 
-      rxdesc->status  = RXDESC_STATUS_EOWN | TXDESC_STATUS_NPV;
-      rxdesc->address = PHYS_ADDR(pic32mx_allocbuffer(priv));
       rxdesc->rsv1    = 0;
       rxdesc->rsv2    = 0;
+      rxdesc->address = PHYS_ADDR(pic32mx_allocbuffer(priv));
+      rxdesc->status  = RXDESC_STATUS_EOWN | TXDESC_STATUS_NPV;
 
       /* Set the NEXTED pointer.  If this is the last descriptor in the
        * list, then set the NEXTED pointer back to the first entry,
@@ -734,12 +822,14 @@ static inline void pic32mx_rxdescinit(struct pic32mx_driver_s *priv)
 
       if (i == (CONFIG_NET_NRXDESC-1))
         {
-          rxdesc->nexted = (uint32_t)priv->pd_rxdesc;
+          rxdesc->nexted = PHYS_ADDR(priv->pd_rxdesc);
         }
       else
         {
-          rxdesc->nexted = (uint32_t)&priv->pd_rxdesc[i+1];
+          rxdesc->nexted = PHYS_ADDR(&priv->pd_rxdesc[i+1]);
         }
+
+      pic32mx_dumprxdesc(rxdesc, "Initial");
     }
 
   /* Update the ETHRXST register with the physical address of the head of the
@@ -794,6 +884,30 @@ static struct pic32mx_txdesc_s *pic32mx_txdesc(struct pic32mx_driver_s *priv)
   /* All descriptors are owned by the Ethernet controller.. return NULL */
 
   return NULL;
+}
+
+/****************************************************************************
+ * Function: pic32mx_rxreturn
+ *
+ * Description:
+ *   Return an RX descriptor to the hardware.
+ *
+ * Parameters:
+ *   rxdesc - Reference to the RX descriptor to be returned
+ *
+ * Returned Value:
+ *    None
+ *
+ * Assumptions:
+ *
+ ****************************************************************************/
+
+static inline void pic32mx_rxreturn(struct pic32mx_rxdesc_s *rxdesc)
+{
+  rxdesc->rsv1   = 0;
+  rxdesc->rsv2   = 0;
+  rxdesc->status = RXDESC_STATUS_EOWN | TXDESC_STATUS_NPV;
+  pic32mx_dumprxdesc(rxdesc, "Returned to hardware");
 }
 
 /****************************************************************************
@@ -867,15 +981,17 @@ static struct pic32mx_rxdesc_s *pic32mx_rxdesc(struct pic32mx_driver_s *priv)
 static int pic32mx_transmit(struct pic32mx_driver_s *priv)
 {
   struct pic32mx_txdesc_s *txdesc;
+  uint32_t status;
 
   /* Verify that the hardware is ready to send another packet.  If we get
    * here, then we are committed to sending a packet; Higher level logic
    * must have assured that there is no transmission in progress.
    */
 
-  DEBUGASSERT(priv->pd_dev.d_buf && priv->pd_dev.d_len < CONFIG_NET_BUFSIZE);
+  DEBUGASSERT(priv->pd_dev.d_buf != NULL &&
+              priv->pd_dev.d_len < CONFIG_NET_BUFSIZE);
 
-  /* Increment statistics and dump the packet *if so configured) */
+  /* Increment statistics and dump the packet (if so configured) */
 
   EMAC_STAT(priv, tx_packets);
   pic32mx_dumppacket("Transmit packet", priv->pd_dev.d_buf, priv->pd_dev.d_len);
@@ -896,6 +1012,7 @@ static int pic32mx_transmit(struct pic32mx_driver_s *priv)
 
   txdesc = pic32mx_txdesc(priv);
   DEBUGASSERT(txdesc != NULL);
+  pic32mx_dumptxdesc(txdesc, "Before transmit setup");
 
   /* Remove the transmit buffer from the device structure and assign it to
    * the TX descriptor.
@@ -908,8 +1025,7 @@ static int pic32mx_transmit(struct pic32mx_driver_s *priv)
    * contained in the buffer.
    */
 
-  txdesc->tsv2      &= TXDESC_TSV2_BYTECOUNT_MASK;
-  txdesc->tsv2      |= ((uint32_t)priv->pd_dev.d_len << TXDESC_TSV2_BYTECOUNT_SHIFT);
+  status             = ((uint32_t)priv->pd_dev.d_len << TXDESC_STATUS_BYTECOUNT_SHIFT);
   priv->pd_dev.d_len = 0;
 
   /* Set EOWN = 1 to indicate that the packet belongs to Ethernet and set both
@@ -917,7 +1033,10 @@ static int pic32mx_transmit(struct pic32mx_driver_s *priv)
    * frame.
    */
 
-  txdesc->status |= (TXDESC_STATUS_EOWN | TXDESC_STATUS_EOP | TXDESC_STATUS_SOP);
+  status        |= (TXDESC_STATUS_EOWN | TXDESC_STATUS_NPV |
+                    TXDESC_STATUS_EOP | TXDESC_STATUS_SOP);
+  txdesc->status = status;
+  pic32mx_dumptxdesc(txdesc, "After transmit setup");
 
   /* Enable the transmission of the message by setting the TXRTS bit (ETHCON1:9). */
 
@@ -932,6 +1051,7 @@ static int pic32mx_transmit(struct pic32mx_driver_s *priv)
 
   (void)wd_start(priv->pd_txtimeout, PIC32MX_TXTIMEOUT, pic32mx_txtimeout,
                  1, (uint32_t)priv);
+
   return OK;
 }
 
@@ -1035,7 +1155,7 @@ static void pic32mx_response(struct pic32mx_driver_s *priv)
     }
   else
     {
-       /* No.. mark the Tx as pending and halt further Tx interrupts */
+       /* No.. mark the Tx as pending and halt further Rx interrupts */
 
        DEBUGASSERT((priv->pd_inten & ETH_INT_TXDONE) != 0);
        
@@ -1087,6 +1207,7 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
 
           return;
         }
+      pic32mx_dumprxdesc(rxdesc, "RX Complete");
 
       /* Update statistics */
 
@@ -1094,14 +1215,15 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
 
       /* Get the packet length */
 
-      priv->pd_dev.d_len = (rxdesc->rsv1 & RXDESC_RSV1_BYTECOUNT_MASK) >> RXDESC_RSV1_BYTECOUNT_SHIFT;
+      priv->pd_dev.d_len = (rxdesc->rsv2 & RXDESC_RSV2_BYTECOUNT_MASK) >> RXDESC_RSV2_BYTECOUNT_SHIFT;
 
       /* Check for errors */
 
-      if ((rxdesc->status & RXDESC_RSV1_OK) == 0)
+      if ((rxdesc->rsv2 & RXDESC_RSV2_OK) == 0)
         {
-          nlldbg("Error. rxdesc: %08x\n", rxdesc->status);
+          nlldbg("ERROR. rsv1: %08x rsv2: %08x\n", rxdesc->rsv1, rxdesc->rsv2);
           EMAC_STAT(priv, rx_pkterr);
+          pic32mx_rxreturn(rxdesc);
         }
 
       /* If the packet length is greater then the buffer, then we cannot accept
@@ -1114,6 +1236,7 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
         {
           nlldbg("Too big. packet length: %d rxdesc: %08x\n", priv->pd_dev.d_len, rxdesc->status);
           EMAC_STAT(priv, rx_pktsize);
+          pic32mx_rxreturn(rxdesc);
         }
 
       /* We don't have any logic here for reassembling packets from fragments. */
@@ -1122,6 +1245,7 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
         {
           nlldbg("Fragment. packet length: %d rxdesc: %08x\n", priv->pd_dev.d_len, rxdesc->status);
           EMAC_STAT(priv, rx_fragment);
+          pic32mx_rxreturn(rxdesc);
         }
       else
         {
@@ -1130,6 +1254,7 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
           /* Get the Rx buffer address from the Rx descriptor */
  
           priv->pd_dev.d_buf = (uint8_t*)VIRT_ADDR(rxdesc->address);
+          DEBUGASSERT(priv->pd_dev.d_buf != NULL);
 
           /* Replace the buffer in the RX descriptor with a new one */
 
@@ -1139,12 +1264,9 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
 
           /* And give the RX descriptor back to the hardware */
 
-          rxdesc->status = RXDESC_STATUS_EOWN | TXDESC_STATUS_NPV;
-          rxdesc->rsv1   = 0;
-          rxdesc->rsv1   = 0;
-
+          pic32mx_rxreturn(rxdesc);
           pic32mx_dumppacket("Received packet",
-                           priv->pd_dev.d_buf, priv->pd_dev.d_len);
+                             priv->pd_dev.d_buf, priv->pd_dev.d_len);
 
           /* We only accept IP packets of the configured type and ARP packets */
 
@@ -1154,14 +1276,14 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
           if (BUF->type == HTONS(UIP_ETHTYPE_IP))
 #endif
             {
-              /* Handle the incoming Rx packet */
+              /* Handle the incoming IP packet */
 
               EMAC_STAT(priv, rx_ip);
               uip_arp_ipin(&priv->pd_dev);
               uip_input(&priv->pd_dev);
 
               /* If the above function invocation resulted in data that
-               * should be sent out on the network, the field  d_len will
+               * should be sent out on the network, the field d_len will
                * set to a value > 0.
                */
 
@@ -1173,6 +1295,8 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
             }
           else if (BUF->type == htons(UIP_ETHTYPE_ARP))
             {
+              /* Handle the incoming ARP packet */
+
               EMAC_STAT(priv, rx_arp);
               uip_arp_arpin(&priv->pd_dev);
 
@@ -1190,6 +1314,7 @@ static void pic32mx_rxdone(struct pic32mx_driver_s *priv)
             {
               /* Unrecognized... drop it. */
 
+              nlldbg("Unrecognized packet type dropped: %04x\n", ntohs(BUF->type));
               EMAC_STAT(priv, rx_dropped);
             }
 
@@ -1261,22 +1386,26 @@ static void pic32mx_txdone(struct pic32mx_driver_s *priv)
 
           if (txdesc->address != 0)
             {
-              /* Reset status */
-
-              txdesc->status  = TXDESC_STATUS_SOWN | TXDESC_STATUS_NPV;
-              txdesc->tsv1    = 0;
-              txdesc->tsv2    = 0;
+              pic32mx_dumptxdesc(txdesc, "Freeing TX buffer");
 
               /* Free the TX buffer */
 
               pic32mx_freebuffer(priv, (uint8_t *)VIRT_ADDR(txdesc->address));
               txdesc->address = 0;
+
+              /* Reset status */
+
+              txdesc->tsv1    = 0;
+              txdesc->tsv2    = 0;
+              txdesc->status  = TXDESC_STATUS_SOWN | TXDESC_STATUS_NPV;
+              pic32mx_dumptxdesc(txdesc, "TX buffer freed");
             }
         }
     }
 
-  /* Check if there is a pending Tx transfer that was scheduled by Rx handling
-   * while the Tx logic was busy.  If so, processing that pending Tx now.
+  /* Check if there is a pending Tx transfer that was deferred by Rx handling
+   * because there were no available Tx descriptors.  If so, process that
+   * pending Tx now.
    */
 
   if (priv->pd_txpending)
@@ -1682,7 +1811,8 @@ static int pic32mx_ifup(struct uip_driver_s *dev)
    */
 
 #if CONFIG_PIC32MX_FMIIEN == 0
-#  warning "Missing logic"
+  pic32mx_putreg(EMAC1_SUPP_RESETRMII, PIC32MX_EMAC1_SUPPSET);
+  pic32mx_putreg((EMAC1_SUPP_RESETRMII | EMAC1_SUPP_SPEEDRMII), PIC32MX_EMAC1_SUPPCLR);
 #endif
 
    /* Issue an MIIM block reset, by setting the RESETMGMT (EMAC1MCFG:15) bit,
@@ -1721,7 +1851,6 @@ static int pic32mx_ifup(struct uip_driver_s *dev)
   /* Set other misc configuration-related registers to default values */
 
   pic32mx_putreg(0, PIC32MX_EMAC1_CFG2);
-  pic32mx_putreg(0, PIC32MX_EMAC1_SUPP);
   pic32mx_putreg(0, PIC32MX_EMAC1_TEST);
 
   /* Having available the Duplex and Speed settings, configure the MAC
@@ -1732,7 +1861,7 @@ static int pic32mx_ifup(struct uip_driver_s *dev)
    */
 
   pic32mx_putreg(EMAC1_CFG1_RXEN | EMAC1_CFG1_RXPAUSE | EMAC1_CFG1_TXPAUSE,
-                 PIC32MX_EMAC1_MCFGSET);
+                 PIC32MX_EMAC1_CFG1SET);
 
   /* Select the desired auto-padding and CRC capabilities, and the enabling
    * of the huge frames and the Duplex type in the EMAC1CFG2 register.
@@ -1812,9 +1941,9 @@ static int pic32mx_ifup(struct uip_driver_s *dev)
    * inside of the stack.
    */
 
-  regval = ETH_RXFC_BCEN | ETH_RXFC_PMMODE_DISABLED;
+  regval  = ETH_RXFC_BCEN | ETH_RXFC_UCEN | ETH_RXFC_PMMODE_DISABLED;
 #ifdef CONFIG_NET_MULTICAST
-  regval |= (ETH_RXFC_MCEN | ETH_RXFC_UCEN);
+  regval |= ETH_RXFC_MCEN;
 #endif
   pic32mx_putreg(regval, PIC32MX_ETH_RXFC);
 
@@ -1850,7 +1979,7 @@ static int pic32mx_ifup(struct uip_driver_s *dev)
 
   /* Configure to pass all received frames */
 
-  regval = pic32mx_getreg(PIC32MX_EMAC1_CFG1);
+  regval  = pic32mx_getreg(PIC32MX_EMAC1_CFG1);
   regval |= EMAC1_CFG1_PASSALL;
   pic32mx_putreg(regval, PIC32MX_EMAC1_CFG1);
 
@@ -2101,6 +2230,27 @@ static void pic32mx_showmii(uint8_t phyaddr, const char *msg)
 #endif
 
 /****************************************************************************
+ * Function: pic32mx_phybusywait
+ *
+ * Description:
+ *   Wait until the PHY is no longer busy
+ *
+ * Parameters:
+ *  None
+ *
+ * Returned Value:
+ *   None
+ *
+ * Assumptions:
+ *
+ ****************************************************************************/
+
+static void pic32mx_phybusywait(void)
+{
+  while ((pic32mx_getreg(PIC32MX_EMAC1_MIND) & EMAC1_MIND_MIIMBUSY) != 0);
+}
+
+/****************************************************************************
  * Function: pic32mx_phywrite
  *
  * Description:
@@ -2123,23 +2273,23 @@ static void pic32mx_phywrite(uint8_t phyaddr, uint8_t regaddr, uint16_t phydata)
 {
   uint32_t regval;
 
+  /* Make sure that the PHY is not still busy from the last command */
+
+  pic32mx_phybusywait();
+
   /* Set PHY address and PHY register address */
 
   regval = ((uint32_t)phyaddr << EMAC1_MADR_PHYADDR_SHIFT) |
            ((uint32_t)regaddr << EMAC1_MADR_REGADDR_SHIFT);
   pic32mx_putreg(regval, PIC32MX_EMAC1_MADR);
 
-  /* Set up to write */
-
-  pic32mx_putreg(EMAC1_MCMD_WRITE, PIC32MX_EMAC1_MCMD);
-
   /* Write the register data to the PHY */
 
   pic32mx_putreg((uint32_t)phydata, PIC32MX_EMAC1_MWTD);
 
-  /* Wait for the PHY command to complete */
+  /* Two clock cycles until busy is set from the write operation */
 
-  while ((pic32mx_getreg(PIC32MX_EMAC1_MIND) & EMAC1_MIND_MIIMBUSY) != 0);
+  __asm__ __volatile__ ("nop; nop;");
 }
 #endif
 
@@ -2165,7 +2315,9 @@ static uint16_t pic32mx_phyread(uint8_t phyaddr, uint8_t regaddr)
 {
   uint32_t regval;
 
-  pic32mx_putreg(0, PIC32MX_EMAC1_MCMD);
+  /* Make sure that the PHY is not still busy from the last command */
+
+  pic32mx_phybusywait();
 
   /* Set PHY address and PHY register address */
 
@@ -2177,9 +2329,13 @@ static uint16_t pic32mx_phyread(uint8_t phyaddr, uint8_t regaddr)
 
   pic32mx_putreg(EMAC1_MCMD_READ, PIC32MX_EMAC1_MCMD);
 
+  /* Four clock cycles until busy is set from the write operation */
+
+  __asm__ __volatile__ ("nop; nop; nop; nop;");
+
   /* Wait for the PHY command to complete */
 
-  while ((pic32mx_getreg(PIC32MX_EMAC1_MIND) & (EMAC1_MIND_MIIMBUSY|EMAC1_MIND_NOTVALID)) != 0);
+  pic32mx_phybusywait();
   pic32mx_putreg(0, PIC32MX_EMAC1_MCMD);
 
   /* Return the PHY register data */
@@ -2207,7 +2363,7 @@ static uint16_t pic32mx_phyread(uint8_t phyaddr, uint8_t regaddr)
 #ifdef PIC32MX_HAVE_PHY
 static inline int pic32mx_phyreset(uint8_t phyaddr)
 {
-  int32_t timeout;
+  int32_t  timeout;
   uint16_t phyreg;
 
   /* Reset the PHY.  Needs a minimal 50uS delay after reset. */
@@ -2222,7 +2378,7 @@ static inline int pic32mx_phyreset(uint8_t phyaddr)
    * that the reset is complete.
    */
 
-  for (timeout = MII_BIG_TIMEOUT; timeout > 0; timeout--)
+  for (timeout = PIC32MX_MIITIMEOUT; timeout > 0; timeout--)
     {
       phyreg = pic32mx_phyread(phyaddr, MII_MCR);
       if ((phyreg & MII_MCR_RESET) == 0)
@@ -2265,7 +2421,7 @@ static inline int pic32mx_phyautoneg(uint8_t phyaddr)
 
   /* Wait for autonegotiation to complete */
 
-  for (timeout = MII_BIG_TIMEOUT; timeout > 0; timeout--)
+  for (timeout = PIC32MX_MIITIMEOUT; timeout > 0; timeout--)
     {
       /* Check if auto-negotiation has completed */
 
@@ -2336,7 +2492,7 @@ static int pic32mx_phymode(uint8_t phyaddr, uint8_t mode)
 
   /* Then wait for the link to be established */
 
-  for (timeout = MII_BIG_TIMEOUT; timeout > 0; timeout--)
+  for (timeout = PIC32MX_MIITIMEOUT; timeout > 0; timeout--)
     {
 #ifdef CONFIG_PHY_DP83848C
       phyreg = pic32mx_phyread(phyaddr, MII_DP83848C_STS);
@@ -2387,9 +2543,28 @@ static inline int pic32mx_phyinit(struct pic32mx_driver_s *priv)
   uint32_t regval;
   int ret;
 
-  /* Clear any ongoing PHY command bits */
+#if CONFIG_PIC32MX_FMIIEN == 0
+  /* Set the RMII operation mode. This usually requires access to a vendor
+   * specific control register.
+   */
 
-  pic32mx_putreg(0, PIC32MX_EMAC1_MCMD);
+#ifdef CONFIG_PHY_DP83848C
+ /* The RMII/MII of operation can be selected by strap options or register
+  * control (using the RBR register). For RMII mode, it is required to use the
+  * strap option, since it requires a 50 MHz clock instead of the normal 25 MHz.
+  */
+#endif
+
+#else
+  /* Set the MII/ operation mode. This usually requires access to a vendor-
+   * specific control register.
+   */
+
+#ifdef CONFIG_PHY_DP83848C
+#  warning "Missing logic"
+#endif
+
+#endif
 
   /* Find PHY Address.  Because the controller has a pull-up and the
    * PHY has pull-down resistors on RXD lines some times the PHY
@@ -2398,9 +2573,26 @@ static inline int pic32mx_phyinit(struct pic32mx_driver_s *priv)
 
   for (phyaddr = 1; phyaddr < 32; phyaddr++)
     {
-       /* Check if we can see the selected device ID at this
-        * PHY address.
-        */
+      /* Clear any ongoing PHY command bits */
+
+      pic32mx_putreg(0, PIC32MX_EMAC1_MCMD);
+
+      /* Reset the PHY (use Control Register 0). */
+
+      ret = pic32mx_phyreset(phyaddr);
+      if (ret < 0)
+        {
+          ndbg("Failed to reset PHY at address %d\n");
+          continue;
+        }
+
+      /* Set the normal, swapped or auto (preferred) MDIX. This usually
+       * requires access to a vendor-specific control register.
+       */
+
+      /* Check if we can see the selected device ID at this
+       * PHY address.
+       */
 
        phyreg = (unsigned int)pic32mx_phyread(phyaddr, MII_PHYID1);
        nvdbg("Addr: %d PHY ID1: %04x\n", phyaddr, phyreg);
@@ -2410,7 +2602,7 @@ static inline int pic32mx_phyinit(struct pic32mx_driver_s *priv)
           phyreg = pic32mx_phyread(phyaddr, MII_PHYID2);
           nvdbg("Addr: %d PHY ID2: %04x\n", phyaddr, phyreg);
 
-          if (phyreg  == PIC32MX_PHYID2)
+          if (phyreg == PIC32MX_PHYID2)
             {
               break;
             }
@@ -2667,8 +2859,9 @@ static void pic32mx_macmode(uint8_t mode)
       pic32mx_putreg((EMAC1_CFG2_CRCEN | EMAC1_CFG2_PADCRCEN), PIC32MX_EMAC1_CFG2SET);
     }
 
-  /* Set the MAC speed. */
+  /* Set the RMII MAC speed. */
 
+#if CONFIG_PIC32MX_FMIIEN == 0
   if ((mode & PIC32MX_SPEED_MASK) == PIC32MX_SPEED_100)
     {
       pic32mx_putreg(EMAC1_SUPP_SPEEDRMII, PIC32MX_EMAC1_SUPPSET);
@@ -2677,6 +2870,7 @@ static void pic32mx_macmode(uint8_t mode)
     {
       pic32mx_putreg(EMAC1_SUPP_SPEEDRMII, PIC32MX_EMAC1_SUPPCLR);
     }
+#endif
 }
 #endif
 
@@ -2721,6 +2915,17 @@ static void pic32mx_ethreset(struct pic32mx_driver_s *priv)
 
   while ((pic32mx_getreg(PIC32MX_ETH_STAT) & ETH_STAT_ETHBUSY) != 0);
 
+  /* Turn the Ethernet controller on. */
+
+  pic32mx_putreg(ETH_CON1_ON, PIC32MX_ETH_CON1SET);
+
+  /* Clear the Ethernet STAT BUFCNT */
+
+  while ((pic32mx_getreg(PIC32MX_ETH_STAT) & ETH_STAT_BUFCNT_MASK) != 0)
+    {
+      pic32mx_putreg(ETH_CON1_BUFCDEC, PIC32MX_ETH_CON1SET);
+    }
+
   /* Clear the Ethernet Interrupt Flag (ETHIF) bit in the Interrupts module */
 
 #if CONFIG_PIC32MX_NINTERFACES > 1
@@ -2738,7 +2943,7 @@ static void pic32mx_ethreset(struct pic32mx_driver_s *priv)
   /* Clear the TX and RX start addresses by using ETHTXSTCLR and ETHRXSTCLR */
 
   pic32mx_putreg(0xffffffff, PIC32MX_ETH_TXSTCLR);
-  pic32mx_putreg(0xffffffff, PIC32MX_ETH_RXSTSET);
+  pic32mx_putreg(0xffffffff, PIC32MX_ETH_RXSTCLR);
 
   /* MAC Initialization *****************************************************/
   /* Put the MAC into the reset state */

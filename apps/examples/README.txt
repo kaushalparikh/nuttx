@@ -110,6 +110,50 @@ examples/can
       built-in, the default is 32.  Otherwise messages are sent and received
       indefinitely.
 
+examples/cdcacm
+^^^^^^^^^^^^^^^
+
+  This very simple example shows how a USB CDC/ACM serial can be dynamically
+  connected and disconnected from a host.  This example can only be used as
+  an NSH built-int command.  If built-in, then two new NSH commands will be
+  supported:
+
+    1. sercon - Connect the CDC/ACM serial device
+    2. serdis - Disconnect the CDC/ACM serial device
+
+  Configuration prequisites (not complete):
+
+    CONFIG_USBDEV=y                 : USB device support must be enabled
+    CONFIG_CDCACM=y                 : The CDC/ACM driver must be built
+    CONFIG_NSH_BUILTIN_APPS         : NSH built-in application support must be enabled
+
+  Configuration options specific to this example:
+
+    CONFIG_EXAMPLES_CDCACM_DEVMINOR : The minor number of the CDC/ACM device.
+                                    : i.e., the 'x' in /dev/ttyACMx
+
+  If CONFIG_USBDEV_TRACE is enabled (or CONFIG_DEBUG and CONFIG_DEBUG_USB, or
+  CONFIG_USBDEV_TRACE), then the example code will also initialize the USB trace
+  output.  The amount of trace output can be controlled using:
+
+  CONFIG_EXAMPLES_CDCACM_TRACEINIT
+    Show initialization events
+  CONFIG_EXAMPLES_CDCACM_TRACECLASS
+    Show class driver events
+  CONFIG_EXAMPLES_CDCACM_TRACETRANSFERS
+    Show data transfer events
+  CONFIG_EXAMPLES_CDCACM_TRACECONTROLLER
+    Show controller events
+  CONFIG_EXAMPLES_CDCACM_TRACEINTERRUPTS
+    Show interrupt-related events.
+
+  Note:  This example is only enables or disable USB CDC/ACM via the NSH
+  'sercon' and 'serdis' command.  It will enable and disable tracing per
+  the settings before enabling and after disabling the CDC/ACM device. It
+  will not, however, monitor buffered trace data in the interim.  If
+  CONFIG_USBDEV_TRACE is defined (and the debug options are not), other
+  application logic will need to monitor the buffered trace data.
+
 examples/composite
 ^^^^^^^^^^^^^^^^^^
 
@@ -166,9 +210,10 @@ examples/composite
   CONFIG_EXAMPLES_COMPOSITE_BUFLEN. Default 256.
 
   CONFIG_EXAMPLES_COMPOSITE_TTYUSB - The minor number of the USB serial device.
-    Default is zero (corresponding to /dev/ttyUSB0.  Default is zero.
+    Default is zero (corresponding to /dev/ttyUSB0 or /dev/ttyACM0).  Default is zero.
   CCONFIG_EXAMPLES_COMPOSITE_SERDEV - The string corresponding to
-    CONFIG_EXAMPLES_COMPOSITE_TTYUSB.  The default is "/dev/ttyUSB0".
+    CONFIG_EXAMPLES_COMPOSITE_TTYUSB.  The default is "/dev/ttyUSB0" (for the PL2303
+    emulation) or "/dev/ttyACM0" (for the CDC/ACM serial device).
   CONFIG_EXAMPLES_COMPOSITE_BUFSIZE - The size of the serial I/O buffer in
     bytes.  Default 256 bytes.
  
@@ -340,12 +385,19 @@ examples/helloxx
   library suupport is available, and that class are instantiated
   correctly.
 
-  NuttX configuration settings:
+  NuttX configuration prerequisites:
+
+    CONFIG_HAVE_CXX -- Enable C++ Support
+
+  Optional NuttX configuration settings:
+  
+    CONFIG_HAVE_CXXINITIALIZE -- Enable support for static constructors
+      (may not be available on all platforms).
+
+  NuttX configuration settings specific to this examp;le:
 
     CONFIG_EXAMPLES_HELLOXX_BUILTIN -- Build the helloxx example as a
       "built-in"  that can be executed from the NSH command line.
-    CONFIG_EXAMPLES_HELLOXX_NOSTATICCONST - Set if system does not support
-      static constructors.
     CONFIG_EXAMPLES_HELLOXX_NOSTACKCONST - Set if the system does not
       support construction of objects on the stack.
 
@@ -906,6 +958,37 @@ examples/pwm
        only available if CONFIG_PWM_PULSECOUNT is defined. Default: 0 (i.e., use
        the duration, not the count).
 
+examples/qencoder
+^^^^^^^^^^^^^^^^^
+
+  This example is a simple test of a Quadrature Encoder driver.  It simply reads
+  positional data from the encoder and prints it.,
+
+  This test depends on these specific QE/NSH configurations settings (your
+  specific PWM settings might require additional settings).
+
+    CONFIG_QENCODER - Enables quadrature encoder support (upper-half driver).
+    CONFIG_NSH_BUILTIN_APPS - Build the QE test as an NSH built-in function.
+      Default: Built as a standalone progrem.
+
+  Additional configuration options will mostly likely be required for the board-
+  specific lower-half driver.  See the README.txt file in your board configuration
+  directory.
+
+  Specific configuration options for this example include:
+ 
+  CONFIG_EXAMPLES_QENCODER_DEVPATH - The path to the QE device. Default:
+    /dev/qe0
+  CONFIG_EXAMPLES_QENCODER_NSAMPLES - If CONFIG_NSH_BUILTIN_APPS
+    is defined, then the number of samples is provided on the command line
+    and this value is ignored.  Otherwise, this number of samples is
+    collected and the program terminates.  Default:  Samples are collected
+    indefinitely.
+  CONFIG_EXAMPLES_QENCODER_DELAY - This value provides the delay (in
+    milliseonds) between each sample.  If CONFIG_NSH_BUILTIN_APPS
+    is defined, then this value is the default delay if no other delay is
+    provided on the command line.  Default:  100 milliseconds
+
 examples/rgmp
 ^^^^^^^^^^^^^
 
@@ -1214,7 +1297,8 @@ examples/usbserial
 
        At the end of the dmesg output, you should see the serial
        device was successfully idenfied and assigned to a tty device,
-       probably /dev/ttyUSB0.
+       probably /dev/ttyUSB0 or /dev/ttyACM0 (depending on the configured
+       USB serial driver).
 
     3. Then start the host application:
 
@@ -1222,7 +1306,9 @@ examples/usbserial
 
        Where:
 
-         <tty-dev> is the USB TTY device to use.  The default is /dev/ttyUSB0.
+         <tty-dev> is the USB TTY device to use.   The default is
+         "/dev/ttyUSB0" (for the PL2303 emulation) or "/dev/ttyACM0" (for
+         the CDC/ACM serial device).
 
     The host and target will exchange are variety of very small and very large
     serial messages.

@@ -3,7 +3,11 @@ configs/pic32-starterkit README
 
 
 This README file discusses the port of NuttX to the Microchip PIC32 Ethernet
-Starter Kit (DM320004) with the Multimedia Expansion Board (MEB, DM320005).
+Starter Kit (DM320004) with either
+
+  1) The Multimedia Expansion Board (MEB, DM320005), or 
+  2) The Starter Kit I/O Expansion Board 
+
 See www.microchip.com for further information.
 
 The PIC32 Ethernet Starter Kit includes:
@@ -44,16 +48,21 @@ The MEB adds:
 - CPLD for SPI and Chip Select configuration
 - Integrated 802.11 wireless connectivity
 
+The Starter Kit I/O Expansion Board:
+
+Mostly just brings out all of the pins from the tiny Starter Kit connector.
+
 Contents
 ========
 
   PIC32MX795F512L Pin Out
   MEB Connector
   PICtail
+  Serial Output using the 
   Toolchains
-  Powering the Board
   Creating Compatible NuttX HEX files
-  Serial Console
+  Serial Console: MEB
+  Serial Console: Starter Kit I/O Expansion Board
   LEDs
   PIC32MX Configuration Options
   Configurations
@@ -469,45 +478,41 @@ Creating Compatible NuttX HEX files
     directory:
 
     1) nuttx - This is an ELF file, and
-    2) nuttx.ihx - This is an Intel Hex format file.  This is controlled by
+    2) nuttx.hex - This is an Intel Hex format file.  This is controlled by
        the setting CONFIG_INTELHEX_BINARY in the .config file.
 
-    However, there are two problems with the generated nutt.ihx:
-  
-    1) The tool expects Intel Hex format files to be named *.hex.  This
-       is not a significant issue.  However, just renaming the file to
-       nuttx.hex is *not* sufficient.  There is another problem:
-    2) The tool expects the nuttx.hex file to contain physical addresses.
-       But the nuttx.ihx file generated from the top-level make will have
-       address in the KSEG0 and KSEG1 regions.
+    The PICkit tool wants an Intel Hex format file to burn into FLASH. However,
+    there is a problem with the generated nutt.hex: The tool expects the nuttx.hex
+    file to contain physical addresses.  But the nuttx.hex file generated from the
+    top-level make will have address in the KSEG0 and KSEG1 regions.
 
   tools/mkpichex:
   ---------------
 
     There is a simple tool in the configs/pic32-starterkit/tools directory
-    that can be used to solve both issues with the nuttx.ihx file.  But,
+    that can be used to solve both issues with the nuttx.hex file.  But,
     first, you must build the the tools:
 
       cd configs/pic32-starterkit/tools
       make
 
     Now you will have an excecutable file call mkpichex (or mkpichex.exe on
-    Cygwin).  This program will take the nutt.ihx file as an input, it will
+    Cygwin).  This program will take the nutt.hex file as an input, it will
     convert all of the KSEG0 and KSEG1 addresses to physical address, and
-    it will write the modified file as nuttx.hex.
+    it will write the modified file, replacing the original nuttx.hex.
 
     To use this file, you need to do the following things:
 
       . ./setenv.sh    # Source setenv.sh.  Among other this, this script
                        # will add configs/pic32-starterkit/tools to your
                        # PATH variable
-      make             # Build nuttx and nuttx.ihx
-      mkpichex $PWD    # Convert nuttx.ihx to nuttx.hex.  $PWD is the path
+      make             # Build nuttx and nuttx.hex
+      mkpichex $PWD    #  Convert addresses in nuttx.hex.  $PWD is the path
                        # to the top-level build directory.  It is the only
                        # required input to mkpichex.
 
-Serial Console
-==============
+Serial Console: MEB
+===================
 
  [[Warning:  This all sounds great, but the fact is that I have not yet
    gotten any serial UART output to work from the MEB.]]
@@ -599,6 +604,71 @@ Serial Console
   108  22  U2CTS   108  22  SS3A/RF12
        26  3.3V
        28  GND
+
+Serial Console: Starter Kit I/O Expansion Board
+===============================================
+
+  U1:
+  Ethernet Starter Kit                          Expansion I/O board
+  --------------------------------------------- -------------------------
+  PIN Description                         J2       J1  J10/J11
+  --- ---------------------------------- ------------- ------------------
+  47  AETXD0/CN20/RD14/SS3/U1CTS/U4RX    Not available N/A
+  48  AETXD1/CN21/RD15/SCK3/U1RTS/U4TX   Not available N/A
+  52  RF2/SDA3/SDI3/U1RX                 J2 pin 88     J11 pin 41
+  53  RF8/SCL3/SDO3/U1TX                 J2 pin 90     J11 pin 43
+ 
+  U2:
+  Ethernet Starter Kit                          Expansion I/O board
+  --------------------------------------------- -------------------------
+  PIN Description                         J2       J1  J10/J11
+  --- ---------------------------------- ------------- ------------------
+  39  AC1TX/RF13/SCK4/U2RTS/U5TX         J2 pin 106    J11 pin 42
+  40  AC1RX/RF12/SS4/U2CTS/U5RX          J2 pin 108    J11 pin 44
+  50  PMA8/CN18/RF5/SCL5/SDO4/U2TX       J2 pin 111    J10 pin 52
+                                         J2 pin 112    J11 pin 48
+  49  PMA9/CN17/RF4/SDA5/SDI4/U2RX       J2 pin 109    J10 pin 51
+                                         J2 pin 110    J11 pin 46
+
+  U3:
+  Ethernet Starter Kit                          Expansion I/O board
+  --------------------------------------------- -------------------------
+  PIN Description                         J2       J1  J10/J11
+  --- ---------------------------------- ------------- ------------------
+  10  PMA5/CN8/ECOL/RG6/SCK2/U3RTS/U6TX  J2 pin 45     J10 pin 23
+                                         J2 pin 117    J10 pin 55
+  11  PMA4/CN9/ECRS/RG7/SDA4/SDI2/U3RX   J2 pin 47     J10 pin 24
+                                         J2 pin 119    J10 pin 56
+  12  PMA3/AECRSDV/AERXDV/CN10/ECRSDV/   Not available N/A
+      ERXDV/RG8/SCL4/SDO2/U3TX
+  14  PMA2/AEREFCLK/AERXCLK/CN11/        
+      EREFCLK/ERXCLK/RG9/SS2/U3CTS/      Not available N/A
+      U6RX
+
+  U4:
+  Ethernet Starter Kit                          Expansion I/O board
+  --------------------------------------------- -------------------------
+  PIN Description                         J2       J1  J10/J11
+  --- ---------------------------------- ------------- ------------------
+  47  AETXD0/CN20/RD14/SS3/U1CTS/U4RX    Not available N/A
+  48  AETXD1/CN21/RD15/SCK3/U1RTS/U4TX   Not available N/A
+
+  U5:
+  Ethernet Starter Kit                          Expansion I/O board
+  --------------------------------------------- -------------------------
+  PIN Description                         J2       J1  J10/J11
+  --- ---------------------------------- ------------- ------------------
+  39  AC1TX/RF13/SCK4/U2RTS/U5TX         J2 pin 106    J11 pin 42
+  40  AC1RX/RF12/SS4/U2CTS/U5RX          J2 pin 108    J11 pin 44
+
+  U6:
+  PIN Description
+  --- ----------------------------------
+  10  PMA5/CN8/ECOL/RG6/SCK2/U3RTS/U6TX  J2 pin 45     J10 pin 23
+                                         J2 pin 117    J10 pin 55
+  14  PMA2/AEREFCLK/AERXCLK/CN11/        Not available N/A
+      EREFCLK/ERXCLK/RG9/SS2/U3CTS/
+      U6RX
 
 LEDs
 ====
@@ -901,5 +971,105 @@ selected as follow:
 Where <subdir> is one of the following:
 
   ostest:
+  =======
+    Description.
+    ------------
     This configuration directory, performs a simple OS test using
     apps/examples/ostest.
+
+    Serial Output.
+    --------------
+    The OS test produces all of its test output on the serial console.
+    This configuration has UART1 enabled as a serial console.  I have
+    been unable to get this UART work on the MEB.  But on the Expansion
+    I/O board, this maps to RX = J11 pin 41 and TX = J11 pin 43
+
+  nsh:
+  ====
+    Description.
+    ------------
+    This is the NuttShell (NSH) using the NSH startup logic at
+    apps/examples/nsh.
+
+    Serial Output.
+    --------------
+    The OS test produces all of its test output on the serial console.
+    This configuration has UART1 enabled as a serial console.  I have
+    been unable to get this UART work on the MEB.  But on the Expansion
+    I/O board, this maps to RX = J11 pin 41 and TX = J11 pin 43
+
+    USB Configuations.
+    -----------------
+    Several USB device configurations can be enabled and included
+    as NSH built-in built in functions.  
+
+    To use USB device, connect the starter kit to the host using a cable
+    with a Type-B micro-plug to the starter kit’s micro-A/B port J5, located
+    on the bottom side of the starter kit. The other end of the cable
+    must have a Type-A plug. Connect it to a USB host. Jumper JP2 should be
+    removed.
+
+    All USB device configurations require the following basic setup in
+    your NuttX configuration file to enable USB device support:
+ 
+      CONFIG_USBDEV=y         : Enable basic USB device support
+      CONFIG_PIC32MX_USBDEV=y : Enable PIC32 USB device support
+
+    examples/usbterm - This option can be enabled by uncommenting
+    the following line in the appconfig file:
+
+      CONFIGURED_APPS += examples/usbterm
+
+    And by enabling one of the USB serial devices:
+
+      CONFIG_PL2303=y         : Enable the Prolifics PL2303 emulation
+      CONFIG_CDCACM=y         : or the CDC/ACM serial driver (not both)
+
+    examples/cdcacm -  The examples/cdcacm program can be included as an 
+    function by uncommenting the following line in the appconfig file:
+    
+      CONFIGURED_APPS += examples/cdcacm
+
+    and defining the following in your .config file:
+
+      CONFIG_CDCACM=y         : Enable the CDCACM device
+
+    examples/usbstorage - There are some hooks in the appconfig file
+    to enable the USB mass storage device.  However, this device cannot
+    work until support for the SD card is also incorporated.
+
+    Networking Configuations.
+    -------------------------
+    Several Networking configurations can be enabled and included
+    as NSH built-in built in functions.  The following additional
+    configuration settings are required:
+
+      CONFIG_NET=y              : Enable networking support
+      CONFIG_PIC32MX_ETHERNET=y : Enable the PIC32 Ethernet driver
+      CONFIG_NSH_TELNET=y       : Enable the Telnet NSH console (optional)
+
+    NOTES:
+    1. This logic will assume that a network is connected.  During its
+       initialization, it will try to negotiate the link speed.  If you have
+       no network connected when you reset the board, there will be a long
+       delay (maybe 30 seconds?) before anything happens.  That is the timeout
+       before the networking finally gives up and decides that no network is
+       available.
+
+    2. This example can support an FTP client.  In order to build in FTP client
+       support simply uncomment the following lines in the appconfig file (before
+       configuring) or in the apps/.config file (after configuring):
+
+       #CONFIGURED_APPS += netutils/ftpc
+       #CONFIGURED_APPS += examples/ftpc
+
+    3. This example can support an FTP server.  In order to build in FTP server
+       support simply uncomment the following lines in the appconfig file (before
+       configuring) or in the apps/.config file (after configuring):
+
+       #CONFIGURED_APPS += netutils/ftpd
+       #CONFIGURED_APPS += examples/ftpd
+
+       And enable poll() support in the NuttX configuration file:
+
+       CONFIG_DISABLE_POLL=n

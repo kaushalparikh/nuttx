@@ -1,8 +1,8 @@
 /****************************************************************************
  * examples/usbterm/usbterm.h
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,6 +91,12 @@
 #define TRACE_BITSET            (TRACE_INIT_BITS|TRACE_ERROR_BITS|TRACE_CLASS_BITS|\
                                  TRACE_TRANSFER_BITS|TRACE_CONTROLLER_BITS|TRACE_INTERRUPT_BITS)
 
+#ifdef CONFIG_CDCACM
+#  define USBTERM_DEVNAME "/dev/ttyACM0"
+#else
+#  define USBTERM_DEVNAME "/dev/ttyUSB0"
+#endif
+
 /* Debug ********************************************************************/
 
 #ifdef CONFIG_CPP_HAVE_VARARGS
@@ -126,6 +132,8 @@ struct usbterm_globals_s
   FILE     *instream;  /* Stream for incoming USB data */
   FILE     *outstream; /* Stream for outgoing USB data */
   pthread_t listener;  /* USB terminal listener thread */
+  bool      peer;      /* True: A peer is connected to the serial port on
+                        * the remote host */
 
   /* Buffers for incoming and outgoing data */
 

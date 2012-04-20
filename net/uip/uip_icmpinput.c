@@ -2,8 +2,8 @@
  * net/uip/uip_icmpinput.c
  * Handling incoming ICMP/ICMP6 input
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Adapted for NuttX from logic in uIP which also has a BSD-like license:
  *
@@ -49,9 +49,9 @@
 #include <debug.h>
 
 #include <net/if.h>
-#include <net/uip/uipopt.h>
-#include <net/uip/uip.h>
-#include <net/uip/uip-arch.h>
+#include <nuttx/net/uip/uipopt.h>
+#include <nuttx/net/uip/uip.h>
+#include <nuttx/net/uip/uip-arch.h>
 
 #include "uip_internal.h"
 

@@ -77,7 +77,7 @@ PIC32MX440F512H Pin Out
    21  AN8/U2CTS/C1OUT/RB8           N/C            Not connected
    22  AN9/C2OUT/PMA7/RB9            N/C            Not connected
    23  TMS/AN10/CVREFOUT/PMA13/RB10  UTIL_WP        FLASH (U1) WP*
-   24  TDO/AN11/PMA12//RB11          SD_CS          SD connector CS
+   24  TDO/AN11/PMA12/RB11           SD_CS          SD connector CS
    25  Vss                                          Grounded
    26  Vdd                           +3.3V          ---
    27  TCK/AN12/PMA11/RB12           SD_CD          SD connector CD
@@ -199,41 +199,36 @@ Loading NuttX with PICkit2
     directory:
 
     1) nuttx - This is an ELF file, and
-    2) nuttx.ihx - This is an Intel Hex format file.  This is controlled by
+    2) nuttx.hex - This is an Intel Hex format file.  This is controlled by
        the setting CONFIG_INTELHEX_BINARY in the .config file.
 
-    The PICkit tool wants an Intel Hex format file to burn into FLASH.
-    However, there are two problems with the generated nutt.ihx:
-  
-    1) The tool expects Intel Hex format files to be named *.hex.  This
-       is not a significant issue.  However, just renaming the file to
-       nuttx.hex is *not* sufficient.  There is another problem:
-    2) The tool expects the nuttx.hex file to contain physical addresses.
-       But the nuttx.ihx file generated from the top-level make will have
-       address in the KSEG0 and KSEG1 regions.
+    The PICkit tool wants an Intel Hex format file to burn into FLASH. However,
+    there is a problem with the generated nutt.hex: The tool expects the nuttx.hex
+    file to contain physical addresses.  But the nuttx.hex file generated from the
+    top-level make will have address in the KSEG0 and KSEG1 regions.
 
   tools/mkpichex:
   ---------------
 
     There is a simple tool in the configs/sure-pic32mx/tools directory
-    that can be used to solve both issues with the nuttx.ihx file.  But,
+    that can be used to solve both issues with the nuttx.hex file.  But,
     first, you must build the the tools:
 
       cd configs/sure-pic32mx/tools
       make
 
     Now you will have an excecutable file call mkpichex (or mkpichex.exe on
-    Cygwin).  This program will take the nutt.ihx file as an input, it will
+    Cygwin).  This program will take the nutt.hex file as an input, it will
     convert all of the KSEG0 and KSEG1 addresses to physical address, and
-    it will write the modified file as nuttx.hex.
+    it will write the modified file, replacing the original nuttx.hex.
 
     To use this file, you need to do the following things:
 
       . ./setenv.sh    # Source setenv.sh.  Among other this, this script
                        # will add configs/sure-pic32mx/tools to your
                        # PATH variable
-      make             # Build nuttx and nuttx.ihx
-      mkpichex $PWD    # Convert nuttx.ihx to nuttx.hex.  $PWD is the path
+      make             # Build nuttx and nuttx.hex
+      mkpichex $PWD    # Convert addresses in nuttx.hex.  $PWD is the path
                        # to the top-level build directory.  It is the only
                        # required input to mkpichex.
 
@@ -457,15 +452,103 @@ selected as follow:
 Where <subdir> is one of the following:
 
   ostest:
+  =======
+    Description.
+    ------------
     This configuration directory, performs a simple OS test using
     apps/examples/ostest.
 
   nsh:
+  ====
+    Description.
+    ------------
     Configures the NuttShell (nsh) located at apps/examples/nsh.  The
     Configuration enables only the serial NSH interface.
 
-    The examples/usbterm program can be included as an NSH built-in
-    function by defined the following in your .config file:
+    USB Configuations.
+    -----------------
+    Several USB device configurations can be enabled and included
+    as NSH built-in built in functions.  All require the following
+    basic setup in your .config to enable USB device support:
+ 
+      CONFIG_USBDEV=y         : Enable basic USB device support
+      CONFIG_PIC32MX_USBDEV=y : Enable PIC32 USB device support
 
-    CONFIG_USBEV=y          : Enable basic USB device support
-    CONFIG_PIC32MX_USBDEV=y : Enable PIC32 USB device support
+    examples/usbterm - This option can be enabled by uncommenting
+    the following line in the appconfig file:
+
+      CONFIGURED_APPS += examples/usbterm
+
+    And by enabling one of the USB serial devices:
+
+      CONFIG_PL2303=y         : Enable the Prolifics PL2303 emulation
+      CONFIG_CDCACM=y         : or the CDC/ACM serial driver (not both)
+
+    examples/cdcacm -  The examples/cdcacm program can be included as an 
+    function by uncommenting the following line in the appconfig file:
+    
+      CONFIGURED_APPS += examples/cdcacm
+
+    and defining the following in your .config file:
+
+      CONFIG_CDCACM=y         : Enable the CDCACM device
+
+    examples/usbstorage - There are some hooks in the appconfig file
+    to enable the USB mass storage device.  However, this device cannot
+    work until support for the SD card is also incorporated.
+
+    SD Card Support.
+    ----------------
+    Support for the on-board, SPI-based SD card is available but is
+    not yet functional (at least at the time of this writing).  SD
+    card support can be enabled for testing by simply enabling SPI2
+    support in the configuration file:
+
+      -CONFIG_PIC32MX_SPI2=n
+      +CONFIG_PIC32MX_SPI2=y
+
+    Debug output for testing the SD card can be enabled using:
+
+      -CONFIG_DEBUG_FS=n
+      -CONFIG_DEBUG_SPI=n
+      +CONFIG_DEBUG_FS=y
+      +CONFIG_DEBUG_SPI=y
+
+  usbnsh:
+  =======
+    Description.
+    ------------
+    This is another NSH example.  If differs from the 'nsh' configuration
+    above in that this configurations uses a USB serial device for console
+    I/O.  This configuration was created to support the "DB-DP11212 PIC32
+    General Purpose Demo Board" which has no easily accessible serial port.
+    However, as of this writing, the configuration has set for the
+    "DB_DP11215 PIC32 Storage Demo Board" and has only be testing on that
+    board.
+
+    Comparison to nsh
+    -----------------
+    Below summarizes the key configuration differences between the 'nsh'
+    and the 'upnsh' configurations:
+
+      CONFIG_USBDEV=y               : NuttX USB device support is enabled
+      CONFIG_PIC32MX_USBDEV=y       : The PIC32MX USB device driver is built
+      CONFIG_UART1_SERIAL_CONSOLE=n : There is no serial console
+      CONFIG_UART2_SERIAL_CONSOLE=n :
+      CONFIG_CDCACM=y               : The CDC/ACM serial device class is enabled
+      CONFIG_CDCACM_CONSOLE=y       : The CDC/ACM serial device is the console
+
+    Using the Prolifics PL2303 Emulation
+    ------------------------------------
+    You could also use the non-standard PL2303 serial device instead of
+    the standard CDC/ACM serial device by changing:
+
+      CONFIG_CDCACM=y               : Disable the CDC/ACM serial device class
+      CONFIG_CDCACM_CONSOLE=y       : The CDC/ACM serial device is NOT the console
+      CONFIG_PL2303=y               : The Prolifics PL2303 emulation is enabled
+      CONFIG_PL2303_CONSOLE=y       : The PL2303 serial device is the console
+
+    Why would you want to use a non-standard USB serial driver?  You might
+    to use the PL2303 driver with a Windows host because it should
+    automatically install the PL2303 driver (you might have to go through
+    some effort to get Windows to recognize the CDC/ACM device).

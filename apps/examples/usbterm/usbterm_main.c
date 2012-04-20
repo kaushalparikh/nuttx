@@ -1,7 +1,7 @@
 /****************************************************************************
  * examples/usbterm/usbterm_main.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,6 +57,10 @@
 
 #ifdef CONFIG_CDCACM
 #  include <nuttx/usb/cdcacm.h>
+#endif
+
+#ifdef CONFIG_CDCACM
+#  include <nuttx/usb/pl2303.h>
 #endif
 
 #include "usbterm.h"
@@ -127,15 +131,27 @@ FAR void *usbterm_listener(FAR void *parameter)
   message("usbterm_listener: Waiting for remote input\n");
   for (;;)
     {
-      /* Display the prompt string on the remote USB serial connection */
+      /* Display the prompt string on the remote USB serial connection -- only
+       * if we know that there is someone listening at the other end.  The
+       * remote side must initiate the the conversation.
+       */
 
-      fputs("\rusbterm> ", g_usbterm.outstream);
-      fflush(g_usbterm.outstream);
+      if (g_usbterm.peer)
+        {
+          fputs("\rusbterm> ", g_usbterm.outstream);
+          fflush(g_usbterm.outstream);
+        }
 
-     /* Get the next line of input from the remote USB serial connection */
+      /* Get the next line of input from the remote USB serial connection */
 
       if (fgets(g_usbterm.inbuffer, CONFIG_EXAMPLES_USBTERM_BUFLEN, g_usbterm.instream))
         {
+          /* If we receive anything, then we can be assured that there is someone
+           * with the serial driver open on the remote host.
+           */
+
+          g_usbterm.peer = true;
+
           /* Echo the line on the local stdout */
 
           fputs(g_usbterm.inbuffer, stdout);
@@ -181,6 +197,10 @@ int MAIN_NAME(int argc, char *argv[])
   pthread_attr_t attr;
   int ret;
 
+  /* Initialize global data */
+
+  memset(&g_usbterm, 0, sizeof(struct usbterm_globals_s));
+
   /* Initialization of the USB hardware may be performed by logic external to
    * this test.
    */
@@ -199,7 +219,7 @@ int MAIN_NAME(int argc, char *argv[])
 
   message(MAIN_STRING "Registering USB serial driver\n");
 #ifdef CONFIG_CDCACM
-  ret = cdcacm_initialize(0);
+  ret = cdcacm_initialize(0, NULL);
 #else
   ret = usbdev_serialinitialize(0);
 #endif
@@ -229,11 +249,11 @@ int MAIN_NAME(int argc, char *argv[])
     {
       message(MAIN_STRING "Opening USB serial driver\n");
 
-      g_usbterm.outstream = fopen("/dev/ttyUSB0", "w");
+      g_usbterm.outstream = fopen(USBTERM_DEVNAME, "w");
       if (g_usbterm.outstream == NULL)
         {
           int errcode = errno;
-          message(MAIN_STRING "ERROR: Failed to open /dev/ttyUSB0 for writing: %d\n",
+          message(MAIN_STRING "ERROR: Failed to open " USBTERM_DEVNAME " for writing: %d\n",
                   errcode);
 
           /* ENOTCONN means that the USB device is not yet connected */
@@ -261,10 +281,10 @@ int MAIN_NAME(int argc, char *argv[])
    * should not fail.
    */
 
-  g_usbterm.instream = fopen("/dev/ttyUSB0", "r");
+  g_usbterm.instream = fopen(USBTERM_DEVNAME, "r");
   if (g_usbterm.instream == NULL)
     {
-      message(MAIN_STRING "ERROR: Failed to open /dev/ttyUSB0 for reading: %d\n", errno);
+      message(MAIN_STRING "ERROR: Failed to open " USBTERM_DEVNAME " for reading: %d\n", errno);
       goto errout_with_outstream;
     }
 
@@ -324,9 +344,11 @@ int MAIN_NAME(int argc, char *argv[])
           return 1;
         }
 #endif
-      else
+      /* Is there anyone listening on the other end? */
+
+      else if (g_usbterm.peer)
         {
-          /* Send the line of input via USB */
+          /* Yes.. Send the line of input via USB */
 
           fputs(g_usbterm.outbuffer, g_usbterm.outstream);
 
@@ -334,6 +356,10 @@ int MAIN_NAME(int argc, char *argv[])
 
           fputs("\rusbterm> ", g_usbterm.outstream);
           fflush(g_usbterm.outstream);
+        }
+      else
+        {
+          printf("Still waiting for remote peer.  Please try again later.\n", ret);
         }
 
       /* If USB tracing is enabled, then dump all collected trace data to stdout */

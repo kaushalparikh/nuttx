@@ -192,7 +192,7 @@ DFU and JTAG
   The DFU SE PC-based software is available from the STMicro website,
   http://www.st.com.  General usage instructions:
   
-  1. Convert the NuttX Intel Hex file (nuttx.ihx) into a special DFU
+  1. Convert the NuttX Intel Hex file (nuttx.hex) into a special DFU
      file (nuttx.dfu)... see below for details.
   2. Connect the STM3210E-EVAL board to your computer using a USB
      cable.
@@ -211,10 +211,9 @@ DFU and JTAG
   DFU SE PC_based software installation includes a file "DFU File Manager"
   conversion program that a file in Intel Hex format to the special DFU
   format.  When you successfully build NuttX, you will find a file called
-  nutt.ihx in the top-level directory.  That is the file that you should
-  provide to the DFU File Manager.  You will need to rename it to nuttx.hex
-  in order to find it with the DFU File Manager. You will end up with
-  a file called nuttx.dfu that you can use with the STMicro DFU SE program.
+  nutt.hex in the top-level directory.  That is the file that you should
+  provide to the DFU File Manager.  You will end up with a file called
+  nuttx.dfu that you can use with the STMicro DFU SE program.
 
   Enabling JTAG
   -------------
@@ -458,7 +457,7 @@ STM3210E-EVAL-specific Configuration Options
     CONFIG_STM32_I2C1
     CONFIG_STM32_I2C2
     CONFIG_STM32_USB
-    CONFIG_STM32_CAN
+    CONFIG_STM32_CAN1
     CONFIG_STM32_BKP
     CONFIG_STM32_PWR
     CONFIG_STM32_DAC1
@@ -504,7 +503,10 @@ STM3210E-EVAL-specific Configuration Options
   each of the four channels with different duty cycles.  That capability is
   not supported by this driver:  Only one output channel per timer.
 
-  Alternate pin mappings (should not be used with the STM3210E-EVAL board):
+  Alternate pin mappings.  The STM3210E-EVAL board requires only CAN1 remapping
+  On the STM3210E-EVAL board pin PB9 is wired as TX and pin PB8 is wired as RX.
+  Which then makes the proper connection through the CAN transiver SN65HVD230 
+  out to the CAN D-type 9-pn male connector where pin 2 is CANL and pin 7 is CANH.
 
     CONFIG_STM32_TIM1_FULL_REMAP
     CONFIG_STM32_TIM1_PARTIAL_REMAP
@@ -698,6 +700,22 @@ Where <subdir> is one of the following:
 
         Failure to do this could result in corruption of the SD card format.
 
+    The nsh2 contains support for some built-in applications that can be
+    enabled by make some additional minor changes:
+
+    (1) examples/can.  The CAN test example can be enabled by changing the
+        following settings in nsh2/defconfig:
+
+        CONFIG_CAN=y             # Enable CAN "upper-half" driver support
+        CONFIG_STM32_CAN1=y      # Enable STM32 CAN1 "lower-half" driver support
+
+        The default CAN settings may need to change in your board board
+        configuration:
+
+        CONFIG_CAN_EXTID=y       # Support extended IDs
+        CONFIG_CAN1_BAUD=250000  # Bit rate: 250 KHz
+        CONFIG_CAN_TSEG1=12      # 80% sample point
+        CONFIG_CAN_TSEG2=3
   nx:
   ---
     An example using the NuttX graphics system (NX).  This example

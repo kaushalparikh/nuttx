@@ -1,7 +1,7 @@
 ############################################################################
 # configs/stm32f4discovery/nsh/defconfig
 #
-#   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@
 # CONFIG_ARCH_CALIBRATION - Enables some build in instrumentation that
 #   cause a 100 second delay during boot-up.  This 100 second delay
 #   serves no purpose other than it allows you to calibrate
-#   CONFIG_BOARD_LOOPSPERMSEC.  You simply use a stop watch to measure
+# CONFIG_BOARD_LOOPSPERMSEC.  You simply use a stop watch to measure
 #   the 100 second delay then adjust CONFIG_BOARD_LOOPSPERMSEC until
 #   the delay actually is 100 seconds.
 # CONFIG_ARCH_DMA - Support DMA initialization
@@ -97,6 +97,8 @@ CONFIG_ARCH_DMA=n
 #
 CONFIG_STM32_CODESOURCERYW=n
 CONFIG_STM32_CODESOURCERYL=y
+CONFIG_STM32_ATOLLIC_LITE=n
+CONFIG_STM32_ATOLLIC_PRO=n
 CONFIG_STM32_DEVKITARM=n
 CONFIG_STM32_RAISONANCE=n
 CONFIG_STM32_BUILDROOT=n
@@ -313,17 +315,31 @@ CONFIG_STM32_PHYSR_FULLDUPLEX=0x0004
 CONFIG_STM32_ETH_PTP=n
 CONFIG_STM32_ETHMAC_REGDEBUG=n
 
-
 #
 # PWM configuration
 #
 # The stm32f4discovery has no real on-board PWM devices, but the board can be configured to output
-# a pulse train using TIM4 CH2.  
+# a pulse train using TIM4 CH2.  (Don't forget to set CONFIG_STM32_TIM4=y above)
 #
 CONFIG_PWM=n
-CONFIG_STM32_TIM4=y
 CONFIG_STM32_TIM4_PWM=y
 CONFIG_STM32_TIM4_CHANNEL=2
+
+#
+# Quadrature Encoder configuration.
+#
+# CONFIG_QENCODER - Enables the upper-half quadrature encoder driver
+# CONFIG_STM32_TIMn - Enables TIMn
+# CONFIG_STM32_TIMn_QE - Configures TIMn as a quadrature encoder
+# CONFIG_STM32_TIMn_QECLKOUT - Used to configure the TIMn prescaler value
+#
+# Uses TIM2 or TIM8.  TIM2 also needs CONFIG_STM32_TIM2=y; TIM8 needs CONFIG_STM_TIM8=y above.
+#
+CONFIG_QENCODER=n
+CONFIG_STM32_TIM2_QE=n
+CONFIG_STM32_TIM2_QECLKOUT=28000000
+CONFIG_STM32_TIM8_QE=y
+CONFIG_STM32_TIM8_QECLKOUT=28000000
 
 #
 # General build options
@@ -357,6 +373,9 @@ CONFIG_HAVE_LIBM=n
 # CONFIG_DEBUG_SYMBOLS - build without optimization and with
 #   debug symbols (needed for use with a debugger).
 # CONFIG_HAVE_CXX - Enable support for C++
+# CONFIG_HAVE_CXXINITIALIZE - The platform-specific logic includes support
+#   for initialization of static C++ instances for this architecture
+#   and for the selected toolchain (via up_cxxinitialize()).
 # CONFIG_MM_REGIONS - If the architecture includes multiple
 #   regions of memory to allocate from, this specifies the
 #   number of memory regions that the memory manager must
@@ -452,7 +471,9 @@ CONFIG_DEBUG_RTC=n
 CONFIG_DEBUG_ANALOG=n
 CONFIG_DEBUG_PWM=n
 CONFIG_DEBUG_CAN=n
+CONFIG_DEBUG_QENCODER=n
 CONFIG_HAVE_CXX=y
+CONFIG_HAVE_CXXINITIALIZE=y
 CONFIG_MM_REGIONS=2
 CONFIG_ARCH_LOWPUTC=y
 CONFIG_RR_INTERVAL=200
@@ -698,6 +719,9 @@ CONFIG_FS_WRITEBUFFER=n
 #   Default:  Medium
 # CONFIG_SDIO_WIDTH_D1_ONLY - Select 1-bit transfer mode.  Default:
 #   4-bit transfer mode.
+# CONFIG_MMCSD_MULTIBLOCK_DISABLE - Use only the single block transfer method.
+#   This setting is used to work around buggy drivers that cannot handle
+#   multiple block transfers.
 # CONFIG_MMCSD_MMCSUPPORT
 #   Enable support for MMC cards
 # CONFIG_MMCSD_HAVECARDDETECT
@@ -707,20 +731,7 @@ CONFIG_SDIO_DMA=n
 #CONFIG_SDIO_PRI=128
 #CONFIG_SDIO_DMAPRIO
 #CONFIG_SDIO_WIDTH_D1_ONLY
-CONFIG_MMCSD_MMCSUPPORT=n
-CONFIG_MMCSD_HAVECARDDETECT=n
-
-#
-# SDIO-based MMC/SD driver
-#
-# CONFIG_SDIO_DMA
-#   SDIO driver supports DMA
-# CONFIG_MMCSD_MMCSUPPORT
-#   Enable support for MMC cards
-# CONFIG_MMCSD_HAVECARDDETECT
-#   SDIO driver card detection is 100% accurate
-#
-CONFIG_SDIO_DMA=n
+CONFIG_MMCSD_MULTIBLOCK_DISABLE=y
 CONFIG_MMCSD_MMCSUPPORT=n
 CONFIG_MMCSD_HAVECARDDETECT=n
 

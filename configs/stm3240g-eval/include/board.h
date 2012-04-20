@@ -2,7 +2,7 @@
  * configs/stm3240g-eval/include/board.h
  * include/arch/board/board.h
  *
- *   Copyright (C) 2011-12 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -257,6 +257,28 @@
 #define BUTTON_TAMPER_BIT  (1 << BUTTON_TAMPER)
 #define BUTTON_USER_BIT    (1 << BUTTON_USER)
 
+/* SRAM definitions *****************************************************************/
+/* The 16 Mbit SRAM is connected to the STM32F407IGH6 FSMC bus which shares the same
+ * I/Os with the CAN1 bus. Jumper settings:
+ *
+ * JP1: Connect PE4 to SRAM as A20
+ * JP2: onnect PE3 to SRAM as A19
+ *
+ * JP3 and JP10 must not be fitted for SRAM and LCD application.  JP3 and JP10
+ * select CAN1 or CAN2 if fitted; neither if not fitted.
+ */
+
+#if defined(CONFIG_STM32_FSMC) && defined(CONFIG_STM32_FSMC_SRAM)
+#  if defined(CONFIG_STM32_CAN1) || defined(CONFIG_STM32_CAN2)
+#    error "The STM3240G-EVAL cannot support both CAN and FSMC SRAM"
+#  endif
+#endif
+
+/* This is the Bank1 SRAM2 address: */
+
+#define BOARD_SRAM_BASE    0x64000000
+#define BOARD_SRAM_SIZE    (2*1024*1024)
+
 /* Alternate function pin selections ************************************************/
 
 /* UART3:
@@ -419,6 +441,17 @@
  
 #define GPIO_I2C1_SCL       GPIO_I2C1_SCL_1
 #define GPIO_I2C1_SDA       GPIO_I2C1_SDA_2
+
+/* DMA Channl/Stream Selections *****************************************************/
+/* Stream selections are arbitrary for now but might become important in the future
+ * is we set aside more DMA channels/streams.
+ *
+ * SDIO DMA
+ *   DMAMAP_SDIO_1 = Channel 4, Stream 3
+ *   DMAMAP_SDIO_2 = Channel 4, Stream 6
+ */
+
+#define DMAMAP_SDIO DMAMAP_SDIO_1
 
 /************************************************************************************
  * Public Data

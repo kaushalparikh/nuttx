@@ -1,8 +1,8 @@
 ############################################################################
 # configs/stm3210e-eval/src/Makefile
 #
-#   Copyright (C) 2009-2010 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Copyright (C) 2009-2010, 2012 Gregory Nutt. All rights reserved.
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -66,6 +66,10 @@ endif
 
 ifeq ($(CONFIG_I2C_LM75),y)
 CSRCS		+= up_lm75.c
+endif
+
+ifeq ($(CONFIG_CAN),y)
+CSRCS		+= up_can.c
 endif
 
 COBJS		= $(CSRCS:.c=$(OBJEXT))

@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/mips/src/pic32mx/pic32mx-config.h
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -538,7 +538,7 @@
 #  define HAVE_UART_DEVICE 1
 #endif
 
-/* Is there a serial console?  There should be at most one defined.  It
+/* Is there a serial console?  There should be no more than one defined.  It
  * could be on any UARTn, n=1,.. CHIP_NUARTS
  */
 
@@ -607,11 +607,11 @@
 
 /* Unless overridden in the .config file, all pins are in the default setting */
 
-#ifndef CONFIG_PIC32MX_FMIIEN               /* Ethernet MII enable */
+#ifndef CONFIG_PIC32MX_FMIIEN               /* Ethernet MII enable: 0=RMII 1=MII */
 #  define CONFIG_PIC32MX_FMIIEN   1         /* MII enabled */
 #endif
 
-#ifndef CONFIG_PIC32MX_FETHIO               /* SCM1 pin C selection */
+#ifndef CONFIG_PIC32MX_FETHIO               /* Ethernet I/O Pins 0=alternate 1=default */
 #  define CONFIG_PIC32MX_FETHIO   1         /* Default Ethernet I/O Pins */
 #endif
 

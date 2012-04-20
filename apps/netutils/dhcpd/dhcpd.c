@@ -1,7 +1,7 @@
 /****************************************************************************
  * netutils/dhcpd/dhcpd.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@
 # include <debug.h>               /* For ndbg, vdbg */
 # include <nuttx/compiler.h>      /* For CONFIG_CPP_HAVE_WARNING */
 # include <arch/irq.h>            /* For irqstore() and friends -- REVISIT */
-# include <net/uip/uip-arp.h>     /* For low-level ARP interfaces -- REVISIT */
+# include <nuttx/net/uip/uip-arp.h>     /* For low-level ARP interfaces -- REVISIT */
 # include <apps/netutils/dhcpd.h> /* Advertised DHCPD APIs */
 #endif
 

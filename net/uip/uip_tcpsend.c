@@ -1,8 +1,8 @@
 /****************************************************************************
  * net/uip/uip_tcpsend.c
  *
- *   Copyright (C) 2007-2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Adapted for NuttX from logic in uIP which also has a BSD-like license:
  *
@@ -48,9 +48,9 @@
 #include <string.h>
 #include <debug.h>
 
-#include <net/uip/uipopt.h>
-#include <net/uip/uip.h>
-#include <net/uip/uip-arch.h>
+#include <nuttx/net/uip/uipopt.h>
+#include <nuttx/net/uip/uip.h>
+#include <nuttx/net/uip/uip-arch.h>
 
 #include "uip_internal.h"
 

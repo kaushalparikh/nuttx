@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/arm/src/stm32/chip.h
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,21 +49,41 @@
 /* Include the chip pin configuration file */
 
 #if defined(CONFIG_STM32_STM32F10XX)
-#  if defined(CONFIG_ARCH_CHIP_STM32F103ZET6) 
+#  if defined(CONFIG_ARCH_CHIP_STM32F103ZET6)
 #    include "chip/stm32f103ze_pinmap.h"
 #  elif defined(CONFIG_ARCH_CHIP_STM32F103RET6)
 #    include "chip/stm32f103re_pinmap.h"
 #  elif defined(CONFIG_ARCH_CHIP_STM32F103VCT6)
 #    include "chip/stm32f103vc_pinmap.h"
+#  elif defined(CONFIG_ARCH_CHIP_STM32F105VBT7)
+#    include "chip/stm32f105vb_pinmap.h"
 #  elif defined(CONFIG_ARCH_CHIP_STM32F107VC)
 #    include "chip/stm32f107vc_pinmap.h"
 #  else
 #    error "Unsupported STM32F10XXX chip"
 #  endif
+#elif defined(CONFIG_STM32_STM32F20XX)
+#  include "chip/stm32f20xxx_pinmap.h"
 #elif defined(CONFIG_STM32_STM32F40XX)
 #  include "chip/stm32f40xxx_pinmap.h"
 #else
-#  error "Unsupported STM32 chip"
+#  error "No pinmap file for this STM32 chip"
+#endif
+
+/* If the common ARMv7-M vector handling logic is used, then include the
+ * required vector definitions as well.
+ */
+
+#ifdef CONFIG_ARMV7M_CMNVECTOR
+#  if defined(CONFIG_STM32_STM32F10XX)
+#    include "chip/stm32f10xxx_vectors.h"
+#  elif defined(CONFIG_STM32_STM32F20XX)
+#    include "chip/stm32f20xxx_vectors.h"
+#  elif defined(CONFIG_STM32_STM32F40XX)
+#    include "chip/stm32f40xxx_vectors.h"
+#  else
+#    error "No vector file for this STM32 family"
+#  endif
 #endif
 
 /* Include only the mchip emory map. */

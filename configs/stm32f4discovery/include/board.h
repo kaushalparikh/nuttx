@@ -2,7 +2,7 @@
  * configs/stm32f4discovery/include/board.h
  * include/arch/board/board.h
  *
- *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -208,6 +208,7 @@
  *
  * The STM32F4 Discovery has no on-board serial devices, but the console is
  * brought out to PA2 (TX) and PA3 (RX) for connection to an external serial device.
+ * (See the README.txt file for other options)
  */
 
 #define GPIO_USART2_RX GPIO_USART2_RX_1
@@ -226,6 +227,14 @@
 #define GPIO_SPI1_MISO GPIO_SPI1_MISO_1
 #define GPIO_SPI1_MOSI GPIO_SPI1_MOSI_1
 #define GPIO_SPI1_SCK  GPIO_SPI1_SCK_1
+
+/* Timer Inputs/Outputs (see the README.txt file for options) */
+
+#define GPIO_TIM2_CH1IN  GPIO_TIM2_CH1IN_2
+#define GPIO_TIM2_CH2IN  GPIO_TIM2_CH2IN_1
+
+#define GPIO_TIM8_CH1IN  GPIO_TIM8_CH1IN_1
+#define GPIO_TIM8_CH2IN  GPIO_TIM8_CH2IN_1
 
 /************************************************************************************
  * Public Data

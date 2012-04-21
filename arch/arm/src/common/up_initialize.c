@@ -42,7 +42,7 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 #include <nuttx/ramlog.h>
 
 #include <arch/board/board.h>
@@ -125,6 +125,16 @@ void up_initialize(void)
   /* Initialize the interrupt subsystem */
 
   up_irqinitialize();
+
+  /* Initialize the power management subsystem.  This MCU-specific function
+   * must be called *very* early in the intialization sequence *before* any
+   * other device drivers are initialized (since they may attempt to register
+   * with the power management subsystem).
+   */
+
+#ifdef CONFIG_PM
+  up_pminitialize();
+#endif
 
   /* Initialize the DMA subsystem if the weak function stm32_dmainitialize has been
    * brought into the build

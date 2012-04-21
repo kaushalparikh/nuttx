@@ -38,9 +38,9 @@
 # Sub-directories
 
 SUBDIRS = adc buttons can cdcacm composite dhcpd ftpc ftpd hello helloxx \
-	hidkbd igmp lcdrw mm mount nettest nsh null nx nxffs nxflat nxhello \
-	nximage nxlines nxtext ostest pashello pipe poll pwm qencoder rgmp \
-	romfs serloop telnetd thttpd tiff touchscreen udp uip usbserial \
+	hidkbd igmp lcdrw mm mount nettest nsh null nx nxconsole nxffs nxflat \
+	nxhello nximage nxlines nxtext ostest pashello pipe poll pwm qencoder \
+	rgmp romfs serloop telnetd thttpd tiff touchscreen udp uip usbserial \
 	sendmail usbstorage usbterm wget wlan
 
 # Sub-directories that might need context setup.  Directories may need
@@ -59,6 +59,9 @@ ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
 CNTXTDIRS += adc can cdcacm composite ftpd dhcpd nettest qencoder telnetd
 endif
 
+ifeq ($(CONFIG_EXAMPLES_HELLO_BUILTIN),y)
+CNTXTDIRS += hello
+endif
 ifeq ($(CONFIG_EXAMPLES_HELLOXX_BUILTIN),y)
 CNTXTDIRS += helloxx
 endif
@@ -79,6 +82,9 @@ CNTXTDIRS += nxlines
 endif
 ifeq ($(CONFIG_EXAMPLES_NXTEXT_BUILTIN),y)
 CNTXTDIRS += nxtext
+endif
+ifeq ($(CONFIG_EXAMPLES_OSTEST_BUILTIN),y)
+CNTXTDIRS += ostest
 endif
 ifeq ($(CONFIG_EXAMPLES_TIFF_BUILTIN),y)
 CNTXTDIRS += tiff

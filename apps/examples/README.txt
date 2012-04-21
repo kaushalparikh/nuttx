@@ -110,6 +110,13 @@ examples/can
       built-in, the default is 32.  Otherwise messages are sent and received
       indefinitely.
 
+  The default behavior assumes loopback mode.  Messages are sent, then read
+  and verified.  The behavior can be altered for other kinds of testing where
+  the test only sends or received (but does not verify) can messages.
+
+   CONFIG_EXAMPLES_CAN_READONLY - Only receive messages
+   CONFIG_EXAMPLES_CAN_WRITEONLY - Only send messages
+
 examples/cdcacm
 ^^^^^^^^^^^^^^^
 
@@ -377,6 +384,9 @@ examples/hello
   than examples/null with a single printf statement.  Really useful only
   for bringing up new NuttX architectures.
 
+  * CONFIG_EXAMPLES_HELLO_BUILTIN
+    Build the "Hello, World" example as an NSH built-in application.
+
 examples/helloxx
 ^^^^^^^^^^^^^^^^
 
@@ -603,6 +613,79 @@ examples/nx
     CONFIG_DISABLE_SIGNALS=n
     CONFIG_DISABLE_PTHREAD=n
     CONFIG_NX_BLOCKING=y
+
+examples/nxconsole
+^^^^^^^^^^^^^^^^^^
+
+  This directory contains yet another version of the NuttShell (NSH).  This
+  version uses the NX console device defined in include/nuttx/nx/nxconsole.h
+  for output.  the result is that the NSH input still come from the standard
+  console input (probably a serial console).  But the text output will go to
+  an NX winbdow.  Prerequisite configuration settings for this test include:
+
+    CONFIG_NX=y              -- NX graphics must be enabled
+    CONFIG_NXCONSOLE=y       -- The NX console driver must be built
+    CONFIG_NX_MULTIUSER=y    -- NX multi-user support must be enabled.
+    CONFIG_DISABLE_MQUEUE=n  -- Message queue support must be available.
+    CONFIG_DISABLE_SIGNALS=n -- Signals are needed
+    CONFIG_DISABLE_PTHREAD=n -- pthreads are needed
+    CONFIG_NX_BLOCKING=y     -- pthread APIs must be blocking
+    CONFIG_NSH_CONSOLE=y     -- NSH must be configured to use a console.
+
+  The following configuration options can be selected to customize the
+  test:
+
+    CONFIG_EXAMPLES_NXCON_VPLANE -- The plane to select from the frame-
+      buffer driver for use in the test.  Default: 0
+    CONFIG_EXAMPLES_NXCON_DEVNO - The LCD device to select from the LCD
+      driver for use in the test: Default: 0
+    CONFIG_EXAMPLES_NXCON_BGCOLOR -- The color of the background.  Default
+      Default is a darker royal blue.
+    CONFIG_EXAMPLES_NXCON_WCOLOR -- The color of the window. Default is a light
+      slate blue.
+    CONFIG_EXAMPLES_NXCON_FONTID -- Selects the font (see font ID numbers in
+      include/nuttx/nx/nxfonts.h)
+    CONFIG_EXAMPLES_NXCON_FONTCOLOR -- The color of the fonts. Default is
+      black.
+    CONFIG_EXAMPLES_NXCON_BPP -- Pixels per pixel to use.  Valid options
+      include 2, 4, 8, 16, 24, and 32.  Default is 32.
+    CONFIG_EXAMPLES_NXCON_TOOLBAR_HEIGHT -- The height of the toolbar.
+      Default: 16
+    CONFIG_EXAMPLES_NXCON_TBCOLOR -- The color of the toolbar. Default is
+      a medium grey.
+    CONFIG_EXAMPLES_NXCON_EXTERNINIT - The driver for the graphics device on
+      this platform requires some unusual initialization.  This is the
+      for, for example, SPI LCD/OLED devices.  If this configuration is
+      selected, then the platform code must provide an LCD initialization
+      function with a prototype like:
+
+      #ifdef CONFIG_NX_LCDDRIVER
+      FAR struct lcd_dev_s *up_nxdrvinit(unsigned int devno);
+      #else
+      FAR struct fb_vtable_s *up_nxdrvinit(unsigned int devno);
+      #endif
+
+    CONFIG_EXAMPLES_NXCON_MINOR -- The NX console device minor number.
+      Default is 0 corresponding to /dev/nxcon0
+    CONFIG_EXAMPLES_NXCON_DEVNAME -- The quoated, full path to the
+      NX console device corresponding to CONFIG_EXAMPLES_NXCON_MINOR.
+      Default: "/dev/nxcon0"
+    CONFIG_EXAMPLES_NXCONSOLE_PRIO - Priority of the NxConsole task.
+      Default: SCHED_PRIORITY_DEFAULT
+    CONFIG_EXAMPLES_NXCONSOLE_STACKSIZE - Stack size allocated for the
+      NxConsole task. Default: 2048
+
+  The following configuration settings determine how to set up the NX
+  server (CONFIG_NX_MULTIUSER):
+
+    CONFIG_EXAMPLES_NXCON_STACKSIZE -- The stacksize to use when creating
+      the NX server.  Default 2048
+    CONFIG_EXAMPLES_NXCON_CLIENTPRIO -- The client priority.  Default: 100
+    CONFIG_EXAMPLES_NXCON_SERVERPRIO -- The server priority.  Default: 120
+    CONFIG_EXAMPLES_NXCON_LISTENERPRIO -- The priority of the event listener
+      thread. Default 80.
+    CONFIG_EXAMPLES_NXCON_NOTIFYSIGNO -- The signal number to use with
+      nx_eventnotify().  Default: 4
 
 examples/nxffs
 ^^^^^^^^^^^^^^
@@ -841,6 +924,8 @@ examples/ostest
   The behavior of the ostest can be modified with the following
   settings in the configs/<board-name>/defconfig file:
 
+  * CONFIG_EXAMPLES_OSTEST_BUILTIN
+      Build the OS test example as an NSH built-in application.
   * CONFIG_EXAMPLES_OSTEST_LOOPS
       Used to control the number of executions of the test.  If
       undefined, the test executes one time.  If defined to be

@@ -1,8 +1,8 @@
 /****************************************************************************
  * graphics/nxbe/nxbe_bitmap.c
  *
- *   Copyright (C) 2008-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -135,16 +135,11 @@ void nxbe_bitmap(FAR struct nxbe_window_s *wnd, FAR const struct nxgl_rect_s *de
     }
 #endif
 
-  /* Offset the rectangle and image origin by the window origin */
-
-  nxgl_rectoffset(&bounds, dest, wnd->bounds.pt1.x, wnd->bounds.pt1.y);
-  nxgl_vectoradd(&offset, origin, &wnd->bounds.pt1);
-
   /* Verify that the destination rectangle begins "below" and to the "right"
    * of the origin
    */
 
-  if (bounds.pt1.x < origin->x || bounds.pt1.y < origin->y)
+  if (dest->pt1.x < origin->x || dest->pt1.y < origin->y)
     {
       gdbg("Bad dest start position\n");
       return;
@@ -154,12 +149,17 @@ void nxbe_bitmap(FAR struct nxbe_window_s *wnd, FAR const struct nxgl_rect_s *de
    * width of the source bitmap data (taking into account the bitmap origin)
    */
 
-  deststride = (((bounds.pt2.x - origin->x + 1) * wnd->be->plane[0].pinfo.bpp + 7) >> 3);
+  deststride = (((dest->pt2.x - origin->x + 1) * wnd->be->plane[0].pinfo.bpp + 7) >> 3);
   if (deststride > stride)
     {
       gdbg("Bad dest width\n");
       return;
     }
+
+  /* Offset the rectangle and image origin by the window origin */
+
+  nxgl_rectoffset(&bounds, dest, wnd->bounds.pt1.x, wnd->bounds.pt1.y);
+  nxgl_vectoradd(&offset, origin, &wnd->bounds.pt1);
 
   /* Clip to the limits of the window and of the background screen */
 

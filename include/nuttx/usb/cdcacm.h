@@ -41,7 +41,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <nuttx/ioctl.h>
+#include <nuttx/fs/ioctl.h>
 #include <nuttx/usb/usb.h>
 
 /****************************************************************************
@@ -222,7 +222,7 @@
 
 /* IOCTL Commands ***********************************************************/
 /* The USB serial driver will support a subset of the TIOC IOCTL commands
- * defined in include/nuttx/tioctl.h.  This subset includes:
+ * defined in include/nuttx/serial/tioctl.h.  This subset includes:
  *
  * CAICO_REGISTERCB
  *   Register a callback for serial event notification. Argument:

@@ -1532,8 +1532,8 @@
 	  (and others).  Contributed by Uros Platise.
 	* examples/nsh and tools/mkromfsimg.sh: Add support for platform-specific
 	  ROMFS-based NSH start-up scripts.
-	* drivers/uart_16550.c and include/nuttx/uart_16550.h: Support for a generic
-	  16550 UART.
+	* drivers/serial/uart_16550.c and include/nuttx/serial/uart_16550.h: Support
+	  for a generic 16550 UART.
 	* configure/qemu-i486/nsh: QEMU NSH example.
 	* ../apps: The apps directory add-on was created by Uros Platise.  It
 	  supports a set of end-user applications than can be executed on top of
@@ -1969,9 +1969,9 @@
 6.8 2011-08-19 Gregory Nutt <gnutt@nuttx.org>
 
 	* arch/arm/src/lpc17xx/chip.h:  Fix some chip memory configuration errors
-	  for the LPC1764, LPC1756, and LPC1754 (submitted by Li Zhuoy (Lzzy))
+	  for the LPC1764, LPC1756, and LPC1754 (submitted by Li Zhuoy (Lzyy))
 	* arch/arm/src/lpc17xx/lpc17_can.h:  Revised CAN driver submitted by
-	   Li Zhuoy (Lzzy).  The driver now supports both CAN1 and CAN2.
+	   Li Zhuoy (Lzyy).  The driver now supports both CAN1 and CAN2.
 	* arch/arm/sim/up_lcd.c: Add a simulated LCD driver.
 	* configs/stm3210e-eval/nxlines:  Added a configuration to build
 	  examples/nxlines.
@@ -2003,12 +2003,12 @@
 	* configs/twr-k60n512:  Add support for the Kinetis K60 Tower board
 	  (TWR-K60N512).
 	* drivers/can.c:  Fixed a semaphore overflow problem in the CAN driver
-	  (reported by Li Zhouy (Lzzy)).
+	  (reported by Li Zhouy (Lzyy)).
 	* 8/18/2011: The basic port to the FreeScale Kinetics TWR-K60N512 board is
 	  now functional.
 	* confgs/twr-k60n512: Add Kinetics TWR-K60N512 NSH configuration.
 	* drivers/analog and include/nuttx/analog: Add ADC driver infrastructure
-	  and TI ADS1255 driver developed and submitted by Li Zhouy (Lzzy)).
+	  and TI ADS1255 driver developed and submitted by Li Zhouy (Lzyy)).
 	* arch/arm/stm32/stm32_sdio.h and drivers/mmcsd/mmcsd.c:  Add logic to
 	  multiplex usage of the GPIO pins (contributed by Uros Platise).
 	* configs/twr-k60n512/nsh:  Added and verified a NuttShell (NSH)
@@ -2542,13 +2542,115 @@
 	  basic port to this board.
 	* configs/pic32-startkit/nsh/up_usbdev, up_nsh.c, and up_usbterm.c:  Verified
 	  the USB (device) driver on the PIC32 Ethernet Starter Kit.
-	* arch/mips/src/pic32mx/pic32mx_ethernet.c:  Verifed the PIC32 Ethernet
+	* arch/mips/src/pic32mx/pic32mx_ethernet.c:  Verified the PIC32 Ethernet
 	  driver on the PIC32 Starter Kit.  Status:  It is occasionally functional
-	  but no stable enough for use.
+	  but not stable enough for use.
 	* arch/arm/include/stm32, arch/arm/src/stm32:  Add general support for
 	  the STM32 F2 family. Contributed by Gary Teravskis,
 	* configs/stm3220g-eval:  Add support for the STMicro STM3220G-EVAL board.
 	  Contributed by Gary Teravskis,
- 
-6.17 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
 
+6.17 2012-04-14 Gregory Nutt <gnutt@nuttx.org>
+
+	* configs/sure-pic32mx: Add support for the Sure DB-DP11212 PIC32 General
+	  Purpose Demo Board
+	* arch/arm/src/stm32/stm32_usbhost.c/.h:  Add files that will (eventually)
+	  hold an STM32 USB host driver (the initial check-in is the NuttX LPC17
+	  USB host driver with name changes only).
+	* arch/arm/src/stm32/chip/stm32_otgfs.h:  STM32 USB OTG FS register
+	  definitions (not complete on initial check-in).
+	* net/connect.c:  Add another low level, thread-independent socket interface
+	  for use within the OS.
+	* arch/mips/src/pic32mx/pic32mx_ethernet.c:  The PIC32 Ethernet driver
+	  is now stable on the PIC32 Starter Kit.
+	* configs/pic32-starterkit/nsh2:  Add a PIC32 Ethernet Starter Kit NSH
+	  configuration that has no serial console; all interaction is done via
+	  Telnet.
+	* net/netdev_sem.c:  Correct a deadlock condition by making a seamphore
+	  recursive.  To my knowledge this deadlock only occurs when running the
+	  NSH command ifconfig over Telnet.  In that case the function netdev_foreach
+	  takes the network device semaphore, but so does the telnet logic causing
+	  the deadlock.
+	* arch/arm/src/stm32/stm32_pm*.c: Add basic STM32 power management logic
+	  that will eventually be used to implement low power states.
+	* arch/arm/src/stm32/stm32f*0xx_rcc.c:  In order to use CAN2, both CAN1 and
+	  CAN2 clocking must be enabled.
+	* arch/mips/src/pic32mx/picm32mx-usbdev.c:  Several stall-related fixes so that
+	  the USB device driver can used the the mass storage class (which does a LOT
+	  of stalling as part of its normal protocol).  The PIC32 USB Mass Storage
+	  device is, however, still non-functional when debug is OFF.
+	* include/nuttx/fs: Move all file-system related files from include/nuttx to
+	  include/nuttx/fs.
+	* include/nuttx/serial: Move all serial-driver related files from include/nuttx to
+	  include/nuttx/serial.
+	* include/nuttx/clock.h and sched/clock_initialize.c:  Add a new OS interface
+	  called clock_sychronize() that can be used to re-synchronize the NuttX
+	  system time with a hardware RTC.  This function is called normally at power
+	  up but may also need to be called when recovering from certain low-power
+	  usage states where the system time is no longer accurate.
+	* arch/arm/src/calypso and arch/arm/include/calypso: Support for the TI "Calypso"
+	  phone processor. Contributed by Denis Carilki and includes the work of Denis,
+	  Alan Carvalho de Assis, and Stefan Richter.
+	* configs/compal_e88 and configs/compal_e99:  Support for Compal e88 and e99 phones
+	  Contributed by Denis Carilki and includes the work of Denis, Alan Carvalho de
+	  Assis, and Stefan Richter.
+	* arch/arm/src/lpc17xx: Several fixes for error that have crept in for the LPC17xx
+	  DAC.  Contributed by by Lzyy.
+	* graphics/nxconsole:  Add a character driver that can be used as a console output
+	  device for text output (still under development on initial check-in).
+	* graphics/nxmu:  Fix several compilation errors that have crept into the multi-
+	  user NX server because of lack of use.
+	* graphics/nxconsole:  The NX text console is basically function (in multi-
+	  user NX mode only).
+	* arch/arm/src/stm32/stm32_i2c.c: Correct a bug in the STM32 I2C driver.  The
+	  behavior of I2C status bits seems to be different between F1 and F4.
+	* configs/stm3210e-eval/nxconsole:  New STM32 F1 configuration that runs the
+	  NuttShell (NSH) within an NX window.
+	* graphics/nxconsole/nxcon_sem.c:  Add protection from re-entrance with debug
+	  is enabled.
+	* include/nuttx/ascii.h and vt100.h:  Header files to centralize ASCII and
+	  VT100 escape sequence definitions.
+	* graphics/nxconsole/nxcon_vt100.c:  Add add framework to support VT100 escape
+	  sequences in NxConsole.
+	* fs/fs_read.c:  Fix read() return value for attempt to read from write-only
+	  file or device.  Was returning EBADF, should return EACCES.
+	* graphics/nxconsole.c:  NxConsole now supports backspace and a cursor.
+	* Kconfig and arch/sim/Kconfig:  Beginnings of support for a NuttX
+	  configuration tool.  Currently using the kconfig parser 'kconfig-frontend'
+	  available at http://ymorin.is-a-geek.org/projects/kconfig-frontends
+	  (version 3.3.0-1 is also available in the NuttX SVN at
+	  trunk/misc/tools/kconfig-frontends-3.3.0-1.tar.gz).  Contributed by Lzyy.
+	* */Kconfig:  Added skeleton Kconfig files to all directories that
+	  may need them.
+	* include/nuttx/math.h:  Moved include/math.h to include/nuttx/math.h
+	  because it conflicts too often with the system math.h (and people aren't
+	  inclined to read the documentation on how to handle this).  Now, if
+	  CONFIG_ARCH_MATH_H=y is defined, the top-level makefile will copy
+	  the redirecting math.h header file from include/nuttx/math.h to
+	  include/math.h.  So for the architectures that define CONFIG_ARCH_MATH_H=y,
+	  include/math.h will be in place as it was before; for the architectures
+	  that don't select CONFIG_ARCH_MATH_H, the redirecting math.h header
+	  file will stay out-of-the-way in include/nuttx/.
+	* Kconfig, sched/Kconfig, lib/Kconfig, libxx/Kconfig, arch/sim/Kconfig,
+	  drivers/Kconfig, drivers/mtd/Kconfig, drivers/input/Kconfig
+	  drivers/analog/Kconfig, drivers/lcd/Kconfig:  Updated kernel
+	  configuration support provided by Lzyy.
+	* Kconfig:  Many more Kconfig updates (no longer tracking in the ChangeLog)
+	* arch/arm/src/Makefile, arch/x86/src/Makefile, arch/avr/src/Makefile,
+	  arch/mips/src/Makefile, arch/sim/src/Makefile, arch/hc/src/Makefile,
+	  arch/sh/src/Makefile:  The libgcc.a in newer versions of GCC now
+	  have an dependency on an external implementation of abort().  This
+	  required modification to the Makefiles that do the final link:  Now
+	  libgcc.a must be included within the group of libraries that are
+	  search recursively.
+	* arch/arm/srm/stm32/stm32_otgfsdev.c:  A USB OTG FS device-side driver
+	  for the STM32 F4 (and maybe F2 and F1 connectivity line).
+	* tools/cmpconfig.c:  A tool for comparing two configuration files.
+	* include/nuttx/usb/usbdev.h, drivers/usbdev/*, arch/*/src/*/*usb*.c:
+	  Extend the USB device side interface so that EP0 OUT data can be passed
+	  with OUT SETUP requests.
+	* include/nuttx/watchdog.h:  Add the definition of a standard watchdog
+	  driver interface.
+	* drivers/watchdog.c:  The "upper half" watchdog timer driver.
+
+6.18 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>

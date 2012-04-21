@@ -58,6 +58,7 @@ include net/Make.defs
 include pipes/Make.defs
 include power/Make.defs
 include sensors/Make.defs
+include sercomm/Make.defs
 include serial/Make.defs
 include usbdev/Make.defs
 include usbhost/Make.defs
@@ -80,6 +81,10 @@ endif
 
 ifeq ($(CONFIG_PWM),y)
   CSRCS += pwm.c
+endif
+
+ifeq ($(CONFIG_WATCHDOG),y)
+  CSRCS += watchdog.c
 endif
 endif
 

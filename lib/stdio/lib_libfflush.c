@@ -49,7 +49,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 
 #include "lib_internal.h"
 
@@ -122,7 +122,7 @@ ssize_t lib_fflush(FAR FILE *stream, bool bforce)
 
   lib_take_semaphore(stream);
 
-  /* Make sure tht the buffer holds valid data */
+  /* Make sure that the buffer holds valid data */
 
   if (stream->fs_bufpos  != stream->fs_bufstart)
     {

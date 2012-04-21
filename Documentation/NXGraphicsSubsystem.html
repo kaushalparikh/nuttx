@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NX Graphics Subsystem</i>
       </font></big></h1>
-      <p>Last Updated: December 1, 2011</p>
+      <p>Last Updated: March 25, 2012</p>
     </td>
   </tr>
 </table>
@@ -44,7 +44,8 @@
         <i>1.3.2 <a href="#nx1">NX (NXSU and NXMU)</a></i><br>
         <i>1.3.3 <a href="#nxtk1">NX Tool Kit (<code>NXTK</code>)</a></i><br>
         <i>1.3.4 <a href="#nxfonts1">NX Fonts Support (<code>NXFONTS</code>)</a></i><br>
-        <i>1.3.5 <a href="#nxwidgets1">NX Widgets (<code>NXWIDGETS</code>)</a></i>
+        <i>1.3.5 <a href="#nxwidgets1">NX Widgets (<code>NxWidgets</code>)</a></i><br>
+        <i>1.3.6 <a href="#nxconsole1">NX Console Driver (<code>NxConsole</code>)</a></i>
       </ul>
     </p>
   </ul>
@@ -189,7 +190,8 @@
       <i><b>B.3</b> <a href="#nxconfig">NX Configuration Settings</a></i><br>
       <i><b>B.4</b> <a href="#nxmuconfig">NX Multi-User (Only) Configuration Settings</a></i><br>
       <i><b>B.5</b> <a href="#nxtkconfig">NXTK Configuration Settings</a></i><br>
-      <i><b>B.6</b> <a href="#nxfpmtsconfig">NXFONTS Configuration Settings</a></i>
+      <i><b>B.6</b> <a href="#nxfpmtsconfig">NXFONTS Configuration Settings</a></i><br>
+      <i><b>B.7</b> <a href="#nxconsoleconfig">NxConsole Configuration Settings</a></i>
     </ul>
   </p>
   <p>
@@ -349,7 +351,7 @@
   larger multi-user implentation (NXMU as described below).
   Both conform to the same APIs as defined in <code>include/nuttx/nx/nx.h</code> and, hence,
   are interchangable<sup>1</sup>.
-  NX can be used without NXWIDGETS and without NXTOOLKIT for raw window displays.
+  NX can be used without NxWidgets and without NXTOOLKIT for raw window displays.
 </p>
 
 <p>
@@ -381,7 +383,7 @@
   NXTK is a s set of C graphics tools that provide higher-level window drawing
   operations.
   This is the module where the framed windows and toolbar logic is implemented.
-  NXTK is built on top of NX and does not depend on NXWIDGETS.
+  NXTK is built on top of NX and does not depend on NxWidgets.
 </p>
 
 <h3>1.3.4 <a name="nxfonts1">NX Fonts Support (<code>NXFONTS</code>)</a></h3>
@@ -393,19 +395,20 @@
   NXFONTS does not depend on any NX module other than some utilities and types from NXGLIB.
 </p>
 
-<h3>1.3.5 <a name="nxwidgets1">NX Widgets (<code>NXWIDGETS</code>)</a></h3>
+<h3>1.3.5 <a name="nxwidgets1">NX Widgets (<code>NxWidgets</code>)</a></h3>
 
 <p>
-  I had originally planned a high level, C++, object-oriented library for
-  object-oriented access to graphics <i>widgets</i>.
-  However, C++ compilers are not available for some of the targets supported by NuttX.
-  So I have decided to implement the entire solution in  C.
-  That decision makes the solution somewhat more difficult to work with, but supports all platforms.
+  <a href="NxWidgets.html">NxWidgets</a> is a higher level, C++, object-oriented library for object-oriented access to graphical &quot;widgets.&quot;
+  NxWidgets is provided as a separate package.
+  NxWidgets is built on top of the core NuttX graphics subsystem, but is not a part of the core graphics subystems.
 </p>
+
+<h3>1.3.6 <a name="nxconsole1">NX Console Driver (<code>NxConsole</code>)</a></h3>
+
 <p>
-  At this point, the amount of C in the implementation would make conversion to C++ a
-  more difficult job.
-  I leave the C++ widget interface to any contributor who may have an interest in such things.
+  NxConsole is a write-only character device (not shown) that is built on top of an NX window.
+  This character device can be used to provide <code>stdout</code> and <code>stderr</code> and, hence, can provide the output side of NuttX console.
+  NxConsole is only available when the multi-user NX implementation is selected (<code>CONFIG_NX_MULTIUSER</code>).
 </p>
 
 <table width ="100%">
@@ -427,8 +430,6 @@
     <dd>Describe the NXTOOLKIT C interfaces
   <dt><code>include/nutt/nxfont.h</code>
     <dd>Describe sthe NXFONT C interfaces
-  <dt><code>include/nuttx/nx/nxwidgets.h</code>
-    <dd>Will describe the NXWIDGETS classes (no longer planned)
 </dl></ul>
 
 <h2>2.2 <a name="nxgl2">NX Graphics Library (<code>NXGL</code>)</a></h2>
@@ -3186,12 +3187,16 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
 
     <dt><code>graphics/nxtk</code>
       <dd>This is where the NXTOOLKIT implementation resides.
-      This toolkit is built on top of NX and works with either the single-user or
-      multi-user NX version.
+      This toolkit is built on top of NX and works with either the single-user or multi-user NX version.
       See <code>include/nuttx/nx/nxtk.h</code>.
 
-    <dt><code>graphics/nxwidgets</code>
-      <dd>At one time, I planned to put NXWIDGETS implementation here, but not anymore.
+    <dt><code>nuttx/../nxwidgets</code>
+      <dd>The <a href="NxWidgets.html">NxWidgets</a> code is provided as a separate package located outside of the
+  NuttX source tree (probably at this location).
+
+    <dt><code>graphics/nxconsole</code>
+      <dd>The NxConsole driver is built on top of NX and works with either the single-user or multi-user NX version.
+      See <code>include/nuttx/nx/nxconsole.h</code>.
   </dl>
 </ul>
 
@@ -3255,7 +3260,7 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
       <dd>Configures NX in multi-user mode.
     <dt><code>CONFIG_NX_BLOCKING</code>
       <dd>Open the client message queues in blocking mode.  In this case,
-    <dt><code>nx_eventhandler()</code>  will not return until a message is received and processed.
+      <code>nx_eventhandler()</code>  will not return until a message is received and processed.
     <dt><code>CONFIG_NX_MXSERVERMSGS</code> and <code>CONFIG_NX_MXCLIENTMSGS</code>
       <dd>Specifies the maximum number of messages that can fit in
       the message queues.  No additional resources are allocated, but
@@ -3342,6 +3347,53 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
     <dt><code>CONFIG_NXFONT_SERIF38X49B</code>:
       <dd>This option enables support for a large, 38x49 bold font (with serifs)
        (font ID <code>FONTID_SERIF38X49B</code> == 13).
+  </dl>
+</ul>
+
+<h2>B.7 <a name="nxconsoleconfig">NxConsole Configuration Settings</a></h2>
+
+<ul>
+  <dl>
+    <dt><code>CONFIG_NXCONSOLE</code>:
+      <dd>Enables building of the NxConsole driver.
+    <dt><code>CONFIG_NXCONSOLE_BPP</code>:
+      <dd>Currently, NxConsole supports only a single pixel depth.
+      This configuration setting must be provided to support that single pixel depth.
+      Default: The smallest enabled pixel depth. (see <code>CONFIG_NX_DISABLE_*BPP</code>)
+    <dt><code>CONFIG_NXCONSOLE_CURSORCHAR</code>:
+      <dd>The bitmap code to use as the cursor.  Default '_'
+    <dt><code>CONFIG_NXCONSOLE_NOGETRUN</code>:
+      <dd>NxConsole needs to know if it can read from the LCD or not.
+      If reading from the LCD is supported, then NxConsole can do more efficient scrolling.
+      Default: Supported
+    <dt><code>CONFIG_NXCONSOLE_MXCHARS</code>:
+      <dd>NxConsole needs to remember every character written to the console so that it can redraw the window.
+      This setting determines the size of some internal memory allocations used to hold the character data.
+      Default: 128.
+    <dt><code>CONFIG_NXCONSOLE_CACHESIZE</code>:
+      <dd>
+      NxConsole supports caching of rendered fonts.
+      This font caching is required for two reasons:
+      (1) First, it improves text performance, but more importantly
+      (2) it preserves the font memory.
+      Since the NX server runs on a separate server thread, it requires that the rendered font memory persist until the server has a chance to render the font.
+      Unfortunately, the font cache would be quite large if all fonts were saved.
+      The <code>CONFIG_NXCONSOLE_CACHESIZE</code> setting will control the size of the font cache (in number of glyphs).
+      Only that number of the most recently used glyphs will be retained.
+      Default: 16.
+      <blockquote>
+        NOTE: There can still be a race condition between the NxConsole driver and the
+        NX task.  If you every see character corruption (especially when printing
+        a lot of data or scrolling), then increasing the value of <code>CONFIG_NXCONSOLE_CACHESIZE</code>
+        is something that you should try.
+        Alternatively, you can reduce the size of <code>CONFIG_MQ_MAXMSGSIZE</code> which will force NxConsole task to pace the server task.
+        <code>CONFIG_NXCONSOLE_CACHESIZE</code> should be larger than <code>CONFIG_MQ_MAXMSGSIZE</code> in any event.
+      </blockquote>
+    <dt><code>CONFIG_NXCONSOLE_LINESEPARATION</code>:
+      <dd>This the space (in rows) between each row of test.  Default: 0
+    <dt><code>CONFIG_NXCONSOLE_NOWRAP</code>:
+      <dd>By default, lines will wrap when the test reaches the right hand side of the window.
+      This setting can be defining to change this behavior so that the text is simply truncated until a new line is  encountered.
   </dl>
 </ul>
 
@@ -3465,10 +3517,10 @@ genfontsources:
     </p>
     <ul><pre>
 ifeq ($(CONFIG_NXFONT_SANS23X27),y)
-NXFSET_CSRCS	+= nxfonts_bitmaps_sans23x27.c
+NXFSET_CSRCS += nxfonts_bitmaps_sans23x27.c
 endif
 ifeq ($(CONFIG_NXFONT_MYFONT),y)
-NXFSET_CSRCS	+= nxfonts_bitmaps_myfont.c
+NXFSET_CSRCS += nxfonts_bitmaps_myfont.c
 endif
 </pre></ul>
   </li>

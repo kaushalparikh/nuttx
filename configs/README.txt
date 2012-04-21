@@ -314,6 +314,8 @@ defconfig -- This is a configuration file similar to the Linux
       errorcheck mutexes.  Enables pthread_mutexattr_settype().
     CONFIG_PRIORITY_INHERITANCE - Set to enable support for
       priority inheritance on mutexes and semaphores.
+      Priority inheritance is a strategy for addressing priority
+      inversion.
     CONFIG_SEM_PREALLOCHOLDERS: This setting is only used if priority
       inheritance is enabled.  It defines the maximum number of
       different threads (minus one) that can take counts on a
@@ -1344,6 +1346,12 @@ configs/c5471evm
   purpose processor and a c54 DSP.  It is also known as TMS320DA180 or just DA180. 
   NuttX runs on the ARM core and is built with a GNU arm-elf toolchain*.
   This port is complete and verified.
+
+configs/compal_e88 and compal_e99
+  These directories contain the board support for compal e88 and e99 phones.
+  These ports are based on patches contributed by Denis Carikli for both the
+  compal e99 and e88.  The patches were made by Alan Carvalho de Assis and
+  Denis Carikli using the Stefan Richter's Osmocom-bb patches.
 
 configs/demo9s12ne64
   Feescale DMO9S12NE64 board based on the MC9S12NE64 hcs12 cpu.  This

@@ -1,7 +1,7 @@
 /****************************************************************************
  * drivers/pwm.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@
 #include <errno.h>
 #include <debug.h>
 
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 #include <nuttx/arch.h>
 #include <nuttx/pwm.h>
 
@@ -85,7 +85,7 @@
  * Private Type Definitions
  ****************************************************************************/
 
-/* This structure describes the state of the upper half drivere */
+/* This structure describes the state of the upper half driver */
 
 struct pwm_upperhalf_s
 {

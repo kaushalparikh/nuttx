@@ -288,6 +288,14 @@ CONFIG_CAN_TSEG1=12
 CONFIG_CAN_TSEG2=3
 
 #
+# I2C configuration
+#
+CONFIG_I2C=y
+CONFIG_I2C_POLLED=y
+CONFIG_I2C_TRANSFER=y
+CONFIG_I2C_TRACE=n
+
+#
 # General build options
 #
 # CONFIG_RRLOAD_BINARY - make the rrload binary format used with
@@ -410,6 +418,7 @@ CONFIG_DEBUG_VERBOSE=n
 CONFIG_DEBUG_GRAPHICS=n
 CONFIG_DEBUG_LCD=n
 CONFIG_DEBUG_USB=n
+CONFIG_DEBUG_I2C=n
 CONFIG_DEBUG_SYMBOLS=n
 CONFIG_DEBUG_CAN=n
 CONFIG_HAVE_CXX=n
@@ -829,7 +838,7 @@ CONFIG_PL2303_TXBUFSIZE=512
 #   products.  This default VID was selected for compatibility with
 #   the Linux CDC ACM default VID.
 # CONFIG_CDCACM_PRODUCTID and CONFIG_CDCACM_PRODUCTSTR
-#   The product ID code/string. Default 0xara7 and "CDC/ACM Serial"
+#   The product ID code/string. Default 0xa4a7 and "CDC/ACM Serial"
 #   0xa4a7 was selected for compatibility with the Linux CDC ACM
 #   default PID.
 # CONFIG_CDCACM_RXBUFSIZE and CONFIG_CDCACM_TXBUFSIZE
@@ -1032,6 +1041,48 @@ CONFIG_NX_MXSERVERMSGS=32
 CONFIG_NX_MXCLIENTMSGS=16
 
 #
+# NxConsole Configuration Settings:
+#
+# CONFIG_NXCONSOLE
+#   Enables building of the NxConsole driver.
+# CONFIG_NXCONSOLE_BPP
+#   Currently, NxConsole supports only a single pixel depth. This
+#   configuration setting must be provided to support that single pixel depth.
+#   Default: The smallest enabled pixel depth. (see CONFIG_NX_DISABLE_*BPP)
+# CONFIG_NXCONSOLE_NOGETRUN
+#   NxConsole needs to know if it can read from the LCD or not. If reading
+#   from the LCD is supported, then NxConsole can do more efficient
+#   scrolling. Default: Supported
+# CONFIG_NXCONSOLE_MXCHARS
+#   NxConsole needs to remember every character written to the console so
+#   that it can redraw the window. This setting determines the size of some
+#   internal memory allocations used to hold the character data. Default: 128.
+# CONFIG_NXCONSOLE_CACHESIZE
+#   NxConsole supports caching of rendered fonts. This font caching is required
+#   for two reasons: (1) First, it improves text performance, but more
+#   importantly (2) it preserves the font memory. Since the NX server runs on
+#   a separate server thread, it requires that the rendered font memory persist
+#   until the server has a chance to render the font. (NOTE: There is still
+#   inherently a race condition in this!). Unfortunately, the font cache would
+#   be quite large if all fonts were saved. The CONFIG_NXCONSOLE_CACHESIZE setting
+#   will control the size of the font cache (in number of glyphs). Only that
+#   number of the most recently used glyphs will be retained. Default: 16.
+# CONFIG_NXCONSOLE_LINESEPARATION
+#   This the space (in rows) between each row of test.  Default: 2
+# CONFIG_NXCONSOLE_NOWRAP
+#   By default, lines will wrap when the test reaches the right hand side
+#   of the window. This setting can be defining to change this behavior so
+#   that the text is simply truncated until a new line is  encountered.
+#
+CONFIG_NXCONSOLE=n
+CONFIG_NXCONSOLE_BPP=16
+CONFIG_NXCONSOLE_NOGETRUN=y
+CONFIG_NXCONSOLE_MXCHARS=256
+CONFIG_NXCONSOLE_CACHESIZE=32
+# CONFIG_NXCONSOLE_LINESEPARATION
+# CONFIG_NXCONSOLE_NOWRAP
+
+#
 # STM3210E-EVAL LCD Hardware Configuration
 #
 # CONFIG_LCD_LANDSCAPE - Define for 320x240 display "landscape"
@@ -1155,6 +1206,26 @@ CONFIG_NSH_FATMOUNTPT=/tmp
 CONFIG_NSH_MMCSDSPIPORTNO=0
 CONFIG_NSH_MMCSDSLOTNO=0
 CONFIG_NSH_MMCSDMINOR=0
+
+
+#
+# I2C tool settings
+#
+# CONFIG_I2CTOOL_BUILTIN - Build the tools as an NSH built-in command
+# CONFIG_I2CTOOL_MINBUS - Smallest bus index supported by the hardware (default 0).
+# CONFIG_I2CTOOL_MAXBUS - Largest bus index supported by the hardware (default 3)
+# CONFIG_I2CTOOL_MINADDR - Minium device address (default: 0x03)
+# CONFIG_I2CTOOL_MAXADDR - Largest device address (default: 0x77)
+# CONFIG_I2CTOOL_MAXREGADDR - Largest register address (default: 0xff)
+# CONFIG_I2CTOOL_DEFFREQ - Default frequency (default: 1000000)
+#
+CONFIG_I2CTOOL_BUILTIN=y
+CONFIG_I2CTOOL_MINBUS=1
+CONFIG_I2CTOOL_MAXBUS=2
+#CONFIG_I2CTOOL_MINADDR
+#CONFIG_I2CTOOL_MAXADDR
+#CONFIG_I2CTOOL_MAXREGADDR
+CONFIG_I2CTOOL_DEFFREQ=100000
 
 #
 # Settings for examples/usbserial
@@ -1435,7 +1506,7 @@ CONFIG_EXAMPLES_USBMSC_TRACEINTERRUPTS=n
 CONFIG_BOOT_RUNFROMFLASH=n
 CONFIG_BOOT_COPYTORAM=n
 CONFIG_CUSTOM_STACK=n
-CONFIG_STACK_POINTER=
+#CONFIG_STACK_POINTER
 CONFIG_IDLETHREAD_STACKSIZE=1024
 CONFIG_USERMAIN_STACKSIZE=2048
 CONFIG_PTHREAD_STACK_MIN=256

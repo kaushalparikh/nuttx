@@ -616,7 +616,7 @@ static inline int usbmsc_cmdinquiry(FAR struct usbmsc_dev_s *priv,
 
           len = strlen(g_mscserialstr);
           DEBUGASSERT(len <= 4);
-          memcpy(response->productid, g_mscserialstr, len);
+          memcpy(response->revision, g_mscserialstr, len);
         }
     }
 
@@ -1626,16 +1626,18 @@ static int usbmsc_idlestate(FAR struct usbmsc_dev_s *priv)
       req->priv     = privreq;
       req->callback = usbmsc_rdcomplete;
 
-      if (EP_SUBMIT(priv->epbulkout, req) != OK)
-        {
-          usbtrace(TRACE_CLSERROR(USBMSC_TRACEERR_IDLERDSUBMIT), (uint16_t)-ret);
-        }
-
       /* Change to the CMDPARSE state and return success */
 
       usbtrace(TRACE_CLASSSTATE(USBMSC_CLASSSTATE_IDLECMDPARSE), priv->cdb[0]);
       priv->thstate = USBMSC_STATE_CMDPARSE;
       ret = OK;
+    }
+
+  /* In any event, return the request to be refilled */
+
+  if (EP_SUBMIT(priv->epbulkout, req) != OK)
+    {
+      usbtrace(TRACE_CLSERROR(USBMSC_TRACEERR_IDLERDSUBMIT), (uint16_t)-ret);
     }
 
   return ret;
@@ -1683,6 +1685,7 @@ static int usbmsc_cmdparsestate(FAR struct usbmsc_dev_s *priv)
       usbtrace(TRACE_CLSERROR(USBMSC_TRACEERR_CMDPARSEWRREQLISTEMPTY), 0);
       return -ENOMEM;
     }
+
   DEBUGASSERT(privreq->req && privreq->req->buf);
   buf                = privreq->req->buf;
 
@@ -2171,25 +2174,25 @@ static int usbmsc_cmdwritestate(FAR struct usbmsc_dev_s *priv)
        * to the block driver OR all of the request data has been transferred.
        */
 
-     while (priv->nreqbytes > 0 && priv->u.xfrlen > 0)
-       {
-         /* Copy the data received in the read request into the sector I/O buffer */
+      while (priv->nreqbytes > 0 && priv->u.xfrlen > 0)
+        {
+          /* Copy the data received in the read request into the sector I/O buffer */
 
-         src  = &req->buf[xfrd - priv->nreqbytes];
-         dest = &priv->iobuffer[priv->nsectbytes];
+          src  = &req->buf[xfrd - priv->nreqbytes];
+          dest = &priv->iobuffer[priv->nsectbytes];
 
-         nbytes = MIN(lun->sectorsize - priv->nsectbytes, priv->nreqbytes);
+          nbytes = MIN(lun->sectorsize - priv->nsectbytes, priv->nreqbytes);
 
-         /* Copy the data from the sector buffer to the USB request and update counts */
+          /* Copy the data from the sector buffer to the USB request and update counts */
 
-         memcpy(dest, src, nbytes);
-         priv->nsectbytes += nbytes;
-         priv->nreqbytes  -= nbytes;
+          memcpy(dest, src, nbytes);
+          priv->nsectbytes += nbytes;
+          priv->nreqbytes  -= nbytes;
 
-         /* Is the I/O buffer full? */
+          /* Is the I/O buffer full? */
 
-         if (priv->nsectbytes >= lun->sectorsize)
-           {
+          if (priv->nsectbytes >= lun->sectorsize)
+            {
               /* Yes.. Write the next sector */
 
               nwritten = USBMSC_DRVR_WRITE(lun, priv->iobuffer, priv->sector, 1);
@@ -2201,17 +2204,17 @@ static int usbmsc_cmdwritestate(FAR struct usbmsc_dev_s *priv)
                   goto errout;
                 }
 
-             priv->nsectbytes = 0;
-             priv->residue   -= lun->sectorsize;
-             priv->u.xfrlen--;
-             priv->sector++;
-           }
-       }
+              priv->nsectbytes = 0;
+              priv->residue   -= lun->sectorsize;
+              priv->u.xfrlen--;
+              priv->sector++;
+            }
+        }
 
-     /* In either case, we are finished with this read request and can return it
-      * to the endpoint.  Then we will go back to the top of the top and attempt
-      * to get the next read request.
-      */
+      /* In either case, we are finished with this read request and can return it
+       * to the endpoint.  Then we will go back to the top of the top and attempt
+       * to get the next read request.
+       */
 
       req->len      = CONFIG_USBMSC_BULKOUTREQLEN;
       req->priv     = privreq;
@@ -2332,9 +2335,9 @@ static int usbmsc_cmdfinishstate(FAR struct usbmsc_dev_s *priv)
               usleep (100000);
               (void)EP_STALL(priv->epbulkin);
 
- 	      /* now wait for stall to go away .... */
+              /* now wait for stall to go away .... */
 
- 	      usleep (100000);
+              usleep (100000);
 #else
               (void)EP_STALL(priv->epbulkin);
 #endif

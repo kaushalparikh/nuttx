@@ -6,8 +6,10 @@ README
     - Download and Unpack
     - Semi-Optional apps/ Package
     - Installation Directories with Spaces in the Path
-    - A Note about Header Files
+    - Notes about Header Files
   o Configuring NuttX
+    - Instantiating "Canned" Configurations
+    - NuttX Configuration Tool
   o Toolchains
     - Cross-Development Toolchains
     - NuttX Buildroot Toolchain
@@ -25,6 +27,7 @@ INSTALLATION
 ^^^^^^^^^^^^
 
 Installing Cygwin
+-----------------
 
   NuttX may be installed and built on a Linux system or on a Windows
   system if Cygwin is installed.  Installing Cygwin on your Windows PC
@@ -56,7 +59,8 @@ Installing Cygwin
   fast nor reliable).  The rest of these instructions assume that you
   are at a bash command line prompt in either Linux or in Cygwin shell.
 
-Download and Unpack:
+Download and Unpack
+-------------------
 
   Download and unpack the NuttX tarball.  If you are reading this, then
   you have probably already done that.  After unpacking, you will end
@@ -65,7 +69,8 @@ Download and Unpack:
   match the various instructions in the documentation and some scripts
   in the source tree.
 
-Semi-Optional apps/ Package:
+Semi-Optional apps/ Package
+---------------------------
 
   All NuttX libraries and example code used to be in included within
   the NuttX source tree.  As of NuttX-6.0, this application code was
@@ -98,7 +103,8 @@ Semi-Optional apps/ Package:
   can be changed by editing your NuttX configuration file, but that
   is another story).
 
-Installation Directories with Spaces in the Path:
+Installation Directories with Spaces in the Path
+------------------------------------------------
 
   The nuttx build directory should reside in a path that contains no
   spaces in any higher level directory name.  For example, under
@@ -114,26 +120,62 @@ Installation Directories with Spaces in the Path:
   Then I install NuttX in /home/nuttx and always build from 
   /home/nuttx/nuttx.
 
-A Note about Header Files:
+Notes about Header Files
+------------------------
 
-  Some toolchains are built with header files extracted from a C-library
-  distribution (such as newlib).  For those toolchains, NuttX must be
-  compiled without using the standard header files that are distributed
-  with your toolchain.  This prevents including conflicting, incompatible
-  header files (such as stdio.h).
+  Other C-Library Header Files.
 
-  Certain header files, such as setjmp.h and varargs.h, may still be
-  needed from your toolchain, however.  If that is the case, one solution
-  is to copy those header file from your toolchain into the NuttX include
-  directory.
+    Some toolchains are built with header files extracted from a C-library
+    distribution (such as newlib).  These header files must *not* be used
+    with NuttX because NuttX provides its own, built-in C-Library.  For
+    toolchains that do include built-in header files from a foreign C-
+    Library, NuttX must be compiled without using the standard header files
+    that are distributed with your toolchain.  This prevents including
+    conflicting, incompatible header files (such as stdio.h).
 
-  Also, if you prefer to use the stdint.h and stdbool.h header files from
-  your toolchain, those could be copied into the include/ directory too.
-  Using most other header files from your toolchain would probably cause
-  errors.
+  Header Files Provided by Your Toolchain.
+
+    Certain header files, such as setjmp.h, stdargs.h, and math.h, may still
+    be needed from your toolchain and your compiler may not, however, be able
+    to find these if you compile NuttX without using standard header file.
+    If that is the case, one solution is to copy those header file from
+    your toolchain into the NuttX include directory.
+
+  Duplicated Header Files.
+
+    There are also a few header files that can be found in the nuttx/include
+    directory which are duplicated by the header files from your toolchain.
+    stdint.h and stdbool.h are examples.  If you prefer to use the stdint.h
+    and stdbool.h header files from your toolchain, those could be copied
+    into the nuttx/include/ directory. Using most other header files from
+    your toolchain would probably cause errors.
+
+  math.h
+
+    Even though you should not use a foreign C-Library, you may still need
+    to use other, external libraries with NuttX.  In particular, you may
+    need to use the math library, libm.a.  The math libary header file,
+    math.h, is a special case.  If you do nothing, the standard math.h
+    header file that is provided with your toolchain will be used.
+
+    If you have a custom, architecture specific math.h header file, then
+    that header file should be placed at arch/<cpu>/include/math.h.  There
+    is a stub math.h header file located at include/nuttx/math.h.  This stub
+    header file can be used to "redirect" the inclusion to an architecture-
+    specific math.h header file.  If you add an architecture specific math.h
+    header file then you should also define CONFIG_ARCH_MATH_H=y in your
+    NuttX Configuration file.  If CONFIG_ARCH_MATH_H is selected, then the
+    top-level Makefile will copy the stub math.h header file from
+    include/nuttx/matn.h to include/math.h where it will become the system
+    math.h header file.  The stub math.h header file does nothing other
+    than to include that archicture-specific math.h header file as the
+    system math.h header file.
 
 CONFIGURING NUTTX
 ^^^^^^^^^^^^^^^^^
+
+Instantiating "Canned" Configurations
+-------------------------------------
 
 "Canned" NuttX configuration files are retained in:
 
@@ -144,17 +186,20 @@ Configuring NuttX requires only copying three files from the <config-dir>
 to the directly where you installed NuttX (TOPDIR):
 
   Copy configs/<board-name>/<config-dir>/Make.def to ${TOPDIR}/Make.defs
+
     Make.defs describes the rules needed by you tool chain to compile
     and link code.  You may need to modify this file to match the
     specific needs of your toolchain.
 
   Copy configs/<board-name>/<config-dir>/setenv.sh to ${TOPDIR}/setenv.sh
+
     setenv.sh is an optional convenience file that I use to set
     the PATH variable to the toolchain binaries.  You may chose to
     use setenv.sh or not.  If you use it, then it may need to be
     modified to include the path to your toolchain binaries.
 
   Copy configs/<board-name>/<config-dir>/defconfig to ${TOPDIR}/.config
+
     The defconfig file holds the actual build configuration.  This
     file is included by all other make files to determine what is
     included in the build and what is not.  This file is also used
@@ -171,10 +216,54 @@ easier.  It is used as follows:
   cd ${TOPDIR}/tools
   ./configure.sh <board-name>/<config-dir>
 
+
+NuttX Configuration Tool
+------------------------
+
+  An automated tool is under development to support re-configuration
+  of NuttX.  This tool, however, is not yet quite ready for general
+  usage.
+
+  This automated tool is based on the kconfig-frontends application
+  available at http://ymorin.is-a-geek.org/projects/kconfig-frontends
+  (A snapshot of this tool is also available at ../misc/tools).  This
+  application provides a tool called 'mconf' that is used by the NuttX
+  top-level Makefile.  The following make target is provided:
+
+    make menuconfig
+
+  This make target will bring up NuttX configuration menus.  The
+  'menuconfig' target depends on two things:
+
+  1. The Kconfig configuration data files that appear in almost all
+     NuttX directories.  These data files are the part that is still
+     under development (patches are welcome!).  The Kconfig files
+     contain configuration information for the configuration settings
+     relevant to the directory in which the Kconfig file resides.
+
+     NOTE: For a description of the syntax of this configuration file,
+     see ../misc/tools/kconfig-language.txt.
+
+  2. The 'mconf' tool.  'mconf' is part of the kconfig-frontends
+     package.  You can download that package from the website
+     http://ymorin.is-a-geek.org/projects/kconfig-frontends or you
+     can use the snapshot in ../misc/tools.
+
+     Building may be as simple as 'configure; make; make install'
+     but there may be some build complexities, especially if you
+     are building under Cygwin.  See the more detailed build
+     instructions at ../misc/tools/README.txt
+
+     The 'make install' step will, by default, install the 'mconf'
+     tool at /usr/local/bin/mconf.  Where ever you choose to
+     install 'mconf', make certain that your PATH variable includes
+     a path to that installation directory.
+
 TOOLCHAINS
 ^^^^^^^^^^
 
 Cross-Development Toolchains
+----------------------------
 
   In order to build NuttX for your board, you will have to obtain a cross-
   compiler to generate code for your target CPU.  For each board,
@@ -188,6 +277,7 @@ Cross-Development Toolchains
   is optional but can save a lot of confusion in the future.
 
 NuttX Buildroot Toolchain
+-------------------------
 
   For many configurations, a DIY set of tools is available for NuttX.  These
   tools can be downloaded from the NuttX SourceForge file repository.  After
@@ -200,6 +290,15 @@ NuttX Buildroot Toolchain
 
   This toolchain is available for both the Linux and Cygwin development
   environments.
+
+  Advantages:  (1) NuttX header files are built into the tool chain,
+  and (2) related support tools like NXFLAT tools and the ROMFS
+  genromfs tools can be built into your toolchain.
+
+  Disadvantages:  This tool chain is not was well supported as some other
+  toolchains.  GNU tools are not my priority and so the buildroot tools
+  often get behind.  For example, the is still no EABI support in the
+  NuttX buildroot toolchain for ARM.
 
 SHELLS
 ^^^^^^
@@ -235,6 +334,7 @@ BUILDING NUTTX
 ^^^^^^^^^^^^^^
 
 Building
+--------
 
   NuttX builds in-place in the source tree.  You do not need to create
   any special build directories.  Assuming that your Make.defs is setup
@@ -251,6 +351,7 @@ Building
   to see if that applies to your target.
 
 Re-building 
+-----------
 
   Re-building is normally simple -- just type make again.
 
@@ -274,6 +375,7 @@ Re-building
   then make NuttX.
 
 Build Targets
+-------------
 
   Below is a summary of the build targets available in the top-level
   NuttX Makefile:
@@ -351,6 +453,7 @@ CYGWIN BUILD PROBLEMS
 ^^^^^^^^^^^^^^^^^^^^^
 
 Strange Path Problems
+---------------------
 
 If you see strange behavior when building under Cygwin then you may have
 a problem with your PATH variable.  For example, if you see failures to
@@ -375,6 +478,7 @@ The solution is either:
    $ export PATH=/usr/local/bin:/usr/bin:/bin:$PATH
 
 Window Native Toolchain Issues
+------------------------------
 
   There are many popular Windows native toolchains that may be used with NuttX.
   Examples include CodeSourcery (for Windows), devkitARM, and several vendor-
@@ -516,6 +620,10 @@ nuttx
  |   |- c5471evm/
  |   |   |- include/README.txt
  |   |   |- src/README.txt
+ |   |   `- README.txt
+ |   |- compal_e88
+ |   |   `- README.txt
+ |   |- compal_e99
  |   |   `- README.txt
  |   |- demo0s12ne64/
  |   |   `- README.txt
@@ -664,6 +772,8 @@ nuttx
  |- drivers/
  |   |- lcd/
  |   |   `- README.txt
+ |   |- sercomm/
+ |   |   `- README.txt
  |   `- README.txt
  |- fs/
  |   |- mmap/
@@ -705,7 +815,6 @@ apps
  |   `- install
  |      `- README.txt
  |- vsn/
- |   |- hello/README.txt
  |   |- poweroff
  |   |  `- README.txt
  |   |- ramtron

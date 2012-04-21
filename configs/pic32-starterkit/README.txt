@@ -1073,3 +1073,129 @@ Where <subdir> is one of the following:
        And enable poll() support in the NuttX configuration file:
 
        CONFIG_DISABLE_POLL=n
+
+  nsh2:
+  =====
+
+    This is an alternative NSH configuration.  Without the Expansion I/O board,
+    there is no way to connect a serial console.  This NSH alternative supports
+    only a Telnet console.  The nsh2 differs from the nsh configuration in the
+    following ways:
+
+    1. Networking is enabled:
+
+       CONFIG_NET=y                : Enable networking support
+       CONFIG_PIC32MX_ETHERNET=y   : Enable the PIC32 Ethernet driver
+       CONFIG_NSH_CONSOLE=n        : Disable NSH serial console
+       CONFIG_NSH_TELNET=y         : Enable the Telnet NSH console
+
+       See apps/nshlib/README.txt for other NSH networking-related configuration
+       settings.
+
+    2. UART1 is disabled
+ 
+      CONFIG_PIC32MX_UART1=n        : UART1 is disabled (as well as other UARTs)
+      CONFIG_UART1_SERIAL_CONSOLE=n : There is no serial console
+
+    3. The RAM log is enabled"
+    
+      CONFIG_SYSLOG=y             : Enables the System Logging feature.
+      CONFIG_RAMLOG=y             : Enable the RAM-based logging feature.
+      CONFIG_RAMLOG_CONSOLE=n     : (there is no default console device)
+      CONFIG_RAMLOG_SYSLOG=y      : This enables the RAM-based logger as the
+                                    system logger.
+
+      Logging is currently set up to use 16Kb of memory:
+
+      CONFIG_RAMLOG_CONSOLE_BUFSIZE=16384
+
+    There are a few other configuration differences as necessary to support
+    this different device configuration. Just the do the 'diff' if you are
+    curious.
+
+    NOTES:
+      See the notes for the nsh configuration.  Most also apply to the nsh2
+      configuration.
+
+  Using a RAM disk and the USB MSC device with nsh and nsh2
+  ---------------------------------------------------------
+  Here is an experimental change to either examples/nsh or examples/nsh2
+  that will create a RAM disk and attempt to export that RAM disk as a
+  USB mass storage device.
+
+  1. Changes to nuttx/.config
+
+    a) Enable support for the PIC32 USB device
+
+      -CONFIG_PIC32MX_USBDEV=n 
+      +CONFIG_PIC32MX_USBDEV=y
+
+    b) Enable NuttX USB device support
+
+      -CONFIG_USBDEV=n
+      +CONFIG_USBDEV=y
+
+    c) Enable the USB MSC class driver
+
+      -CONFIG_USBMSC=n
+      +CONFIG_USBMSC=y
+
+    d) Use a RAM disk (instead of an SD card) as the USB MSC logical unit:
+
+      -CONFIG_EXAMPLES_USBMSC_DEVPATH1="/dev/mmcsd0"
+      +CONFIG_EXAMPLES_USBMSC_DEVPATH1="/dev/ram0"
+
+  2. Changes to nuttx/.config.
+
+    a) Enable building of the examples/usbstorage:
+
+      -# CONFIGURED_APPS += examples/usbstorage
+      +  CONFIGURED_APPS += examples/usbstorage
+
+  3. When NSH first comes up, you must manually create the RAM disk
+     before exporting it:
+
+    a) Create a 64Kb RAM disk at /dev/ram0:
+
+      nsh> mkrd -s 512 128
+
+    b) Put a FAT file system on the RAM disk:
+  
+      nsh> mkfatfs /dev/ram0
+
+    b) Now the 'msconn' command will connect to the host and
+       export /dev/ram0 as the USB logical unit:
+
+      nsh> msconn
+
+    NOTE:  This modification should be considered experimental.  IN the
+    little testing I have done with it, it appears functional.  But the
+    logic has not been stressed and there could still be lurking issues.
+ 
+    Update. The following was added to the top-level TODO list:
+
+    Title:       PIC32 USB DRIVER DOES NOT WORK WITH MASS STORAGE CLASS
+    Description: The PIC32 USB driver either crashes or hangs when used with
+                 the mass storage class when trying to write files to the target
+                 storage device.  This usually works with debug on, but does not
+                 work with debug OFF (implying some race condition?)
+
+                 Here are some details of what I see in debugging:
+
+                 1. The USB MSC device completes processing of a read request
+                    and returns the read request to the driver.
+                 2. Before the MSC device can even begin the wait for the next
+                    driver, many packets come in at interrupt level.  The MSC
+                    device goes to sleep (on pthread_cond_wait) with all of the
+                    read buffers ready (16 in my test case).
+                 3. The pthread_cond_wait() does not wake up.  This implies
+                    a problem with pthread_con_wait(?).  But in other cases,
+                    the MSC device does wake up, but then immediately crashes
+                    because its stack is bad.
+                 4. If I force the pthread_cond_wait to wake up (by using
+                    pthread_cond_timedwait instead), then the thread wakes
+                    up and crashes with a bad stack.
+
+                 So far, I have no clue why this is failing.
+    Status:      Open
+    Priority:    High

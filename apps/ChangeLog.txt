@@ -203,4 +203,21 @@
 	* apps/nshlib:  Now supports a USB serial device for NSH console I/O.  This
 	  allows NSH to be used on boards that have USB but no serial connectors.
 
-6.17 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.17 2012-04-14 Gregory Nutt <gnutt@nuttx.org>
+
+	* apps/examples/can:  Add conditional compilation so that the test can be
+	  configured to only send messages or to only receive messages.  This will
+	  let the test work in other modes than simple loopback testing.
+	* apps/examples/hello and apps/examples/ostest:  Can now be built as NSH
+	  built-int functions.
+	* vsn/hello:  Removed.  The modified apps/examples/hello is enough "Hello,
+	  World!"
+	* apps/examples/nxconsole:  Add a test of the NX console device.
+	* apps/examples/nxconsole:  The NX console example now supports running
+	  the NuttShell (NSH) within an NX window.
+	* apps/system/readline:  Now uses standard definitions from
+	  include/nuttx/ascii.h and vt100.h
+	* Kconfig, */Kconfig:  Added skeleton Kconfig files to all directories that
+	  may need them.
+
+6.18 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>

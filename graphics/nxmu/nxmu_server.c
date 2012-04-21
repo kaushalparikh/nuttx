@@ -1,7 +1,7 @@
 /****************************************************************************
  * graphics/nxmu/nxmu_server.c
  *
- *   Copyright (C) 2008-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2008-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,31 +130,6 @@ static inline void nxmu_connect(FAR struct nxfe_conn_s *conn)
 }
 
 /****************************************************************************
- * Name: nxmu_release
- ****************************************************************************/
-
-static int nxmu_release(FAR struct nxfe_state_s *fe)
-{
-  FAR struct nxbe_window_s *wnd;
-  struct nxclimsg_s       outmsg;
-  int                     ret;
-
-  /* Don't want windows to close while we do this */
-
-  for (wnd = fe->be.topwnd; wnd; wnd = wnd->below)
-    {
-      outmsg.msgid = NX_CLIMSG_DISCONNECTED;
-      ret = mq_send(wnd->conn->swrmq, &outmsg, sizeof(struct nxclimsg_s), NX_CLIMSG_PRIO);
-      if (ret < 0)
-        {
-          gdbg("mq_send failed: %d\n", errno);
-        }
-    }
-
-  return OK;
-}
-
-/****************************************************************************
  * Name: nxmu_shutdown
  ****************************************************************************/
 
@@ -180,9 +155,8 @@ static inline void nxmu_shutdown(FAR struct nxfe_state_s *fe)
  * Name: nxmu_setup
  ****************************************************************************/
 
-static inline int nxmu_lcdsetup(FAR const char *mqname,
-                                FAR NX_DRIVERTYPE *dev,
-                                FAR struct nxfe_state_s *fe)
+static inline int nxmu_setup(FAR const char *mqname, FAR NX_DRIVERTYPE *dev,
+                             FAR struct nxfe_state_s *fe)
 {
   struct mq_attr attr;
   int            ret;
@@ -435,8 +409,8 @@ int nx_runinstance(FAR const char *mqname, FAR NX_DRIVERTYPE *dev)
 
          case NX_SVRMSG_SETPIXEL: /* Set a single pixel in the window with a color */
            {
-             FAR struct nxsvrmsg_setpixel_s *setmsg = (FAR struct nxsvrmsg_fill_s *)buffer;
-             nxbe_setpixel(fillmsg->wnd, &setmsg->pos, setmsg->color);
+             FAR struct nxsvrmsg_setpixel_s *setmsg = (FAR struct nxsvrmsg_setpixel_s *)buffer;
+             nxbe_setpixel(setmsg->wnd, &setmsg->pos, setmsg->color);
            }
            break;
 

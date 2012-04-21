@@ -50,7 +50,7 @@
 #include <pthread.h>
 #include <queue.h>
 
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 #include <nuttx/usb/storage.h>
 #include <nuttx/usb/usbdev.h>
 
@@ -312,7 +312,7 @@
 
 #define USBMSC_NINTERFACES            (1) /* Number of interfaces in the configuration */
 #define USBMSC_INTERFACEID            (CONFIG_USBMSC_IFNOBASE+0)
-#define USBMSC_ALTINTERFACEID         USBMSC_INTERFACEID
+#define USBMSC_ALTINTERFACEID         (0)
 
 #define USBMSC_CONFIGIDNONE           (0) /* Config ID means to return to address mode */
 #define USBMSC_CONFIGID               (1) /* The only supported configuration ID */
@@ -424,7 +424,7 @@ enum usbmsc_epdesc_e
 
 struct usbmsc_req_s
 {
-  FAR struct usbmsc_req_s *flink;    /* Implements a singly linked list */
+  FAR struct usbmsc_req_s *flink;     /* Implements a singly linked list */
   FAR struct usbdev_req_s *req;       /* The contained request */
 };
 

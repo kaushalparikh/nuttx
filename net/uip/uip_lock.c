@@ -1,8 +1,8 @@
 /****************************************************************************
  * net/uip/uip_lock.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -173,7 +173,7 @@ void uip_unlock(uip_lock_t flags)
  * Function: uip_lockedwait
  *
  * Description:
- *   Atomically wait for sem while temporarilty releasing.
+ *   Atomically wait for sem while temporarily releasing g_uipsem.
  *
  ****************************************************************************/
 
@@ -195,7 +195,7 @@ int uip_lockedwait(sem_t *sem)
       g_count  = 0;
       sem_post(&g_uipsem);
 
-      /* Now take semaphore */
+      /* Now take the semaphore */
 
       ret = sem_wait(sem);
 

@@ -16,6 +16,7 @@ Contents
   - LEDs
   - Temperature Sensor
   - RTC
+  - FSMC SRAM
   - STM3210E-EVAL-specific Configuration Options
   - Configurations
 
@@ -350,6 +351,21 @@ RTC
    overflow interrupt may be lost even if the STM32 is powered down only momentarily.
    Therefore hi-res solution is only useful in systems where the power is always on.
 
+FSMC SRAM
+=========
+
+The 8-Mbit SRAM is connected to the STM32 at PG10 which will be FSMC_NE3, Bank1
+SRAM3.  This memory will appear at address 0x68000000.
+
+The on-board SRAM can be configured by setting
+
+  CONFIG_STM32_FSMC=y                         : Enables the FSMC
+  CONFIG_STM32_FSMC_SRAM=y                    : Enable external SRAM support
+  CONFIG_HEAP2_BASE=0x68000000                : SRAM will be located at 0x680000000
+  CONFIG_HEAP2_END=(0x68000000+(1*1024*1024)) : The size of the SRAM is 1Mbyte
+  CONFIG_MM_REGIONS=2                         : There will be two memory regions
+                                              : in the heap
+
 STM3210E-EVAL-specific Configuration Options
 ============================================
 
@@ -656,6 +672,8 @@ Where <subdir> is one of the following:
     Serial      Debug output: USART1    Debug output: USART1
     Console:    NSH output:   USART1    NSH output:   USART1 (3)
     ----------- ----------------------- --------------------------------
+    I2C         No                      I2C1
+    ----------- ----------------------- --------------------------------
     microSD     Yes                     Yes
     Support
     ----------- ----------------------- --------------------------------
@@ -669,6 +687,7 @@ Where <subdir> is one of the following:
     Built-in    None                    apps/examples/nx
     Apps                                apps/examples/nxhello
                                         apps/examples/usbstorage (5)
+                                        apps/system/i2c
     =========== ======================= ================================
 
     (1) You will probably need to modify nsh/setenv.sh or nsh2/setenv.sh
@@ -722,8 +741,36 @@ Where <subdir> is one of the following:
     focuses on general window controls, movement, mouse and keyboard
     input.
 
-    CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
-    CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
+      CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+      CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
+
+  nxconsole:
+  ----------
+    This is yet another NSH configuration.  This NSH configuration differs
+    from the other, however, in that it uses the NxConsole driver to host
+    the NSH shell.
+
+    Some of the differences in this configuratino include these settings
+    in the defconfig file:
+
+    These select NX Multi-User mode:
+
+      CONFG_NX_MULTIUSER=y
+      CONFIG_DISABLE_MQUEUE=n
+ 
+    The following definition in the defconfig file to enables the NxConsole
+    driver:
+
+      CONFIG_NXCONSOLE=y
+
+    The appconfig file selects examples/nxconsole instead of examples/nsh:
+
+      CONFIGURED_APPS += examples/nxconsole
+
+    Other configuration settings:
+
+      CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+      CONFIG_LCD_LANDSCAPE=y        : 320x240 landscape
 
   nxlines:
   ------
@@ -731,8 +778,8 @@ Where <subdir> is one of the following:
     example focuses on placing lines on the background in various
     orientations.
 
-    CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
-    CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
+      CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+      CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
 
   nxtext:
   ------
@@ -741,8 +788,8 @@ Where <subdir> is one of the following:
     windows occur.  Text should continue to update normally with
     or without the popup windows present.
 
-    CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
-    CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
+      CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+      CONFIG_LCD_RPORTRAIT=y        : 240x320 reverse portrait
 
     NOTE:  When I tried building this example with the CodeSourcery
     tools, I got a hardfault inside of its libgcc.  I haven't
@@ -755,14 +802,14 @@ Where <subdir> is one of the following:
     examples/ostest.  By default, this project assumes that you are
     using the DFU bootloader.
 
-    CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+      CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
 
   RIDE
   ----
     This configuration builds a trivial bring-up binary.  It is
     useful only because it words with the RIDE7 IDE and R-Link debugger.
 
-    CONFIG_STM32_RAISONANCE=y     : Raisonance RIDE7 under Windows
+      CONFIG_STM32_RAISONANCE=y     : Raisonance RIDE7 under Windows
 
   usbserial:
   ---------
@@ -770,46 +817,46 @@ Where <subdir> is one of the following:
     driver at examples/usbserial.  See examples/README.txt for
     more information.
 
-    CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+      CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
 
     USB debug output can be enabled as by changing the following
     settings in the configuration file:
 
-    -CONFIG_DEBUG=n
-    -CONFIG_DEBUG_VERBOSE=n
-    -CONFIG_DEBUG_USB=n
-    +CONFIG_DEBUG=y
-    +CONFIG_DEBUG_VERBOSE=y
-    +CONFIG_DEBUG_USB=y
+      -CONFIG_DEBUG=n
+      -CONFIG_DEBUG_VERBOSE=n
+      -CONFIG_DEBUG_USB=n
+      +CONFIG_DEBUG=y
+      +CONFIG_DEBUG_VERBOSE=y
+      +CONFIG_DEBUG_USB=y
 
-    -CONFIG_EXAMPLES_USBSERIAL_TRACEINIT=n
-    -CONFIG_EXAMPLES_USBSERIAL_TRACECLASS=n
-    -CONFIG_EXAMPLES_USBSERIAL_TRACETRANSFERS=n
-    -CONFIG_EXAMPLES_USBSERIAL_TRACECONTROLLER=n
-    -CONFIG_EXAMPLES_USBSERIAL_TRACEINTERRUPTS=n
-    +CONFIG_EXAMPLES_USBSERIAL_TRACEINIT=y
-    +CONFIG_EXAMPLES_USBSERIAL_TRACECLASS=y
-    +CONFIG_EXAMPLES_USBSERIAL_TRACETRANSFERS=y
-    +CONFIG_EXAMPLES_USBSERIAL_TRACECONTROLLER=y
-    +CONFIG_EXAMPLES_USBSERIAL_TRACEINTERRUPTS=y
+      -CONFIG_EXAMPLES_USBSERIAL_TRACEINIT=n
+      -CONFIG_EXAMPLES_USBSERIAL_TRACECLASS=n
+      -CONFIG_EXAMPLES_USBSERIAL_TRACETRANSFERS=n
+      -CONFIG_EXAMPLES_USBSERIAL_TRACECONTROLLER=n
+      -CONFIG_EXAMPLES_USBSERIAL_TRACEINTERRUPTS=n
+      +CONFIG_EXAMPLES_USBSERIAL_TRACEINIT=y
+      +CONFIG_EXAMPLES_USBSERIAL_TRACECLASS=y
+      +CONFIG_EXAMPLES_USBSERIAL_TRACETRANSFERS=y
+      +CONFIG_EXAMPLES_USBSERIAL_TRACECONTROLLER=y
+      +CONFIG_EXAMPLES_USBSERIAL_TRACEINTERRUPTS=y
 
     By default, the usbserial example uses the Prolific PL2303
     serial/USB converter emulation.  The example can be modified
     to use the CDC/ACM serial class by making the following changes
     to the configuration file:
 
-    -CONFIG_PL2303=y
-    +CONFIG_PL2303=n
+      -CONFIG_PL2303=y
+      +CONFIG_PL2303=n
 
-    -CONFIG_CDCACM=n
-    +CONFIG_CDCACM=y
+      -CONFIG_CDCACM=n
+      +CONFIG_CDCACM=y
 
     The example can also be converted to use the alternative
     USB serial example at apps/examples/usbterm by changing the 
     following:
 
-    -CONFIGURED_APPS += examples/usbserial
-    +CONFIGURED_APPS += examples/usbterm
+      -CONFIGURED_APPS += examples/usbserial
+      +CONFIGURED_APPS += examples/usbterm
 
     In either the original appconfig file (before configuring)
     or in the final apps/.config file (after configuring).
@@ -820,5 +867,5 @@ Where <subdir> is one of the following:
     class driver at examples/usbstorage.  See examples/README.txt for
     more information.
 
-    CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+      CONFIG_STM32_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
 

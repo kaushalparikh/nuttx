@@ -46,7 +46,7 @@
 #include <errno.h>
 #include <debug.h>
 
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 #include <nuttx/net/net.h>
 
 #include "os_internal.h"
@@ -123,7 +123,7 @@ int sched_setupidlefiles(FAR _TCB *tcb)
        * it and got some file descriptor other than 0.
        */
   
-      if (fd >- 0)
+      if (fd > 0)
         {
           slldbg("Open /dev/console fd: %d\n", fd);
           (void)close(fd);

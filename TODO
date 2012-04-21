@@ -1,4 +1,4 @@
-NuttX TODO List (Last updated February 21, 2012)
+NuttX TODO List (Last updated April 12, 2012)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file summarizes known NuttX bugs, limitations, inconsistencies with 
@@ -10,11 +10,11 @@ nuttx/
   (1)  On-demand paging (sched/)
   (1)  Memory Managment (mm/)
   (2)  Signals (sched/, arch/)
-  (1)  pthreads (sched/)
+  (2)  pthreads (sched/)
   (2)  C++ Support
   (5)  Binary loaders (binfmt/)
  (17)  Network (net/, drivers/net)
-  (2)  USB (drivers/usbdev, drivers/usbhost)
+  (3)  USB (drivers/usbdev, drivers/usbhost)
   (8)  Libraries (lib/)
  (10)  File system/Generic drivers (fs/, drivers/)
   (1)  Graphics subystem (graphics/)
@@ -84,6 +84,8 @@ o Task/Scheduler (sched/)
 
   Title:       MISSING ERRNO SETTINGS
   Description: Several APIs do not set errno.  Need to review all APIs.
+               Update:  These are being fixed as they are encountered.  There is
+               no accounting of how many interfaces have this problem.
   Status:      Open
   Priority:    Medium, required for standard compliance (but makes the
                code bigger)
@@ -190,6 +192,64 @@ o pthreads (sched/)
   Status:      Open
   Priority:    Low, probably not that useful
 
+  Title:       PTHREAD_PRIO_PROTECT
+               Extended pthread_mutexattr_setprotocol() suport PTHREAD_PRIO_PROTECT:
+               "When a thread owns one or more mutexes initialized with the
+               PTHREAD_PRIO_PROTECT protocol, it shall execute at the higher of its
+               priority  or  the  highest  of the priority ceilings of all the mutexes
+               owned by this thread and initialized with this attribute, regardless of
+               whether other threads are blocked on any of these mutexes or not.
+
+               "While  a  thread is holding a mutex which has been initialized with
+               the PTHREAD_PRIO_INHERIT or PTHREAD_PRIO_PROTECT protocol attributes,
+               it shall not be subject to being moved to the tail of the scheduling queue
+               at its priority in the event that its original priority is changed,
+               such as by a call to sched_setparam(). Likewise, when a thread unlocks
+               a mutex that has been initialized with the PTHREAD_PRIO_INHERIT or
+               PTHREAD_PRIO_PROTECT protocol attributes, it shall not be subject to
+               being moved to the tail of the scheduling queue at its priority in  the
+               event that its original priority is changed."
+  Status:      Open
+  Priority:    Low -- about zero, probably not that useful. Priority inheritance is
+               already supported and is a much better solution.  And it turns out
+               that priority protection is just about as complex as priority inheritance.
+               Exerpted from my post in a Linked-In discussion:
+
+               "I started to implement this HLS/"PCP" semaphore in an RTOS that I
+               work with (http://www.nuttx.org) and I discovered after doing the
+               analysis and basic code framework that a complete solution for the
+               case of a counting semaphore is still quite complex -- essentially
+               as complex as is priority inheritance.
+
+               "For example, suppose that a thread takes 3 different HLS semaphores
+               A, B, and C. Suppose that they are prioritized in that order with
+               A the lowest and C the highest. Suppose the thread takes 5 counts
+               from A, 3 counts from B, and 2 counts from C. What priority should
+               it run at? It would have to run at the priority of the highest
+               priority semaphore C. This means that the RTOS must maintain
+               internal information of the priority of every semaphore held by
+               the thread.
+
+               "Now suppose it releases one count on semaphore B. How does the
+               RTOS know that it still holds 2 counts on B? With some complex
+               internal data structure. The RTOS would have to maintain internal
+               information about how many counts from each semaphore are held
+               by each thread.
+
+               "How does the RTOS know that it should not decrement the priority
+               from the priority of C? Again, only with internal complexity. It
+               would have to know the priority of every semaphore held by
+               every thread.
+
+               "Providing the HLS capability on a simple phread mutex would not
+               be such quite such a complex job if you allow only one mutex per
+               thread. However, the more general case seems almost as complex
+               as priority inheritance. I decided that the implementation does
+               not have value to me. I only wanted it for its reduced
+               complexity; in all other ways I believe that it is the inferior
+               solution. So I discarded a few hours of programming. Not a
+               big loss from the experience I gained."
+
 o C++ Support
   ^^^^^^^^^^^
 
@@ -211,6 +271,13 @@ o C++ Support
 
   Title:       STATIC CONSTRUCTORS
   Description: Need to call static constructors
+               Update:  Static constructors are implemented for the STM32 F4 and
+               this will provide the model for all solutions.  Basically, if
+               CONFIG_HAVE_CXXINITIALIZE=y is defined in the configuration, then
+               board-specific code must provide the interface up_cxxinitialize().
+               up_cxxinitialize() is called from user_start() to initialize
+               all static class instances.  This TODO item probably has to stay
+               open because this solution is only available on STM32 F4.
   Status:      Open
   Priority:    Low, depends on toolchain.  Call to gcc's built-in static
                constructor logic will probably have to be performed by
@@ -442,7 +509,8 @@ o USB (drivers/usbdev, drivers/usbhost)
 
   Title:       USB STORAGE DRIVER DELAYS
   Description: There is a workaround for a bug in drivers/usbdev/usbdev_storage.c.
-               that involves delays.  This needs to be redesigned to eliminate these delays.
+               that involves delays.  This needs to be redesigned to eliminate these
+               delays.  See logic conditioned on CONFIG_USBMSC_RACEWAR.
   Status:      Open
   Priority:    Medium
 
@@ -452,6 +520,28 @@ o USB (drivers/usbdev, drivers/usbhost)
                it depends on having an 802.11g stack.
   Status:      Open
   Priority:    Low (Unless you need RTL8187 support).
+
+  Title:       EP0 OUT CLASS DATA
+  Description: There is no mechanism in place to handle EP0 OUT data transfers.
+               There are two aspects to this problem, neither are easy to fix
+               (only because of the number of drivers that would be impacted):
+
+               1. The class drivers only send EP0 write requests and these are
+                  only queued on EP0 IN by this drivers.  There is never a read
+                  request queued on EP0 OUT.
+               2. But EP0 OUT data could be buffered in a buffer in the driver
+                  data structure.  However, there is no method currently
+                  defined in the USB device interface to obtain the EP0 data.
+
+               Updates:  (1) The USB device-to-class interface as been extended so
+               that EP0 OUT data can accompany the SETUP request sent to the
+               class drivers. (2) The logic in the STM32 F4 OTG FS device driver
+               has been extended to provide this data.  Updates are still needed
+               to other drivers.
+  Status:      Open
+  Priority:    High for class drivers that need EP0 data.  For example, the
+               CDC/ACM serial driver might need the line coding data (that
+               data is not used currenly, but it might be).
 
 o Libraries (lib/)
   ^^^^^^^^^^^^^^^^
@@ -545,6 +635,7 @@ o File system / Generic drivers (fs/, drivers/)
 
   Title:       CAN POLL SUPPORT
   Description: At present, the CAN driver does not support the poll() method.
+               See drivers/can.c
   Status:      Open
   Priority:    Low
 
@@ -1253,14 +1344,34 @@ o 8051 / MCS51 (arch/8051/)
   Status:      Open
   Priority:    Low -- only because there as so many other issues with 8051
 
-o MIPS (arch/mips)
-  ^^^^^^^^^^^^^^^^
+o MIPS/PIC32(arch/mips)
+  ^^^^^^^^^^^^^^^^^^^^^
 
-  Title:       PIC32MX USB DRIVER UNTESTED
-  Description: A USB device-side driver has been written for the PIC3MX,
-               is completely untested as of this writing.
+  Title:       PIC32 USB DRIVER DOES NOT WORK WITH MASS STORAGE CLASS
+  Description: The PIC32 USB driver either crashes or hangs when used with
+               the mass storage class when trying to write files to the target
+               storage device.  This usually works with debug on, but does not
+               work with debug OFF (implying some race condition?)
+
+               Here are some details of what I see in debugging:
+
+               1. The USB MSC device completes processing of a read request
+                  and returns the read request to the driver.
+               2. Before the MSC device can even begin the wait for the next
+                  driver, many packets come in at interrupt level.  The MSC
+                  device goes to sleep (on pthread_cond_wait) with all of the
+                  read buffers ready (16 in my test case).
+               3. The pthread_cond_wait() does not wake up.  This implies
+                  a problem with pthread_con_wait(?).  But in other cases,
+                  the MSC device does wake up, but then immediately crashes
+                  because its stack is bad.
+               4. If I force the pthread_cond_wait to wake up (by using
+                  pthread_cond_timedwait instead), then the thread wakes
+                  up and crashes with a bad stack.
+
+               So far, I have no clue why this is failing.
   Status:      Open
-  Priority:    Low -- unless you need a USB device-side driver.
+  Priority:    High
 
 o Hitachi/Renesas SH-1 (arch/sh/src/sh1)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

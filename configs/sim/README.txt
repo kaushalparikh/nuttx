@@ -364,6 +364,31 @@ nx11
     CONFG_NX_MULTIUSER=y
     CONFIG_DISABLE_MQUEUE=n
 
+  examples/nxconsole
+  ------------------
+  This configuration is also set up to use the examples/nxconsole
+  test instead of examples/nx.  To enable this configuration,
+  First, select Multi-User mode as described above.  Then add the
+  following definitions to the defconfig file:
+
+    -CONFIG_NXCONSOLE=n
+    +CONFIG_NXCONSOLE=y
+
+    -CONFIG_NX_MULTIUSER=n
+    +CONFIG_NX_MULTIUSER=y
+
+  Comment out the following in the appconfig file:
+
+    -CONFIGURED_APPS += examples/nx
+    +#CONFIGURED_APPS += examples/nx
+
+  And uncomment the following:
+
+    -#CONFIGURED_APPS += examples/nxconsole
+    +CONFIGURED_APPS += examples/nxconsole
+
+  See apps/examples/README.txt for further details.
+
 ostest
 
   Description

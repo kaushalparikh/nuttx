@@ -9,6 +9,13 @@ config APPSDIR
 	string
 	option env="APPSDIR"
 
+# This is a temporary kludge to let the build system know that we are using the new
+# configuration system
+
+config NUTTX_NEWCONFIG
+	bool
+	default y
+
 menu "General Setup"
 config EXPERIMENTAL
 	bool "Prompt for development and/or incomplete code/drivers"
@@ -226,6 +233,12 @@ config DEBUG_SPI
 	---help---
 		Enable I2C driver debug output (disabled by default)
 
+config DEBUG_WATCHDOG
+	bool "Enable watchdog timer debug output"
+	default n
+	---help---
+		Enable  watchdog timer debug output (disabled by default)
+
 endif
 
 config DEBUG_SYMBOLS
@@ -239,6 +252,10 @@ endmenu
 
 menu "System Type"
 source "arch/Kconfig"
+endmenu
+
+menu "Board Selection"
+source "configs/Kconfig"
 endmenu
 
 menu "Kernel Features"
@@ -269,3 +286,4 @@ endmenu
 menu "Application configuration"
 source "$APPSDIR/Kconfig"
 endmenu
+

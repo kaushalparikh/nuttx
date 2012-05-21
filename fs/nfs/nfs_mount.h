@@ -47,6 +47,8 @@
  * Included Files
  ****************************************************************************/
 
+ #include <nuttx/fs/nfs.h>
+ 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -68,19 +70,19 @@ struct nfsmount
 {
   int nm_flag;                /* Flags for soft/hard... */
   int nm_state;               /* Internal state flags */
-  struct inode *nm_blkdriver; /* Vfs structure for this filesystem */
   struct nfsnode *nm_head;    /* A list to all files opened on this mountpoint */
   bool nm_mounted;            /* true: The file system is ready */
   sem_t nm_sem;               /* Used to assume thread-safe access */
   int nm_numgrps;             /* Max. size of groupslist */
   nfsfh_t nm_fh;              /* File handle of root dir */
+  char nm_path[90];           /* server's path of the directory being mount */
   int nm_fhsize;              /* Size of root file handle */
-  struct rpcclnt nm_rpcclnt;  /* rpc state */
+  struct rpcclnt *nm_rpcclnt; /* rpc state */
   struct socket *nm_so;       /* Rpc socket */
-  int nm_sotype;              /* Type of socket */
-  int nm_soproto;             /* and protocol */
-  int nm_soflags;             /* pr_flags for socket protocol */
-  struct sockaddr *nm_nam;    /* Addr of server */
+  uint8_t nm_sotype;          /* Type of socket */
+  uint8_t nm_soproto;         /* and protocol */
+  uint8_t nm_soflags;         /* pr_flags for socket protocol */
+  struct sockaddr nm_nam;     /* Addr of server */
   int nm_timeo;               /* Init timer for NFSMNT_DUMBTIMR */
   int nm_retry;               /* Max retries */
   int nm_srtt[4];             /* Timers for rpcs */
@@ -97,26 +99,7 @@ struct nfsmount
   int nm_acdirmax;            /* Directory attr cache max lifetime */
   int nm_acregmin;            /* Reg file attr cache min lifetime */
   int nm_acregmax;            /* Reg file attr cache max lifetime */
-  unsigned char nm_verf[NFSX_V3WRITEVERF]; /* V3 write verifier */
-//char nm_mntonname[90];      /* directory on which mounted */
-  uint8_t *nm_buffer;         /* This is an allocated buffer to hold one sector*/
+  unsigned char *nm_verf;     /* V3 write verifier */
 };
-
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
-/* Prototypes for NFS mount operations: */
-
-int nfs_mount(struct inode *, const char *, void *);
-int mountnfs(struct nfs_args *, struct inode *, char *, char *);
-void nfs_decode_args(struct nfsmount *, struct nfs_args *, struct nfs_args *);
-int nfs_unmount(struct inode *, int);
-int nfs_root(struct inode *, struct file **);
-int nfs_statfs(struct inode *, struct statfs *);
-int nfs_sync(struct inode *, int);
-int nfs_vget(struct inode *, ino_t, struct file **);
-int nfs_fsinfo(struct nfsmount *, struct file *);
-void nfs_init(void);
 
 #endif

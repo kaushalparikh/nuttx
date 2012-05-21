@@ -50,36 +50,6 @@
  * Pre-processor definitions
  ****************************************************************************/
 
-/* Configuration ************************************************************/
-
-#ifndef CONFIG_NXTK_BORDERWIDTH
-#  define CONFIG_NXTK_BORDERWIDTH 4
-#endif
-
-#ifndef CONFIG_NXTK_BORDERCOLOR1
-#  if !defined(CONFIG_NX_DISABLE_32BPP) || !defined(CONFIG_NX_DISABLE_24BPP)
-#    define CONFIG_NXTK_BORDERCOLOR1 0x00a9a9a9
-#  elif !defined(CONFIG_NX_DISABLE_16BPP)
-#    define CONFIG_NXTK_BORDERCOLOR1 0xad55
-#  elif !defined(CONFIG_NX_DISABLE_4BPP)
-#    define CONFIG_NXTK_BORDERCOLOR1 6
-#  else
-#    define CONFIG_NXTK_BORDERCOLOR1 'B'
-#  endif
-#endif
-
-#ifndef CONFIG_NXTK_BORDERCOLOR2
-#  if !defined(CONFIG_NX_DISABLE_32BPP) || !defined(CONFIG_NX_DISABLE_24BPP)
-#    define CONFIG_NXTK_BORDERCOLOR2 0x00696969
-#  elif !defined(CONFIG_NX_DISABLE_16BPP)
-#    define CONFIG_NXTK_BORDERCOLOR2 0x6b4d
-#  elif !defined(CONFIG_NX_DISABLE_4BPP)
-#    define CONFIG_NXTK_BORDERCOLOR2 4
-#  else
-#    define CONFIG_NXTK_BORDERCOLOR2 'b'
-#  endif
-#endif
-
 /****************************************************************************
  * Public Types
  ****************************************************************************/
@@ -124,6 +94,7 @@ extern FAR const struct nx_callback_s g_nxtkcb;
 
 extern nxgl_mxpixel_t g_bordercolor1[CONFIG_NX_NPLANES];
 extern nxgl_mxpixel_t g_bordercolor2[CONFIG_NX_NPLANES];
+extern nxgl_mxpixel_t g_bordercolor3[CONFIG_NX_NPLANES];
 
 /****************************************************************************
  * Public Function Prototypes

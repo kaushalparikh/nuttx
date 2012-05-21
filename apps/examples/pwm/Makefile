@@ -37,7 +37,7 @@
 -include $(TOPDIR)/Make.defs
 include $(APPDIR)/Make.defs
 
-# NuttX NX Graphics Example.
+# PWM Example.
 
 ASRCS		=
 CSRCS		= pwm_main.c
@@ -56,7 +56,7 @@ endif
 
 ROOTDEPPATH	= --dep-path .
 
-# Touchscreen built-in application info
+# PWM built-in application info
 
 APPNAME		= pwm
 PRIORITY	= SCHED_PRIORITY_DEFAULT

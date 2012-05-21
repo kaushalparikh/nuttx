@@ -90,11 +90,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <debug.h>
+#include <nuttx/kmalloc.h>
 
 #include "xdr_subs.h"
 #include "nfs_proto.h"
-#include "nfs.h"
-#include "nfs_args.h"
 #include "rpc.h"
 #include "rpc_clnt_private.h"
 #include "rpc_v2.h"
@@ -103,7 +102,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define RPC_RETURN(X) do { dbg("returning %d", X); return X; }while(0)
+#define RPC_RETURN(X) do { nvdbg("returning %d\n", X); return X; } while(0)
 
 /* Estimate rto for an nfs rpc sent via. an unreliable datagram. Use the mean
  * and mean deviation of rtt for the appropriate type of rpc for the frequent
@@ -177,36 +176,41 @@ char *rpc_errstr_auth[RPC_ERRSTR_AUTH_SIZE] =
  * Private Data
  ****************************************************************************/
 
-static int rpcclnt_backoff[8] = { 2, 4, 8, 16, 32, 64, 128, 256, };
+//static int rpcclnt_backoff[8] = { 2, 4, 8, 16, 32, 64, 128, 256, };
 
 /* Static data, mostly RPC constants in XDR form */
 
-static uint32_t rpc_reply, rpc_call, rpc_vers, rpc_msgdenied,
-  rpc_mismatch, rpc_auth_unix, rpc_msgaccepted, rpc_autherr, rpc_auth_null;
+static uint32_t rpc_reply;
+static uint32_t rpc_call;
+static uint32_t rpc_vers;
+static uint32_t rpc_msgdenied;
+static uint32_t rpc_mismatch;
+static uint32_t rpc_auth_unix;
+static uint32_t rpc_msgaccepted;
+static uint32_t rpc_autherr;
+static uint32_t rpc_auth_null;
 
 static uint32_t rpcclnt_xid = 0;
 static uint32_t rpcclnt_xid_touched = 0;
 int rpcclnt_ticks;
 struct rpcstats rpcstats;
-struct rpc_call *callmgs;
-struct rpc_reply *replymsg;
+//struct rpc_call *callmgs;
+//struct rpc_reply *replymsg;
 
 /* Queue head for rpctask's */
 
-static dq_queue_t *rpctask_q;
+static dq_queue_t rpctask_q;
 //struct callout_handle rpcclnt_timer_handle;
 
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
 
-static int rpcclnt_send(struct socket *, struct sockaddr *, struct rpc_call *,
+static int rpcclnt_send(struct socket *, struct sockaddr *, int, int, void *,
                         struct rpctask *);
-static int rpcclnt_receive(struct rpctask *, struct sockaddr *,
-                           struct rpc_reply *, struct rpc_call *);
-static int rpcclnt_reply(struct rpctask *, struct rpc_call *,
-                         struct rpc_reply *);
-static void rpcclnt_timer(void *, struct rpc_call *);
+static int rpcclnt_receive(struct rpctask *, struct sockaddr *, int, int,
+                           void *);//, struct rpc_call *);
+static int rpcclnt_reply(struct rpctask *, int, int, void *);
 #ifdef CONFIG_NFS_TCPIP
 static int rpcclnt_sndlock(int *, struct rpctask *);
 static void rpcclnt_sndunlock(int *);
@@ -214,10 +218,13 @@ static int rpcclnt_rcvlock(struct rpctask *);
 static void rpcclnt_rcvunlock(int *);
 static int  rpcclnt_sigintr(struct rpcclnt *, struct rpctask *, cthread_t *);
 #endif
+#ifdef COMP
 static void rpcclnt_softterm(struct rpctask *task);
-
+static void rpcclnt_timer(void *, struct rpc_call *);
+#endif
 static uint32_t rpcclnt_proct(struct rpcclnt *, uint32_t);
-static int rpcclnt_buildheader(struct rpcclnt *, int, int, void *, struct rpc_call *);
+static int rpcclnt_buildheader(struct rpcclnt *, int, int, int, struct xidr *, FAR const void *,
+                               void *);
 
 /****************************************************************************
  * Private Functions
@@ -234,11 +241,15 @@ static int rpcclnt_buildheader(struct rpcclnt *, int, int, void *, struct rpc_ca
  */
 
 static int
-rpcclnt_send(struct socket *so, struct sockaddr *nam, struct rpc_call *call,
-             struct rpctask *rep)
+rpcclnt_send(struct socket *so, struct sockaddr *nam, int procid, int prog,
+             void *call, struct rpctask *rep)
 {
   struct sockaddr *sendnam;
-  int error, soflags, flags;
+  int error = ESRCH;
+#ifdef CONFIG_NFS_TCPIP
+  int soflags;
+#endif
+  int flags;
 
   if (rep != NULL)
     {
@@ -254,14 +265,16 @@ rpcclnt_send(struct socket *so, struct sockaddr *nam, struct rpc_call *call,
         }
 
       rep->r_flags &= ~TASK_MUSTRESEND;
+#ifdef CONFIG_NFS_TCPIP
       soflags = rep->r_rpcclnt->rc_soflags;
+#endif
     }
+#ifdef CONFIG_NFS_TCPIP
   else
     {
       soflags = so->s_flags;
     }
 
-#ifdef CONFIG_NFS_TCPIP
   if ((soflags & PR_CONNREQUIRED))
     {
       sendnam = NULL;
@@ -281,10 +294,126 @@ rpcclnt_send(struct socket *so, struct sockaddr *nam, struct rpc_call *call,
       flags = 0;
     }
 
-  error =
-    psock_sendto(so, call, sizeof(*call), flags, sendnam, sizeof(*sendnam));
+  if (prog == PMAPPROG)
+    {
+      if (procid == PMAPPROC_GETPORT)
+        {
+          struct rpc_call_pmap *callmsg = (struct rpc_call_pmap *)call;
+          error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                               sendnam, sizeof(*sendnam));
+        }
+      else if (procid == PMAPPROC_UNSET)
+        {
+          struct rpc_call_pmap *callmsg = (struct rpc_call_pmap *)call;
+          error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                               sendnam, sizeof(*sendnam));
+        }
+    }
+  else if (prog == RPCPROG_MNT)
+    {
+      if (procid == RPCMNT_UMOUNT)
+        {
+          struct rpc_call_mount *callmsg = (struct rpc_call_mount *)call;
+          error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                               sendnam, sizeof(*sendnam));
+        }
+      else if (procid == RPCMNT_MOUNT)
+        {
+          struct rpc_call_mount *callmsg = (struct rpc_call_mount *)call;
+          error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                               sendnam, sizeof(*sendnam));
+        }
+    }
+  else if (prog == NFS_PROG)
+    {
+      switch (procid)
+        {
+        case NFSPROC_CREATE:
+          {
+            struct rpc_call_create *callmsg = (struct rpc_call_create *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
 
-  if (error != 0)
+        case NFSPROC_READ:
+          {
+            struct rpc_call_read *callmsg = (struct rpc_call_read *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_WRITE:
+          {
+            struct rpc_call_write *callmsg = (struct rpc_call_write *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_READDIR:
+          {
+            struct rpc_call_readdir *callmsg = (struct rpc_call_readdir *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_FSSTAT:
+          {
+            struct rpc_call_fs *callmsg = (struct rpc_call_fs *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_REMOVE:
+          {
+            struct rpc_call_remove *callmsg  = (struct rpc_call_remove *)call;
+                  error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                           sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_MKDIR:
+          {
+            struct rpc_call_mkdir *callmsg = (struct rpc_call_mkdir *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_RMDIR:
+          {
+            struct rpc_call_rmdir *callmsg  = (struct rpc_call_rmdir *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_RENAME:
+          {
+            struct rpc_call_rename *callmsg  = (struct rpc_call_rename *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        case NFSPROC_FSINFO:
+          {
+            struct rpc_call_fs *callmsg = (struct rpc_call_fs *)call;
+            error = psock_sendto(so, callmsg, sizeof(*callmsg), flags,
+                                 sendnam, sizeof(*sendnam));
+          }
+          break;
+
+        default:
+          break;
+        }
+    }
+
+  if (error < 0)
     {
       if (rep != NULL)
         {
@@ -307,16 +436,13 @@ rpcclnt_send(struct socket *so, struct sockaddr *nam, struct rpc_call *call,
           ndbg("rpc service send error %d\n", error);
         }
 
-      /* Handle any recoverable (soft) socket errors here. */
+      RPC_RETURN(error);
 
-      if (error != EINTR && error != ERESTART &&
-          error != EWOULDBLOCK && error != EPIPE)
-        {
-          error = 0;
-        }
     }
-
-  RPC_RETURN(error);
+  else
+    {
+      RPC_RETURN(0);
+    }
 }
 
 /* Receive a Sun RPC Request/Reply. For SOCK_DGRAM, the work is all
@@ -327,14 +453,17 @@ rpcclnt_send(struct socket *so, struct sockaddr *nam, struct rpc_call *call,
  */
 
 static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
-                           struct rpc_reply *reply, struct rpc_call *call)
+                           int proc, int program, void *reply)//, struct rpc_call *call)
 {
   struct socket *so;
 #ifdef CONFIG_NFS_TCPIP
   uint32_t len;
+  int sotype;
 #endif
-  int error, sotype, rcvflg;
+  int error = 0;
+  int rcvflg;
 
+#ifdef CONFIG_NFS_TCPIP
   /* Set up arguments for soreceive() */
 
   sotype = rep->r_rpcclnt->rc_sotype;
@@ -346,7 +475,6 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
    * rpc request/reply.
    */
 
-#ifdef CONFIG_NFS_TCPIP
   if (sotype != SOCK_DGRAM)
     {
       error = rpcclnt_sndlock(&rep->r_rpcclnt->rc_flag, rep);
@@ -404,10 +532,11 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
         {
           do
             {
+              socklen_t fromlen = sizeof(*rep->r_rpcclnt->rc_name)
               rcvflg = MSG_WAITALL;
               error = psock_recvfrom(so, reply, sizeof(*reply),
                                      &rcvflg, rep->r_rpcclnt->rc_name,
-                                     sizeof(*rep->r_rpcclnt->rc_name));
+                                     &fromlen);
               if (error == EWOULDBLOCK && rep && (rep->r_flags & TASK_SOFTTERM))
                 {
                   RPC_RETURN(EINTR);
@@ -439,10 +568,11 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
             }
           do
             {
+              socklen_t fromlen = sizeof(*rep->r_rpcclnt->rc_name);
               rcvflg = MSG_WAITALL;
               error = psock_recvfrom(so, reply, sizeof(*reply),
                                      &rcvflg, rep->r_rpcclnt->rc_name,
-                                     sizeof(*rep->r_rpcclnt->rc_name));
+                                     &fromlen);
             }
           while (error == EWOULDBLOCK || error == EINTR || error == ERESTART);
 
@@ -469,10 +599,10 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
 
           do
             {
+              socklen_t fromlen = sizeof(*rep->r_rpcclnt->rc_name);
               rcvflg = 0;
-              error = psock_recvfrom(so, reply, sizeof(*reply),
-                                     &rcvflg, rep->r_rpcclnt->rc_name,
-                                     sizeof(*rep->r_rpcclnt->rc_name));
+              error = psock_recvfrom(so, reply, sizeof(*reply), &rcvflg,
+                                     rep->r_rpcclnt->rc_name, &fromlen);
               if (error == EWOULDBLOCK && rep)
                 {
                   if (rep->r_flags & TASK_SOFTTERM)
@@ -516,32 +646,147 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
         }
     }
   else
-    {
 #endif
-      if ((so = rep->r_rpcclnt->rc_so) == NULL)
+    {
+      so = rep->r_rpcclnt->rc_so;
+      if (so == NULL)
         {
           RPC_RETURN(EACCES);
         }
 
-      do
+      socklen_t fromlen = sizeof(*aname);
+      rcvflg = 0;
+
+      if (program == PMAPPROG)
         {
-          rcvflg = 0;
-          error =
-            psock_recvfrom(so, reply, sizeof(*reply), rcvflg, aname,
-                           (socklen_t *) sizeof(*aname));
-          dbg("psock_recvfrom returns %d", error);
-          if (error == EWOULDBLOCK && (rep->r_flags & TASK_SOFTTERM))
+          if (proc == PMAPPROC_GETPORT)
             {
-              dbg("wouldblock && softerm -> EINTR");
-              RPC_RETURN(EINTR);
+              struct rpc_reply_pmap *replymsg = (struct rpc_reply_pmap *)reply;
+              error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+            }
+
+          else if (proc == PMAPPROC_UNSET)
+            {
+             struct rpc_reply_pmap *replymsg = (struct rpc_reply_pmap *)reply;
+             error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
             }
         }
-      while (error == EWOULDBLOCK);
 
-#ifdef CONFIG_NFS_TCPIP
+      else if (program == RPCPROG_MNT)
+        {
+          if (proc== RPCMNT_UMOUNT)
+            {
+              struct rpc_reply_mount *replymsg = (struct rpc_reply_mount *)reply;
+              error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+            }
+          else if (proc == RPCMNT_MOUNT)
+            {
+              struct rpc_reply_mount *replymsg = (struct rpc_reply_mount *)reply;
+              error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+            }
+        }
+
+      else if (program == NFS_PROG)
+        {
+          switch (proc)
+            {
+            case NFSPROC_CREATE:
+              {
+                struct rpc_reply_create *replymsg = (struct rpc_reply_create *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_READ:
+              {
+                struct rpc_reply_read *replymsg = (struct rpc_reply_read *)reply;
+               error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_WRITE:
+              {
+                struct rpc_reply_write *replymsg = (struct rpc_reply_write *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_READDIR:
+              {
+                struct rpc_reply_readdir *replymsg = (struct rpc_reply_readdir *)reply;
+               error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_FSSTAT:
+              {
+                struct rpc_reply_fsstat *replymsg = (struct rpc_reply_fsstat *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_REMOVE:
+              {
+                struct rpc_reply_remove *replymsg  = (struct rpc_reply_remove *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_MKDIR:
+              {
+                struct rpc_reply_mkdir *replymsg = (struct rpc_reply_mkdir *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_RMDIR:
+              {
+                struct rpc_reply_rmdir *replymsg  = (struct rpc_reply_rmdir *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_RENAME:
+              {
+                struct rpc_reply_rename *replymsg  = (struct rpc_reply_rename *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            case NFSPROC_FSINFO:
+              {
+                struct rpc_reply_fsinfo *replymsg = (struct rpc_reply_fsinfo *)reply;
+                error = psock_recvfrom(so, replymsg, sizeof(*replymsg), rcvflg,
+                                     aname, &fromlen);
+              }
+              break;
+
+            default:
+              break;
+            }
+        }
+
+      nvdbg("psock_recvfrom returns %d\n", error);
+      if (error > 0)
+        {
+          RPC_RETURN(0);
+        }
     }
-#endif
-  RPC_RETURN(error);
+
+  RPC_RETURN(ENONET);
 }
 
 /* Implement receipt of reply on a socket. We must search through the list of
@@ -549,21 +794,19 @@ static int rpcclnt_receive(struct rpctask *rep, struct sockaddr *aname,
  * until ours is found.
  */
 
-/* ARGSUSED */
-static int
-rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
-              struct rpc_reply *reply)
+static int rpcclnt_reply(struct rpctask *myrep, int procid, int prog, void *reply)
 {
   struct rpctask *rep;
+  struct rpc_reply_header replyheader;
   struct rpcclnt *rpc = myrep->r_rpcclnt;
   int32_t t1;
-  struct sockaddr *nam = NULL;
   uint32_t rxid;
   int error;
+  int count;
 
   /* Loop around until we get our own reply */
 
-  for (;;)
+  for (count = 0; count < 9; count++)
     {
       /* Lock against other receivers so that I don't get stuck in
        * sbwait() after someone else has received my reply for me.
@@ -578,11 +821,9 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
           return error;
         }
 #endif
-      /*
-       * Get the next Rpc reply off the socket
-       */
-      error = rpcclnt_receive(myrep, nam, reply, call);
+      /* Get the next Rpc reply off the socket */
 
+      error = rpcclnt_receive(myrep, rpc->rc_name, procid, prog, reply);
 #ifdef CONFIG_NFS_TCPIP
       rpcclnt_rcvunlock(&rpc->rc_flag);
 #endif
@@ -600,16 +841,18 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
                   RPC_RETURN(0);
                 }
 
-              ndbg("ingoring routing error on connectionless protocol.");
+              ndbg("ignoring routing error on connectionless protocol.");
               continue;
             }
           RPC_RETURN(error);
         }
 
-      /* Get the xid and check that it is an rpc reply */
+      bcopy(reply, &replyheader, sizeof(struct rpc_reply_header));
 
-      rxid = reply->rp_xid;
-      if (reply->rp_direction != rpc_reply)
+      /* Get the xid and check that it is an rpc replysvr */
+
+      rxid = replyheader.rp_xid;
+      if (replyheader.rp_direction != rpc_reply)
         {
           rpcstats.rpcinvalid++;
           if (myrep->r_flags & TASK_GETONEREP)
@@ -624,7 +867,7 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
        * match, just drop the datagram
        */
 
-      for (rep = (struct rpctask *)rpctask_q->head; rep;
+      for (rep = (struct rpctask *)rpctask_q.head; rep != NULL;
            rep = (struct rpctask *)rep->r_chain.flink)
         {
           if (rxid == rep->r_xid)
@@ -638,6 +881,7 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
                   rpc->rc_cwnd +=
                     (RPC_CWNDSCALE * RPC_CWNDSCALE +
                      (rpc->rc_cwnd >> 1)) / rpc->rc_cwnd;
+
                   if (rpc->rc_cwnd > RPC_MAXCWND)
                     {
                       rpc->rc_cwnd = RPC_MAXCWND;
@@ -684,8 +928,9 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
 
       if (rep == 0)
         {
+          ndbg("rpc reply not matched\n");
           rpcstats.rpcunexpected++;
-          dbg("rpc reply not matched\n");
+          RPC_RETURN(ENOMSG);
         }
       else if (rep == myrep)
         {
@@ -697,14 +942,16 @@ rpcclnt_reply(struct rpctask *myrep, struct rpc_call *call,
           RPC_RETURN(0);
         }
     }
+
+  RPC_RETURN(ENONET);
 }
 
 #ifdef CONFIG_NFS_TCPIP
 static int
 rpcclnt_sigintr( struct rpcclnt *rpc, struct rpctask *task, cthread_t *td)
 {
-  struct proc    *p;
-  sigset_t        tmpset;
+  struct proc *p;
+  sigset_t     tmpset;
 
   if (rpc == NULL)
     {
@@ -715,8 +962,6 @@ rpcclnt_sigintr( struct rpcclnt *rpc, struct rpctask *task, cthread_t *td)
     {
       return 0;
     }
-
-  /* XXX deal with forced unmounts */
 
   if (task && ISSET(task->r_flags, TASK_SOFTTERM))
     {
@@ -865,6 +1110,7 @@ static uint32_t rpcclnt_proct(struct rpcclnt *rpc, uint32_t procid)
   return 0;
 }
 
+#ifdef COMP
 static void rpcclnt_softterm(struct rpctask *task)
 {
   task->r_flags |= TASK_SOFTTERM;
@@ -874,6 +1120,7 @@ static void rpcclnt_softterm(struct rpctask *task)
       task->r_flags &= ~TASK_SENT;
     }
 }
+#endif
 
 /****************************************************************************
  * Public Functions
@@ -907,11 +1154,11 @@ void rpcclnt_init(void)
 
   /* Initialize rpctask queue */
 
-  dq_init(rpctask_q);
+  dq_init(&rpctask_q);
 
-  rpcclnt_timer(NULL, callmgs);
+  //rpcclnt_timer(NULL, callmgs);
 
-  nvdbg("rpc initialed");
+  nvdbg("rpc initialized");
   return;
 }
 
@@ -933,42 +1180,68 @@ int rpcclnt_connect(struct rpcclnt *rpc)
   struct socket *so;
   int error;
   struct sockaddr *saddr;
-  struct sockaddr_in *sin = NULL;
-  struct timeval *tv = NULL;
+  struct sockaddr_in sin;
+  struct sockaddr_in *sa;
+  struct call_args_pmap sdata;
+  struct call_args_mount mountd;
+  struct rpc_reply_pmap rdata;
+  struct rpc_reply_mount mdata;
+  struct timeval tv;
   uint16_t tport;
 
   /* Create the socket */
 
-  rpc->rc_so = NULL;
   saddr = rpc->rc_name;
-  rpc->rc_sotype = SOCK_DGRAM;
+  memset(&sin, 0, sizeof(sin));
 
-  error =
-    psock_socket(saddr->sa_family, rpc->rc_sotype, rpc->rc_soproto, rpc->rc_so);
+  /* Create an instance of the socket state structure */
 
+  so = (struct socket *)kzalloc(sizeof(struct socket));
+  if (!so)
+    {
+      fdbg("Failed to allocate socket structure\n");
+      return -ENOMEM;
+    }
+
+  error = psock_socket(saddr->sa_family, rpc->rc_sotype, rpc->rc_soproto, so);
   if (error != 0)
     {
       ndbg("error %d in psock_socket()", error);
       RPC_RETURN(error);
     }
 
-  so = rpc->rc_so;
+  so->s_crefs = 1;
+  rpc->rc_so = so;
   rpc->rc_soflags = so->s_flags;
+
+   /* Always set receive timeout to detect server crash and reconnect.
+    * Otherwise, we can get stuck in psock_receive forever.
+    */
+
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+
+  error = psock_setsockopt(rpc->rc_so, SOL_SOCKET, SO_RCVTIMEO,
+                          (const void *)&tv, sizeof(tv));
+  if (error != 0)
+    {
+      goto bad;
+    }
 
   /* Some servers require that the client port be a reserved port
    * number. We always allocate a reserved port, as this prevents
    * filehandle disclosure through UDP port capture.
    */
 
-  sin->sin_family = AF_INET;
-  sin->sin_addr.s_addr = INADDR_ANY;
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = INADDR_ANY;
   tport = 1024;
 
   do
     {
       tport--;
-      sin->sin_port = htons(tport);
-      error = psock_bind(so, (struct sockaddr *)sin, sizeof(*sin));
+      sin.sin_port = htons(tport);
+      error = psock_bind(rpc->rc_so, (struct sockaddr *)&sin, sizeof(sin));
     }
   while (error == EADDRINUSE && tport > 1024 / 2);
 
@@ -988,35 +1261,81 @@ int rpcclnt_connect(struct rpcclnt *rpc)
     {
       error = ENOTCONN;
       goto bad;
-
     }
   else
-    {
 #endif
-      error = psock_connect(so, saddr, sizeof(*saddr));
+    {
+      error = psock_connect(rpc->rc_so, saddr, sizeof(*saddr));
 
       if (error)
         {
-          dbg("psock_connect returns %d", error);
+          ndbg("psock_connect to ppmap port returns %d", error);
           goto bad;
-
         }
-#ifdef CONFIG_NFS_TCPIP
-    }
-#endif
 
-  /* Always set receive timeout to detect server crash and reconnect.
-   * Otherwise, we can get stuck in psock_receive forever.
-   */
+      /* Do the RPC to get a dynamic bounding with the server using ppmap.
+       * Get port number for MOUNTD.
+       */
 
-  tv->tv_sec = 1;
-  tv->tv_usec = 0;
+      memset(&sdata, 0, sizeof(sdata));
+      memset(&rdata, 0, sizeof(rdata));
+      sdata.prog = txdr_unsigned(RPCPROG_MNT);
+      sdata.vers = txdr_unsigned(RPCMNT_VER1);
+      sdata.proc = txdr_unsigned(IPPROTO_UDP);
+      sdata.port = 0;
 
-  if ((error =
-       psock_setsockopt(so, SOL_SOCKET, SO_RCVTIMEO, (const void *)tv,
-                        sizeof(*tv))))
-    {
-      goto bad;
+      error = rpcclnt_request(rpc, PMAPPROC_GETPORT, PMAPPROG, PMAPVERS,
+                              (void *)&rdata, (FAR const void *)&sdata);
+      if (error != 0)
+        {
+          goto bad;
+        }
+      
+      sa = (FAR struct sockaddr_in *)saddr;
+      sa->sin_port = htons(fxdr_unsigned(uint32_t, rdata.pmap.port));
+
+      error = psock_connect(rpc->rc_so, saddr, sizeof(*saddr));
+      if (error)
+        {
+          ndbg("psock_connect MOUNTD port returns %d\n", error);
+          goto bad;
+        }
+
+      /* Do RPC to mountd. */
+
+      nvdbg("remote path %s\n", rpc->rc_path);
+      memset(&mountd, 0, sizeof(mountd));
+      memset(&mdata, 0, sizeof(mdata));
+    //mountd.rpath = txdr_unsigned(rpc->rc_path);
+      mountd.rpath = rpc->rc_path;
+      mountd.len =  txdr_unsigned(sizeof(mountd.rpath));
+
+      nvdbg("path %s\n", mountd.rpath );
+      nvdbg("len %d\n", mountd.len);
+      error = rpcclnt_request(rpc, RPCMNT_MOUNT, RPCPROG_MNT, RPCMNT_VER1,
+                              (void *)&mdata, (FAR const void *)&mountd);
+      if (error != 0)
+        {
+          goto bad;
+        }
+/*
+      rpc->rc_fh = fxdr_unsigned(nfsfh_t, mdata.mount.fhandle);
+
+      if (fxdr_unsigned(uint32_t, mdata.mount.problem) =! 0)
+        {
+          ndbg("error mounting with the server %d\n", error);
+          goto bad;
+        }
+*/
+      /* NFS port in the socket*/
+
+      sa->sin_port = htons(NFS_PORT);
+      error = psock_connect(rpc->rc_so, saddr, sizeof(*saddr));
+      if (error)
+        {
+          ndbg("psock_connect NFS port returns %d\n", error);
+          goto bad;
+        }
     }
 
   /* Initialize other non-zero congestion variables */
@@ -1041,6 +1360,7 @@ bad:
  * nfs_sndlock() set on the mount point.
  */
 
+#ifdef CONFIG_NFS_TCPIP
 int rpcclnt_reconnect(struct rpctask *rep)
 {
   struct rpctask *rp;
@@ -1068,8 +1388,10 @@ int rpcclnt_reconnect(struct rpctask *rep)
           rp->r_flags |= TASK_MUSTRESEND;
         }
     }
+
   return 0;
 }
+#endif
 
 void rpcclnt_disconnect(struct rpcclnt *rpc)
 {
@@ -1078,9 +1400,64 @@ void rpcclnt_disconnect(struct rpcclnt *rpc)
   if (rpc->rc_so != NULL)
     {
       so = rpc->rc_so;
-      rpc->rc_so = NULL;
       (void)psock_close(so);
     }
+}
+
+int rpcclnt_umount(struct rpcclnt *rpc)
+{
+  struct sockaddr *saddr;
+  struct sockaddr_in *sa;
+  struct call_args_pmap sdata;
+  struct rpc_reply_pmap rdata;
+  int error;
+
+  saddr = rpc->rc_name;
+
+  /* Do the RPC to get a dynamic bounding with the server using ppmap.
+   * Get port number for MOUNTD.
+   */
+
+  memset(&sdata, 0, sizeof(sdata));
+  memset(&rdata, 0, sizeof(rdata));
+  sdata.prog = txdr_unsigned(RPCPROG_MNT);
+  sdata.vers = txdr_unsigned(RPCMNT_VER1);
+  sdata.proc = txdr_unsigned(IPPROTO_UDP);
+  sdata.port = 0;
+
+  error = rpcclnt_request(rpc, PMAPPROC_GETPORT, PMAPPROG, PMAPVERS,
+                           (void *)&rdata, (FAR const void *)&sdata);
+  if (error != 0)
+    {
+      goto bad;
+    }
+      
+  sa = (FAR struct sockaddr_in *)saddr;
+  sa->sin_port = htons(fxdr_unsigned(uint32_t, rdata.pmap.port));
+
+  error = psock_connect(rpc->rc_so, saddr, sizeof(*saddr));
+  if (error)
+    {
+      ndbg("psock_connect MOUNTD port returns %d\n", error);
+      goto bad;
+    }
+
+  /* Do RPC to umountd. */
+/*
+  memset(&reply, 0, sizeof(reply));
+
+  error = rpcclnt_request(rpc, RPCMNT_UMOUNT, RPCPROG_MNT, RPCMNT_VER1,
+                          reply, &rpc->rc_path);
+  if (error != 0)
+    {
+      goto bad;
+    }
+*/
+  RPC_RETURN(0);
+
+bad:
+  rpcclnt_disconnect(rpc);
+  RPC_RETURN(error);
 }
 
 #ifdef CONFIG_NFS_TCPIP
@@ -1096,44 +1473,166 @@ void rpcclnt_safedisconnect(struct rpcclnt *rpc)
 }
 #endif
 
-/* XXX: ignores tryagain! */
-
 /* Code from nfs_request - goes something like this - fill in task struct -
  * links task into list - calls nfs_send() for first transmit - calls
  * nfs_receive() to get reply - fills in reply (which should be initialized
- * prior to calling), which is valid when 0 is returned and is NEVER freed in
- * this function
- *
- * always frees the request header, but NEVER frees 'mrest'
- *
+ * prior to calling), which is valid when 0.
  *
  * note that reply->result_* are invalid unless reply->type ==
  * RPC_MSGACCEPTED and reply->status == RPC_SUCCESS and that reply->verf_*
  * are invalid unless reply->type == RPC_MSGACCEPTED
  */
 
-int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, void *datain)
+int rpcclnt_request(struct rpcclnt *rpc, int procnum, int prog, int version,
+                    void *dataout, FAR const void *datain)
 {
-  struct rpc_call *call = NULL;
-  struct rpc_reply *replysvr = NULL;
-  struct rpctask *task, _task;
+  struct rpc_reply_header replymgs;
+  struct rpc_reply_header replyheader;
+  struct rpctask *task = NULL;
+  struct xidr value;
+  struct rpc_call_pmap pmap;
+  struct rpc_call_mount mountd;
+  struct rpc_call_create create;
+  struct rpc_call_write write;
+  struct rpc_call_read read;
+  struct rpc_call_remove removef;
+  struct rpc_call_rename renamef;
+  struct rpc_call_mkdir mkdir;
+  struct rpc_call_rmdir rmdir;
+  struct rpc_call_readdir readdir;
+  struct rpc_call_fs fs;
+  void *msgcall = NULL;
   int error = 0;
-  int xid = 0;
 
-  task = &_task;
-  memset(task, 0, sizeof(*task));
+//memset(&replyheader, 0, sizeof(replyheader));
 
-  task->r_rpcclnt = rpc;
-  task->r_procnum = procnum;
+  if (prog == PMAPPROG)
+    {
+      if (procnum == PMAPPROC_GETPORT)
+        {
+          memset(&pmap, 0, sizeof(struct rpc_call_pmap));
+          msgcall = &pmap;
+        }
+      else if (procnum == PMAPPROC_UNSET)
+        {
+          memset(&pmap, 0, sizeof(struct rpc_call_pmap));
+          msgcall = &pmap;
+        }
+    }
+  else if (prog == RPCPROG_MNT)
+    {
+      if (procnum == RPCMNT_UMOUNT)
+        {
+          memset(&mountd, 0, sizeof(struct rpc_call_mount));
+          msgcall = &mountd;
+        }
+      else if (procnum == RPCMNT_MOUNT)
+        {
+          memset(&mountd, 0, sizeof(struct rpc_call_mount));
+          msgcall = &mountd;
+        }
+    }
+  else if (prog == NFS_PROG)
+    {
+      switch (procnum)
+        {
+        case NFSPROC_CREATE:
+          {
+            memset(&create, 0, sizeof(struct rpc_call_create));
+            msgcall = &create;
+          }
+          break;
 
-  error = rpcclnt_buildheader(rpc, procnum, xid, datain, call);
+        case NFSPROC_READ:
+          {
+            memset(&read, 0, sizeof(struct rpc_call_read));
+            msgcall = &read;
+          }
+          break;
+
+        case NFSPROC_WRITE:
+          {
+            memset(&write, 0, sizeof(struct rpc_call_write));
+            msgcall = &write;
+          }
+          break;
+
+        case NFSPROC_RENAME:
+          {
+            memset(&renamef, 0, sizeof(struct rpc_call_rename));
+            msgcall = &renamef;
+          }
+          break;
+
+        case NFSPROC_REMOVE:
+          {
+            memset(&removef, 0, sizeof(struct rpc_call_remove));
+            msgcall = &removef;
+          }
+          break;
+
+        case NFSPROC_MKDIR:
+          {
+            memset(&mkdir, 0, sizeof(struct rpc_call_mkdir));
+            msgcall = &mkdir;
+          }
+          break;
+
+        case NFSPROC_RMDIR:
+          {
+            memset(&rmdir, 0, sizeof(struct rpc_call_rmdir));
+            msgcall = &rmdir;
+          }
+          break;
+
+        case NFSPROC_READDIR:
+          {
+            memset(&readdir, 0, sizeof(struct rpc_call_readdir));
+            msgcall = &readdir;
+          }
+          break;
+
+        case NFSPROC_FSSTAT:
+          {
+            memset(&fs, 0, sizeof(struct rpc_call_fs));
+            msgcall = &fs;
+          }
+          break;
+
+        case NFSPROC_FSINFO:
+          {
+            memset(&fs, 0, sizeof(struct rpc_call_fs));
+            msgcall = &fs;
+          }
+          break;
+
+        default:
+          {
+            error = ESRCH;
+            goto rpcmout;
+          }
+        }
+    }
+
+  /* Create an instance of the task state structure */
+
+  task = (struct rpctask *)kzalloc(sizeof(struct rpctask));
+  if (!task)
+    {
+      fdbg("Failed to allocate reply msg structure\n");
+      return -ENOMEM;
+    }
+
+  error = rpcclnt_buildheader(rpc, procnum, prog, version, &value, datain, msgcall);
   if (error)
     {
       ndbg("building call header error");
       goto rpcmout;
     }
 
-  task->r_xid = fxdr_unsigned(uint32_t, xid);
+  task->r_rpcclnt = rpc;
+  task->r_xid = value.xid;
+  task->r_procnum = procnum;
 
   if (rpc->rc_flag & RPCCLNT_SOFT)
     {
@@ -1163,14 +1662,14 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
    * LAST so timer finds oldest requests first.
    */
 
-  dq_addlast(&task->r_chain, rpctask_q);
+  dq_addlast(&task->r_chain, &rpctask_q);
 
   /* If backing off another request or avoiding congestion, don't send
    * this one now but let timer do it. If not timing a request, do it
    * now.
    */
 
-  if (rpc->rc_so && (rpc->rc_sotype != SOCK_DGRAM ||
+  if (rpc->rc_so && (rpc->rc_sotype == SOCK_DGRAM ||
                      (rpc->rc_flag & RPCCLNT_DUMBTIMR) ||
                      rpc->rc_sent < rpc->rc_cwnd))
     {
@@ -1180,10 +1679,10 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
           error = rpcclnt_sndlock(&rpc->rc_flag, task);
         }
 #endif
-
       if (error == 0)
         {
-          error = rpcclnt_send(rpc->rc_so, rpc->rc_name, call, task);
+          error = rpcclnt_send(rpc->rc_so, rpc->rc_name, procnum, prog,
+                               msgcall, task);
 
 #ifdef CONFIG_NFS_TCPIP
           if (rpc->rc_soflags & PR_CONNREQUIRED)
@@ -1192,6 +1691,7 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
             }
 #endif
         }
+
       if (error == 0 && (task->r_flags & TASK_MUSTRESEND) == 0)
         {
           rpc->rc_sent += RPC_CWNDSCALE;
@@ -1207,12 +1707,13 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
 
   if (error == 0 || error == EPIPE)
     {
-      error = rpcclnt_reply(task, call, replysvr);
+      error = rpcclnt_reply(task, procnum, prog, dataout);
     }
+  nvdbg("out for reply %d\n", error);
 
   /* RPC done, unlink the request. */
 
-  dq_rem(&task->r_chain, rpctask_q);
+  dq_rem(&task->r_chain, &rpctask_q);
 
   /* Decrement the outstanding request count. */
 
@@ -1229,24 +1730,26 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
 
   /* Break down the rpc header and check if ok */
 
-  reply->stat.type = fxdr_unsigned(uint32_t, replysvr->stat.type);
-  if (reply->stat.type == RPC_MSGDENIED)
+  memset(&replymgs, 0, sizeof(replymgs));
+  bcopy(dataout, &replyheader, sizeof(struct rpc_reply_header));
+  replymgs.type = fxdr_unsigned(uint32_t, replyheader.type);
+  if (replymgs.type == RPC_MSGDENIED)
     {
-      reply->stat.status = fxdr_unsigned(uint32_t, replysvr->stat.status);
-      switch (reply->stat.status)
+      replymgs.status = fxdr_unsigned(uint32_t, replyheader.status);
+      switch (replymgs.status)
         {
         case RPC_MISMATCH:
-          reply->stat.mismatch_info.low =
-            fxdr_unsigned(uint32_t, replysvr->stat.mismatch_info.low);
-          reply->stat.mismatch_info.high =
-            fxdr_unsigned(uint32_t, replysvr->stat.mismatch_info.high);
-          ndbg("RPC_MSGDENIED: RPC_MISMATCH error");
+        /*replymgs.stat.mismatch_info.low =
+            fxdr_unsigned(uint32_t, replyheader.stat.mismatch_info.low);
+          replymgs.stat.mismatch_info.high =
+            fxdr_unsigned(uint32_t, replyheader.stat.mismatch_info.high);
+          ndbg("RPC_MSGDENIED: RPC_MISMATCH error");*/
           error = EOPNOTSUPP;
           break;
 
         case RPC_AUTHERR:
-          reply->stat.autherr = fxdr_unsigned(uint32_t, replysvr->stat.autherr);
-          ndbg("RPC_MSGDENIED: RPC_AUTHERR error");
+        //replymgs.stat.autherr = fxdr_unsigned(uint32_t, replyheader.stat.autherr);
+          ndbg("RPC_MSGDENIED: RPC_AUTHERR error\n");
           error = EACCES;
           break;
 
@@ -1256,7 +1759,7 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
         }
       goto rpcmout;
     }
-  else if (reply->stat.type != RPC_MSGACCEPTED)
+  else if (replymgs.type != RPC_MSGACCEPTED)
     {
       error = EOPNOTSUPP;
       goto rpcmout;
@@ -1264,35 +1767,38 @@ int rpcclnt_request(struct rpcclnt *rpc, int procnum, struct rpc_reply *reply, v
 
   /* Verifier */
 
-  reply->rpc_verfi.authtype =
-    fxdr_unsigned(uint32_t, replysvr->rpc_verfi.authtype);
-  reply->rpc_verfi.authlen =
-    fxdr_unsigned(uint32_t, replysvr->rpc_verfi.authlen);
+/*replymgs.rpc_verfi.authtype =
+    fxdr_unsigned(enum auth_flavor, replyheader.rpc_verfi.authtype);
+  replymgs.rpc_verfi.authlen =
+    fxdr_unsigned(uint32_t, replyheader.rpc_verfi.authlen);*/
 
-  if (reply->stat.status == RPC_SUCCESS)
+  if (replymgs.status == RPC_SUCCESS)
     {
-      nvdbg("RPC_SUCCESS");
-      reply->stat.where = replysvr->stat.where;
+      nvdbg("RPC_SUCCESS\n");
     }
-  else if (reply->stat.status == RPC_PROGMISMATCH)
+  else if (replymgs.status == RPC_PROGMISMATCH)
     {
-      reply->stat.mismatch_info.low =
-        fxdr_unsigned(uint32_t, replysvr->stat.mismatch_info.low);
-      reply->stat.mismatch_info.high =
-        fxdr_unsigned(uint32_t, replysvr->stat.mismatch_info.high);
-      ndbg("RPC_MSGACCEPTED: RPC_PROGMISMATCH error");
-      error = EOPNOTSUPP;       /* XXXMARIUS */
+    /*replymgs.stat.mismatch_info.low =
+        fxdr_unsigned(uint32_t, replyheader.stat.mismatch_info.low);
+      replymgs.stat.mismatch_info.high =
+        fxdr_unsigned(uint32_t, replyheader.stat.mismatch_info.high);*/
+
+      ndbg("RPC_MSGACCEPTED: RPC_PROGMISMATCH error\n");
+      error = EOPNOTSUPP;
     }
-  else if (reply->stat.status > 5)
+  else if (replymgs.status > 5)
     {
       error = EOPNOTSUPP;
       goto rpcmout;
     }
 
 rpcmout:
+  kfree(task);
   RPC_RETURN(error);
 }
 
+#undef COMP
+#ifdef COMP
 /* Nfs timer routine Scan the nfsreq list and retranmit any requests that
  * have timed out To avoid retransmission attempts on STREAM sockets (in the
  * future) make sure to set the r_retry field to 0 (implies nm_retry == 0).
@@ -1305,7 +1811,7 @@ void rpcclnt_timer(void *arg, struct rpc_call *call)
   struct rpcclnt *rpc;
   int timeo, error;
 
-  for (rep = (struct rpctask *)rpctask_q->head; rep;
+  for (rep = (struct rpctask *)rpctask_q.head; rep != NULL;
        rep = (struct rpctask *)rep->r_chain.flink)
     {
       rpc = rep->r_rpcclnt;
@@ -1347,7 +1853,7 @@ void rpcclnt_timer(void *arg, struct rpc_call *call)
       if ((rep->r_flags & TASK_TPRINTFMSG) == 0 &&
           rep->r_rexmit > rpc->rc_deadthresh)
         {
-          ndbg("Server is not responding");
+          ndbg("Server is not responding\n");
           rep->r_flags |= TASK_TPRINTFMSG;
         }
 
@@ -1387,9 +1893,8 @@ void rpcclnt_timer(void *arg, struct rpc_call *call)
             }
           else
             {
-              error =
-                psock_sendto(so, call, sizeof(*call), 0, rpc->rc_name,
-                             sizeof(*rpc->rc_name));
+              error = psock_sendto(so, call, sizeof(*call), 0, rpc->rc_name,
+                                   sizeof(*rpc->rc_name));
             }
 
           if (!error)
@@ -1428,14 +1933,16 @@ void rpcclnt_timer(void *arg, struct rpc_call *call)
 
   // rpcclnt_timer_handle = timeout(rpcclnt_timer, NULL, rpcclnt_ticks);
 }
+#endif
 
 /* Build the RPC header and fill in the authorization info. */
 
-int rpcclnt_buildheader(struct rpcclnt *rc, int procid,
-                        int xidp, void *datain, struct rpc_call *call)
+int rpcclnt_buildheader(struct rpcclnt *rpc, int procid, int prog, int vers,
+                        struct xidr *value, FAR const void *datain,
+                        void *dataout)
 {
-  struct timeval *tv = NULL;
   srand(time(NULL));
+  int xidp = 0;
 
   /* The RPC header.*/
 
@@ -1453,45 +1960,463 @@ int rpcclnt_buildheader(struct rpcclnt *rc, int procid,
           xidp = rand();
         }
       while ((xidp % 256) == 0);
+
       rpcclnt_xid += xidp;
     }
 
-  call->rp_xid = xidp = txdr_unsigned(rpcclnt_xid);
-  call->rp_direction = rpc_call;
-  call->rp_rpcvers = rpc_vers;
-  call->rp_prog = txdr_unsigned(rc->rc_prog->prog_id);
-  call->rp_vers = txdr_unsigned(rc->rc_prog->prog_version);
-  call->rp_proc = txdr_unsigned(procid);
-  call->data = datain;
+  /* Perform the binding depending on the protocol type */
 
-  /* rpc_auth part (auth_unix as root) */
+  if (prog == PMAPPROG)
+    {
+      if (procid == PMAPPROC_GETPORT)
+        {
+          struct rpc_call_pmap *callmsg = (struct rpc_call_pmap *)dataout;
+          bcopy(datain, &callmsg->pmap, sizeof(struct call_args_pmap));
 
-  call->rpc_auth.authtype = rpc_auth_null;
-  call->rpc_auth.authlen = txdr_unsigned(sizeof(NULL));
+          callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+          value->xid = callmsg->ch.rp_xid;
+          callmsg->ch.rp_direction = rpc_call;
+          callmsg->ch.rp_rpcvers = rpc_vers;
+          callmsg->ch.rp_prog = txdr_unsigned(prog);
+          callmsg->ch.rp_vers = txdr_unsigned(vers);
+          callmsg->ch.rp_proc = txdr_unsigned(procid);
 
-  tv->tv_sec = 1;
-  tv->tv_usec = 0;
+          /* rpc_auth part (auth_unix as root) */
+
+          callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+        //call->rpc_auth.authlen = 0;
 #ifdef CONFIG_NFS_UNIX_AUTH
-  call->rpc_unix.ua_time = txdr_unsigned(tv->tv_sec);
-  call->rpc_unix.ua_hostname = 0;
-  call->rpc_unix.ua_uid = geteuid();
-  call->rpc_unix.ua_gid = getegid();
-  call->rpc_unix.ua_gidlist = 0;
+          callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+          callmsg->ch.rpc_unix.hostname = 0;
+          callmsg->ch.rpc_unix.uid = setuid;
+          callmsg->ch.rpc_unix.gid = setgid;
+          callmsg->ch.rpc_unix.gidlist = 0;
 #endif
-  /* rpc_verf part (auth_null) */
+          /* rpc_verf part (auth_null) */
 
-  call->rpc_verf.authtype = 0;
-  call->rpc_verf.authlen = 0;
+          callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+        //call->rpc_verf.authlen = 0;
+          return 0;
+        }
+      else if (procid == PMAPPROC_UNSET)
+        {
+          struct rpc_call_pmap *callmsg = (struct rpc_call_pmap *)dataout;;
+          bcopy(datain, &callmsg->pmap, sizeof(struct call_args_pmap));
+          callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+          value->xid = callmsg->ch.rp_xid;
+          callmsg->ch.rp_direction = rpc_call;
+          callmsg->ch.rp_rpcvers = rpc_vers;
+          callmsg->ch.rp_prog = txdr_unsigned(prog);
+          callmsg->ch.rp_vers = txdr_unsigned(vers);
+          callmsg->ch.rp_proc = txdr_unsigned(procid);
 
-  return 0;
+          /* rpc_auth part (auth_unix as root) */
+
+          callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+        //call->rpc_auth.authlen = 0;
+#ifdef CONFIG_NFS_UNIX_AUTH
+          callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+          callmsg->ch.rpc_unix.hostname = 0;
+          callmsg->ch.rpc_unix.uid = setuid;
+          callmsg->ch.rpc_unix.gid = setgid;
+          callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+          /* rpc_verf part (auth_null) */
+
+          callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+        //call->rpc_verf.authlen = 0;
+          return 0;
+        }
+    }
+  else if (prog == RPCPROG_MNT)
+    {
+      if (procid == RPCMNT_UMOUNT)
+        {
+          struct rpc_call_mount *callmsg = (struct rpc_call_mount *)dataout;
+          bcopy(datain, &callmsg->mount, sizeof(struct call_args_mount));
+          callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+          value->xid = callmsg->ch.rp_xid;
+          callmsg->ch.rp_direction = rpc_call;
+          callmsg->ch.rp_rpcvers = rpc_vers;
+          callmsg->ch.rp_prog = txdr_unsigned(prog);
+          callmsg->ch.rp_vers = txdr_unsigned(vers);
+          callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+          /* rpc_auth part (auth_unix as root) */
+
+          callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+        //call->rpc_auth.authlen = 0;
+#ifdef CONFIG_NFS_UNIX_AUTH
+          callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+          callmsg->ch.rpc_unix.hostname = 0;
+          callmsg->ch.rpc_unix.uid = setuid;
+          callmsg->ch.rpc_unix.gid = setgid;
+          callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+          /* rpc_verf part (auth_null) */
+
+          callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+        //call->rpc_verf.authlen = 0;
+          return 0;
+        }
+      else if (procid == RPCMNT_MOUNT)
+        {
+          struct rpc_call_mount *callmsg = (struct rpc_call_mount *)dataout;
+          bcopy(datain, &callmsg->mount, sizeof(struct call_args_mount));
+          callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+          value->xid = callmsg->ch.rp_xid;
+          callmsg->ch.rp_direction = rpc_call;
+          callmsg->ch.rp_rpcvers = rpc_vers;
+          callmsg->ch.rp_prog = txdr_unsigned(prog);
+          callmsg->ch.rp_vers = txdr_unsigned(vers);
+          callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+          /* rpc_auth part (auth_unix as root) */
+
+          callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+#ifdef CONFIG_NFS_UNIX_AUTH
+          callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+          callmsg->ch.rpc_unix.hostname = 0;
+          callmsg->ch.rpc_unix.uid = setuid;
+          callmsg->ch.rpc_unix.gid = setgid;
+          callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+          /* rpc_verf part (auth_null) */
+
+          callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+        //call->rpc_verf.authlen = 0;
+          return 0;
+        }
+    }
+  else if (prog == NFS_PROG)
+    {
+      switch (procid)
+        {
+        case NFSPROC_CREATE:
+          {
+            struct rpc_call_create *callmsg = (struct rpc_call_create *)dataout;
+            bcopy(datain, &callmsg->create, sizeof(struct CREATE3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_READ:
+          {
+            struct rpc_call_read *callmsg = (struct rpc_call_read *)dataout;
+            bcopy(datain, &callmsg->read, sizeof(struct READ3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_WRITE:
+          {
+            struct rpc_call_write *callmsg = (struct rpc_call_write *)dataout;
+            bcopy(datain, &callmsg->write, sizeof(struct WRITE3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_READDIR:
+          {
+            struct rpc_call_readdir *callmsg = (struct rpc_call_readdir *)dataout;
+            bcopy(datain, &callmsg->readdir, sizeof(struct READDIR3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_FSSTAT:
+          {
+            struct rpc_call_fs *callmsg = (struct rpc_call_fs *)dataout;
+            bcopy(datain, &callmsg->fs, sizeof(struct FS3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_REMOVE:
+          {
+            struct rpc_call_remove *callmsg  = (struct rpc_call_remove *)dataout;
+            bcopy(datain, &callmsg->remove, sizeof(struct REMOVE3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_MKDIR:
+          {
+            struct rpc_call_mkdir *callmsg = (struct rpc_call_mkdir *)dataout;
+            bcopy(datain, &callmsg->mkdir, sizeof(struct MKDIR3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_RMDIR:
+          {
+            struct rpc_call_rmdir *callmsg  = (struct rpc_call_rmdir *)dataout;
+            bcopy(datain, &callmsg->rmdir, sizeof(struct RMDIR3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_RENAME:
+          {
+            struct rpc_call_rename *callmsg  = (struct rpc_call_rename *)dataout;
+            bcopy(datain, &callmsg->rename, sizeof(struct RENAME3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+            //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        case NFSPROC_FSINFO:
+          {
+            struct rpc_call_fs *callmsg = (struct rpc_call_fs *)dataout;
+            bcopy(datain, &callmsg->fs, sizeof(struct FS3args));
+            callmsg->ch.rp_xid = txdr_unsigned(rpcclnt_xid);
+            value->xid = callmsg->ch.rp_xid;
+            callmsg->ch.rp_direction = rpc_call;
+            callmsg->ch.rp_rpcvers = rpc_vers;
+            callmsg->ch.rp_prog = txdr_unsigned(prog);
+            callmsg->ch.rp_vers = txdr_unsigned(vers);
+            callmsg->ch.rp_proc = txdr_unsigned(procid);
+
+            /* rpc_auth part (auth_unix as root) */
+
+            callmsg->ch.rpc_auth.authtype = rpc_auth_null;
+          //call->rpc_auth.authlen = 0;
+
+#ifdef CONFIG_NFS_UNIX_AUTH
+            callmsg->ch.rpc_unix.stamp = txdr_unsigned(1);
+            callmsg->ch.rpc_unix.hostname = 0;
+            callmsg->ch.rpc_unix.uid = setuid;
+            callmsg->ch.rpc_unix.gid = setgid;
+            callmsg->ch.rpc_unix.gidlist = 0;
+#endif
+            /* rpc_verf part (auth_null) */
+
+            callmsg->ch.rpc_verf.authtype = rpc_auth_null;
+          //call->rpc_verf.authlen = 0;
+            return 0;
+          }
+
+        default:
+          break;
+        }
+    }
+
+  return ESRCH;
 }
 
+#ifdef COMP
 int rpcclnt_cancelreqs(struct rpcclnt *rpc)
 {
   struct rpctask *task;
   int i;
 
-  for (task = (struct rpctask *)rpctask_q->head; task;
+  for (task = (struct rpctask *)rpctask_q.head; task;
        task = (struct rpctask *)task->r_chain.flink)
     {
       if (rpc != task->r_rpcclnt || (task->r_flags & TASK_SOFTTERM))
@@ -1504,7 +2429,7 @@ int rpcclnt_cancelreqs(struct rpcclnt *rpc)
 
   for (i = 0; i < 30; i++)
     {
-      for (task = (struct rpctask *)rpctask_q->head; task;
+      for (task = (struct rpctask *)&rpctask_q.head; task;
            task = (struct rpctask *)task->r_chain.flink)
         {
           if (rpc == task->r_rpcclnt)
@@ -1521,4 +2446,5 @@ int rpcclnt_cancelreqs(struct rpcclnt *rpc)
 
   return EBUSY;
 }
+#endif
 #endif

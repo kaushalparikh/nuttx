@@ -1,8 +1,8 @@
 /****************************************************************************
  * graphics/nxtk/nxtk_openwindow.c
  *
- *   Copyright (C) 2008-2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,7 @@
 #include <debug.h>
 
 #include <nuttx/nx/nx.h>
+#include <nuttx/kmalloc.h>
 
 #include "nxfe.h"
 #include "nxtk_internal.h"
@@ -68,7 +69,7 @@ nxgl_mxpixel_t g_bordercolor1[CONFIG_NX_NPLANES] =
 {
   CONFIG_NXTK_BORDERCOLOR1
 #if CONFIG_NX_NPLANES > 1
-#  error "Multiple corder colors not defined"
+#  error "Multiple plane border colors not defined"
 #endif
 };
 
@@ -76,7 +77,15 @@ nxgl_mxpixel_t g_bordercolor2[CONFIG_NX_NPLANES] =
 {
   CONFIG_NXTK_BORDERCOLOR2
 #if CONFIG_NX_NPLANES > 1
-#  error "Multiple border colors not defined"
+#  error "Multiple plane border colors not defined"
+#endif
+};
+
+nxgl_mxpixel_t g_bordercolor3[CONFIG_NX_NPLANES] =
+{
+  CONFIG_NXTK_BORDERCOLOR3
+#if CONFIG_NX_NPLANES > 1
+#  error "Multiple plane border colors not defined"
 #endif
 };
 
@@ -122,7 +131,7 @@ NXTKWINDOW nxtk_openwindow(NXHANDLE handle,
 
   /* Pre-allocate the window structure */
 
-  fwnd = (FAR struct nxtk_framedwindow_s *)zalloc(sizeof(struct nxtk_framedwindow_s));
+  fwnd = (FAR struct nxtk_framedwindow_s *)kzalloc(sizeof(struct nxtk_framedwindow_s));
   if (!fwnd)
     {
       errno = ENOMEM;

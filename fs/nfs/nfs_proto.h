@@ -47,6 +47,10 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/fs/nfs.h>
+ 
+#include "nfs.h"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -57,20 +61,21 @@
  * Specification"
  */
 
-#define NFS_PORT        2049
-#define NFS_PROG        100003
-#define NFS_VER2        2
-#define NFS_VER3        3
-#define NFS_VER4        4
-#define NFS_V2MAXDATA   8192
-#define NFS_MAXDGRAMDATA 32768
-#define NFS_MAXDATA     MAXBSIZE
-#define NFS_MAXPATHLEN  1024
-#define NFS_MAXNAMLEN   255
-#define NFS_MAXPKTHDR   404
-#define NFS_MAXPACKET   (NFS_MAXPKTHDR + NFS_MAXDATA)
-#define NFS_MINPACKET   20
-#define NFS_FABLKSIZE   512   /* Size in bytes of a block wrt fa_blocks */
+#define NFS_PORT                2049
+#define NFS_PROG                100003
+#define NFS_VER2                2
+#define NFS_VER3                3
+#define NFS_VER4                4
+#define NFS_V2MAXDATA           8192
+#define NFS_MAXDGRAMDATA        32768
+#define MAXBSIZE                64000
+#define NFS_MAXDATA             MAXBSIZE
+#define NFS_MAXPATHLEN          1024
+#define NFS_MAXNAMLEN           255
+#define NFS_MAXPKTHDR           404
+#define NFS_MAXPACKET           (NFS_MAXPKTHDR + NFS_MAXDATA)
+#define NFS_MINPACKET           20
+#define NFS_FABLKSIZE           512   /* Size in bytes of a block wrt fa_blocks */
 
 /* Stat numbers for rpc returns (version 2 and 3) */
 
@@ -108,21 +113,20 @@
 #define NFSERR_STALEWRITEVERF   30001 /* Fake return for nfs_commit() */
 
 #define NFSERR_RETVOID          0x20000000    /* Return void, not error */
-#define NFSERR_AUTHERR          0x40000000    /* Mark an authentication error 
-                                                 */
+#define NFSERR_AUTHERR          0x40000000    /* Mark an authentication error */
 #define NFSERR_RETERR           0x80000000    /* Mark an error return for V3 */
 
 /* Sizes in bytes of various nfs rpc components */
 
-#define NFSX_UNSIGNED   4
+#define NFSX_UNSIGNED           4
 
 /* specific to NFS Version 2 */
 
-#define NFSX_V2FH       32
-#define NFSX_V2FATTR    68
-#define NFSX_V2SATTR    32
-#define NFSX_V2COOKIE   4
-#define NFSX_V2STATFS   20
+#define NFSX_V2FH               32
+#define NFSX_V2FATTR            68
+#define NFSX_V2SATTR            32
+#define NFSX_V2COOKIE           4
+#define NFSX_V2STATFS           20
 
 /* specific to NFS Version 3 */
 
@@ -235,6 +239,7 @@
 #define NFSV3FSINFO_CANSETTIME          0x10
 
 /* Conversion macros */
+
 #define vtonfsv2_mode(t,m) \
     txdr_unsigned(((t) == VFIFO) ? MAKEIMODE(VCHR, (m)) : \
     MAKEIMODE((t), (m)))
@@ -245,9 +250,7 @@
 #define nfsv2tov_type(a)        nv2tov_type[fxdr_unsigned(uint32_t,(a))&0x7]
 #define nfsv3tov_type(a)        nv3tov_type[fxdr_unsigned(uint32_t,(a))&0x7]
 
-#ifndef NFS_MAXFHSIZE
-#  define NFS_MAXFHSIZE   64
-#endif
+#define NFS_MAXFHSIZE   64
 
 /* File identifier */
 
@@ -274,7 +277,7 @@ typedef enum
 typedef struct
 {
   int32_t val[2];
-} fsid_t;                     /* file system id type */
+} fsid_t;                      /* file system id type */
 
 /* File identifier.
  * These are unique per filesystem on a single machine.
@@ -282,30 +285,30 @@ typedef struct
 
 struct fid
 {
-  unsigned short fid_len;     /* length of data in bytes */
-  unsigned short fid_reserved;        /* force longword alignment */
-  char fid_data[MAXFIDSZ];    /* data (variable length) */
+  unsigned short fid_len;      /* length of data in bytes */
+  unsigned short fid_reserved; /* force longword alignment */
+  char fid_data[MAXFIDSZ];     /* data (variable length) */
 };
 
 /* Generic file handle */
 
 struct fhandle
 {
-  fsid_t fh_fsid;             /* File system id of mount point */
-  struct fid fh_fid;          /* File sys specific id */
+  fsid_t fh_fsid;              /* File system id of mount point */
+  struct fid fh_fid;           /* File sys specific id */
 };
 
 typedef struct fhandle fhandle_t;
 
 /* File Handle (32 bytes for version 2), variable up to 64 for version 3. */
-
+/*
 union nfsfh
 {
   fhandle_t fh_generic;
   unsigned char fh_bytes[NFS_MAXFHSIZE];
 };
 typedef union nfsfh nfsfh_t;
-
+*/
 struct nfsv2_time
 {
   uint32_t nfsv2_sec;
@@ -430,6 +433,7 @@ struct nfsv3_sattr
 
 struct nfs_statfs
 {
+  struct nfs_fattr obj_attributes;
   union
   {
     struct
@@ -468,6 +472,7 @@ struct nfs_statfs
 
 struct nfsv3_fsinfo
 {
+  struct nfs_fattr obj_attributes;
   uint32_t fs_rtmax;
   uint32_t fs_rtpref;
   uint32_t fs_rtmult;
@@ -480,14 +485,155 @@ struct nfsv3_fsinfo
   uint32_t fs_properties;
 };
 
-struct nfsv3_pathconf
+/* NFS procedures args */
+
+struct wcc_attr
 {
-  uint32_t pc_linkmax;
-  uint32_t pc_namemax;
-  uint32_t pc_notrunc;
-  uint32_t pc_chownrestricted;
-  uint32_t pc_caseinsensitive;
-  uint32_t pc_casepreserving;
+  nfsuint64 size;
+  nfstime3 mtime;
+  nfstime3 ctime;
 };
 
+struct wcc_data
+{
+  struct wcc_attr     before;
+  struct nfs_fattr    after;
+};
+
+struct diropargs3
+{
+  nfsfh_t            dir;
+  const char        *name;
+};
+
+struct CREATE3args
+{
+  struct diropargs3  where;
+  struct nfsv3_sattr how;
+};
+
+struct CREATE3resok
+{
+  nfsfh_t            handle;
+  struct nfs_fattr   attributes;
+  struct wcc_data    dir_wcc;
+};
+
+struct READ3args
+{
+  nfstype            file;
+  uint64_t           offset;
+  uint32_t           count;
+};
+
+struct READ3resok
+{
+  struct nfs_fattr   file_attributes;
+  uint32_t           count;
+  bool               eof;
+  const char        *data;
+};
+
+enum stable_how
+{
+  UNSTABLE  = 0,
+  DATA_SYNC = 1,
+  FILE_SYNC = 2
+};
+
+struct WRITE3args
+{
+  nfstype            file;
+  uint64_t           offset;
+  uint32_t           count;
+  enum stable_how    stable;
+  const char        *data;
+};
+
+struct WRITE3resok
+{
+  struct wcc_data    file_wcc;
+  uint32_t           count;
+  enum stable_how    committed;
+  unsigned char     *verf;
+};
+
+struct REMOVE3args
+{
+  struct diropargs3  object;
+};
+
+struct REMOVE3resok
+{
+  struct wcc_data    dir_wcc;
+};
+
+struct RENAME3args
+{
+  struct diropargs3  from;
+  struct diropargs3  to;
+};
+
+struct RENAME3resok
+{
+  struct wcc_data    fromdir_wcc;
+  struct wcc_data    todir_wcc;
+};
+
+struct MKDIR3args
+{
+  struct diropargs3  where;
+  struct nfsv3_sattr attributes;
+};
+
+struct MKDIR3resok
+{
+  nfsfh_t            handle;
+  struct nfs_fattr   obj_attributes;
+  struct wcc_data    dir_wcc;
+};
+
+struct RMDIR3args 
+{
+  struct diropargs3  object;
+};
+
+struct RMDIR3resok 
+{
+  struct wcc_data    dir_wcc;
+};
+
+struct READDIR3args 
+{
+  nfsfh_t            dir;
+  nfsuint64          cookie;
+  nfsuint64          cookieverf;
+  uint32_t           count;
+};
+ 
+struct entry3 
+{
+  uint64_t           fileid;
+  unsigned char      name;
+  nfsuint64          cookie;
+  struct entry3     *nextentry;
+ };
+
+struct dirlist3 
+{
+  struct entry3     *entries;
+  bool eof;
+};
+ 
+struct READDIR3resok 
+{
+  struct nfs_fattr   dir_attributes;
+  nfsuint64          cookieverf;
+  struct dirlist3    reply;
+};
+
+struct FS3args
+{
+  nfsfh_t            fsroot;
+};
 #endif

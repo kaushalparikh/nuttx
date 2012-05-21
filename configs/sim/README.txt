@@ -10,6 +10,7 @@ Contents
   o Debugging
   o Issues
     - 64-bit Issues
+    - Compiler differences
     - Stack Size Issues
     - Buffered I/O Issues
     - Networking Issues
@@ -106,6 +107,20 @@ appropriate places so that -m32 is included in the CFLAGS and -m32 and -melf_386
 are included in the LDFLAGS. See the patch
 0001-Quick-hacks-to-build-sim-nsh-ostest-on-x86_64-as-32-.patch that can be found at
 http://tech.groups.yahoo.com/group/nuttx/files.
+
+Compiler differences
+--------------------
+
+operator new:
+
+  Problem:     "'operator new' takes size_t ('...') as first parameter"
+  Workaround:   Add -fpermissive to the compilation flags
+
+Continue up_setjmp() issues:
+
+  With some newer compilers, I am now getting segmentation faults in
+  up_setjmp.S (even when built with the -m32 option).  I have not looked into
+  this yet.
 
 Stack Size Issues
 -----------------
@@ -327,7 +342,7 @@ nx11
     CONFIG_SIM_TOUCHSCREEN=y
 
   Then you must also have some application logic that will call
-  sim_tcinitialize(0) to register the touchscreen driver.  See
+  arch_tcinitialize(0) to register the touchscreen driver.  See
   also configuration "touchscreen"
 
   NOTES:
@@ -388,6 +403,62 @@ nx11
     +CONFIGURED_APPS += examples/nxconsole
 
   See apps/examples/README.txt for further details.
+
+nxwm
+
+  This is a special configuration setup for the NxWM window manager
+  UnitTest.  The NxWM window manager can be found here:
+
+    trunk/NxWidgets/nxwm
+
+  The NxWM unit test can be found at:
+
+    trunk/NxWidgets/UnitTests/nxwm
+
+  Documentation for installing the NxWM unit test can be found here:
+
+    trunk/NxWidgets/UnitTests/READEM.txt
+
+  NOTE:  There is an issue with running this example under the
+  simulation.  In the default configuration, this example will
+  run the NxConsole example which waits on readline() for console
+  intput.  When it calls readline(), the whole system blocks
+  waiting from input from the host OS.  So, in order to get
+  this example to run, you must comment out the readline call in
+  apps/nshlib/nsh_consolemain.c like:
+
+  Index: nsh_consolemain.c
+  ===================================================================
+  --- nsh_consolemain.c   (revision 4681)
+  +++ nsh_consolemain.c   (working copy)
+  @@ -117,7 +117,8 @@
+     /* Execute the startup script */
+ 
+   #ifdef CONFIG_NSH_ROMFSETC
+  -  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
+  +// REMOVE ME
+  +//  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
+   #endif
+   
+     /* Then enter the command line parsing loop */
+  @@ -130,7 +131,8 @@
+         fflush(pstate->cn_outstream);
+   
+         /* Get the next line of input */
+  -
+  +sleep(2); // REMOVE ME
+  +#if 0 // REMOVE ME
+         ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
+                        INSTREAM(pstate), OUTSTREAM(pstate));
+         if (ret > 0)
+  @@ -153,6 +155,7 @@
+                     "readline", NSH_ERRNO_OF(-ret));
+             nsh_exit(&pstate->cn_vtbl, 1);
+           }
+  +#endif // REMOVE ME
+       }
+ 
+     /* Clean up */
 
 ostest
 

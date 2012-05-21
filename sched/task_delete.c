@@ -83,6 +83,21 @@
  *   This function causes a specified task to cease to exist. Its  stack and
  *   TCB will be deallocated.  This function is the companion to task_create().
  *
+ *   The logic in this function only deletes non-running tasks.  If the 'pid'
+ *   parameter refers to to the currently runing task, then processing is
+ *   redirected to exit().
+ *
+ *   Control will still be returned to task_delete() after the exit() logic
+ *   finishes.  In fact, this function is the final function called all task
+ *   termination sequences.  Here are all possible exit scenarios:
+ *
+ *   - pthread_exit().  Calls exit()
+ *   - exit(). Calls _exit()
+ *   - _exit().  Calls task_deletecurrent() making the currently running task
+ *     non-running then calls task_delete() to terminate the non-running
+ *     task.
+ *   - task_delete()
+ *
  * Inputs:
  *   pid - The task ID of the task to delete.  A pid of zero
  *         signifies the calling task.
@@ -145,6 +160,9 @@ int task_delete(pid_t pid)
    * this as early as possible so that higher level clean-up logic
    * can run in a healthy tasking environment.
    *
+   * In the case where the task exits via exit(), task_exithook()
+   * may be called twice.
+   *
    * I suppose EXIT_SUCCESS is an appropriate return value???
    */
 
@@ -160,6 +178,13 @@ int task_delete(pid_t pid)
   /* At this point, the TCB should no longer be accessible to the system */
 
   sched_unlock();
+
+  /* Since all tasks pass through this function as the final step in their
+   * exit sequence, this is an appropriate place to inform any instrumentation
+   * layer that the task no longer exists.
+   */
+
+  sched_note_stop(dtcb);
 
   /* Deallocate its TCB */
 

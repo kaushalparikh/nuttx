@@ -1,7 +1,7 @@
 /****************************************************************************
  * include/nuttx/nx/nxtk.h
  *
- *   Copyright (C) 2008-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2008-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +47,47 @@
 /****************************************************************************
  * Pre-processor definitions
  ****************************************************************************/
+/* Configuration ************************************************************/
+
+#ifndef CONFIG_NXTK_BORDERWIDTH
+#  define CONFIG_NXTK_BORDERWIDTH 4
+#endif
+
+#ifndef CONFIG_NXTK_BORDERCOLOR1
+#  if !defined(CONFIG_NX_DISABLE_32BPP) || !defined(CONFIG_NX_DISABLE_24BPP)
+#    define CONFIG_NXTK_BORDERCOLOR1 0x00a9a9a9
+#  elif !defined(CONFIG_NX_DISABLE_16BPP)
+#    define CONFIG_NXTK_BORDERCOLOR1 0xad55
+#  elif !defined(CONFIG_NX_DISABLE_4BPP)
+#    define CONFIG_NXTK_BORDERCOLOR1 6
+#  else
+#    define CONFIG_NXTK_BORDERCOLOR1 'B'
+#  endif
+#endif
+
+#ifndef CONFIG_NXTK_BORDERCOLOR2
+#  if !defined(CONFIG_NX_DISABLE_32BPP) || !defined(CONFIG_NX_DISABLE_24BPP)
+#    define CONFIG_NXTK_BORDERCOLOR2 0x00696969
+#  elif !defined(CONFIG_NX_DISABLE_16BPP)
+#    define CONFIG_NXTK_BORDERCOLOR2 0x6b4d
+#  elif !defined(CONFIG_NX_DISABLE_4BPP)
+#    define CONFIG_NXTK_BORDERCOLOR2 4
+#  else
+#    define CONFIG_NXTK_BORDERCOLOR2 'b'
+#  endif
+#endif
+
+#ifndef CONFIG_NXTK_BORDERCOLOR3
+#  if !defined(CONFIG_NX_DISABLE_32BPP) || !defined(CONFIG_NX_DISABLE_24BPP)
+#    define CONFIG_NXTK_BORDERCOLOR3 0x00d9d9d9
+#  elif !defined(CONFIG_NX_DISABLE_16BPP)
+#    define CONFIG_NXTK_BORDERCOLOR3 0xdedb
+#  elif !defined(CONFIG_NX_DISABLE_4BPP)
+#    define CONFIG_NXTK_BORDERCOLOR3 8
+#  else
+#    define CONFIG_NXTK_BORDERCOLOR3 'S'
+#  endif
+#endif
 
 /****************************************************************************
  * Public Types
@@ -110,11 +151,46 @@ EXTERN NXTKWINDOW nxtk_openwindow(NXHANDLE handle,
 EXTERN int nxtk_closewindow(NXTKWINDOW hfwnd);
 
 /****************************************************************************
+ * Name: nxtk_block
+ *
+ * Description:
+ *   This is callback will do to things:  (1) any queue a 'blocked' callback
+ *   to the window and then (2) block any further window messaging.
+ *
+ *   The 'blocked' callback is the response from nx_block (or nxtk_block).
+ *   Those blocking interfaces are used to assure that no further messages are
+ *   are directed to the window. Receipt of the blocked callback signifies
+ *   that (1) there are no further pending callbacks and (2) that the
+ *   window is now 'defunct' and will receive no further callbacks.
+ *
+ *   This callback supports coordinated destruction of a window in multi-
+ *   user mode.  In multi-use mode, the client window logic must stay
+ *   intact until all of the queued callbacks are processed.  Then the
+ *   window may be safely closed.  Closing the window prior with pending
+ *   callbacks can lead to bad behavior when the callback is executed.
+ *
+ *   Multiple user mode only!
+ *
+ * Input Parameters:
+ *   hfwnd - The window to be blocked
+ *   arg - An argument that will accompany the block messages (This is arg2
+ *         in the blocked callback).
+ *
+ * Return:
+ *   OK on success; ERROR on failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NX_MULTIUSER
+EXTERN int nxtk_block(NXTKWINDOW hfwnd, FAR void *arg);
+#endif
+
+/****************************************************************************
  * Name: nxtk_getposition
  *
  * Description:
  *  Request the position and size information for the selected framed window.
- *  The size/position for the client window and toolbar will be return
+ *  The size/position for the client window and toolbar will be returned
  *  asynchronously through the client callback function pointer.
  *
  * Input Parameters:
@@ -421,6 +497,29 @@ EXTERN int nxtk_opentoolbar(NXTKWINDOW hfwnd, nxgl_coord_t height,
  ****************************************************************************/
 
 EXTERN int nxtk_closetoolbar(NXTKWINDOW hfwnd);
+
+/****************************************************************************
+ * Name: nxtk_toolbarbounds
+ *
+ * Description:
+ *   Return a bounding box that contains the toolbar in the coordinates of
+ *   the containing, framed window.  For example, the recturned  origin
+ *  (rect.pt1) is the offset toolbar in the framed window.
+ *
+ *   NOTE: This function is unsafe in the case of the multi-user NX server
+ *   where the width of the window may be being changed asynchronously!  It
+ *   may return the old size in this case.
+ *
+ * Input Parameters:
+ *   hfwnd  - The handle returned by nxtk_openwindow
+ *   bounds - User provided location in which to return the bounding box.
+ *
+ * Return:
+ *   OK on success; ERROR on failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+EXTERN int nxtk_toolbarbounds(NXTKWINDOW hfwnd, FAR struct nxgl_rect_s *bounds);
 
 /****************************************************************************
  * Name: nxtk_filltoolbar

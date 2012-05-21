@@ -1,8 +1,8 @@
 /****************************************************************************
  * graphics/nxmu/nx_move.c
  *
- *   Copyright (C) 2008-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,11 +89,10 @@ int nx_move(NXWINDOW hwnd, FAR const struct nxgl_rect_s *rect,
             FAR const struct nxgl_point_s *offset)
 {
   FAR struct nxbe_window_s *wnd = (FAR struct nxbe_window_s *)hwnd;
-  struct nxsvrmsg_move_s  outmsg;
-  int                     ret;
+  struct nxsvrmsg_move_s    outmsg;
 
 #ifdef CONFIG_DEBUG
-  if (!wnd || !wnd->conn)
+  if (!wnd)
     {
       errno = EINVAL;
       return ERROR;
@@ -102,7 +101,7 @@ int nx_move(NXWINDOW hwnd, FAR const struct nxgl_rect_s *rect,
 
   /* Format the fill command */
 
-  outmsg.msgid      = NX_SVRMSG_FILL;
+  outmsg.msgid      = NX_SVRMSG_MOVE;
   outmsg.wnd        = wnd;
   outmsg.offset.x   = offset->x;
   outmsg.offset.y   = offset->y;
@@ -111,10 +110,5 @@ int nx_move(NXWINDOW hwnd, FAR const struct nxgl_rect_s *rect,
 
   /* Forward the fill command to the server */
 
-  ret = mq_send(wnd->conn->cwrmq, &outmsg, sizeof(struct nxsvrmsg_move_s), NX_SVRMSG_PRIO);
-  if (ret < 0)
-    {
-      gdbg("mq_send failed: %d\n", errno);
-    }
-  return ret;
+  return nxmu_sendwindow(wnd, &outmsg, sizeof(struct nxsvrmsg_move_s));
 }

@@ -41,6 +41,8 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <nuttx/compiler.h>
+#include <nuttx/irq.h>
 #include <nuttx/fs/ioctl.h>
 
 #ifdef CONFIG_WATCHDOG
@@ -54,6 +56,8 @@
  * transfer interface, the majority of the functionality is implemented in
  * driver ioctl calls.  The watchdog ioctl commands are lised below:
  *
+ * These are detected and handled by the "upper half" watchdog timer driver.
+ *
  * WDIOC_START      - Start the watchdog timer
  *                    Argument: Ignored
  * WDIOC_STOP       - Stop the watchdog timer
@@ -66,6 +70,14 @@
  *                    Argument: A pointer to struct watchdog_capture_s.
  * WDIOC_KEEPALIVE  - Reset the watchdog timer ("ping", "pet the dog");
  *                    Argument: Ignored
+ *
+ * These may be supported by certain "lower half" drivers
+ *
+ * WDIOC_MINTIME    - Set the minimum ping time.  If two keepalive ioctls
+ *                    are received within this time, a reset event will
+ *                    be generated.  This feature should assume to be 
+ *                    disabled after WDIOC_SETTIMEOUT.
+ *                    Argument: A 32-bit time value in milliseconds.
  */
 
 #define WDIOC_START      _WDIOC(0x001)
@@ -74,6 +86,8 @@
 #define WDIOC_SETTIMEOUT _WDIOC(0x004)
 #define WDIOC_CAPTURE    _WDIOC(0x005)
 #define WDIOC_KEEPALIVE  _WDIOC(0x006)
+
+#define WDIOC_MINTIME    _WDIOC(0x080)
 
 /* Bit Settings *************************************************************/
 /* Bit settings for the struct watchdog_status_s flags field */
@@ -202,6 +216,10 @@ extern "C" {
  *   When this function is called, the "lower half" driver should be in the
  *   disabled state (as if the stop() method had already been called).
  *
+ *   NOTE:  Normally, this function would not be called by application code.
+ *   Rather it is called indirectly through the architecture-specific
+ *   interface up_wdginitialize() described below.
+ *
  * Input parameters:
  *   dev path - The full path to the driver to be registers in the NuttX
  *     pseudo-filesystem.  The recommended convention is to name all watchdog
@@ -240,6 +258,31 @@ EXTERN void watchdog_unregister(FAR void *handle);
 /****************************************************************************
  * Platform-Independent "Lower-Half" Watchdog Driver Interfaces
  ****************************************************************************/
+
+/****************************************************************************
+ * Architecture-specific Application Interfaces
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: up_wdginitialize()
+ *
+ * Description:
+ *   Perform architecture-specific initialization of the Watchdog hardware.
+ *   This interface should be provided by all configurations using
+ *   to avoid exposed platform-dependent logic.
+ * 
+ *   At a minimum, this function should all watchdog_register() which is
+ *   described above.
+ *
+ * Input parameters:
+ *   None
+ *
+ * Returned Value:
+ *   Zero on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+EXTERN int up_wdginitialize(void);
 
 #undef EXTERN
 #ifdef __cplusplus

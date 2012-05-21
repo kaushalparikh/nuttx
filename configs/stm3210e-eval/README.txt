@@ -464,6 +464,7 @@ STM3210E-EVAL-specific Configuration Options
     CONFIG_STM32_TIM6
     CONFIG_STM32_TIM7
     CONFIG_STM32_WWDG
+    CONFIG_STM32_IWDG
     CONFIG_STM32_SPI2
     CONFIG_STM32_SPI4
     CONFIG_STM32_USART2
@@ -750,7 +751,7 @@ Where <subdir> is one of the following:
     from the other, however, in that it uses the NxConsole driver to host
     the NSH shell.
 
-    Some of the differences in this configuratino include these settings
+    Some of the differences in this configuration include these settings
     in the defconfig file:
 
     These select NX Multi-User mode:

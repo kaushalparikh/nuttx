@@ -84,10 +84,10 @@ static inline void nxmu_disconnect(FAR struct nxfe_conn_s *conn)
 
   outmsg.msgid = NX_CLIMSG_DISCONNECTED;
 
-  ret = mq_send(conn->swrmq, &outmsg, sizeof(struct nxclimsg_disconnected_s), NX_CLIMSG_PRIO);
+  ret = nxmu_sendclient(conn, &outmsg, sizeof(struct nxclimsg_disconnected_s));
   if (ret < 0)
     {
-      gdbg("mq_send failed: %d\n", errno);
+      gdbg("nxmu_sendclient failed: %d\n", errno);
     }
 
   /* Close the outgoing client message queue */
@@ -121,11 +121,10 @@ static inline void nxmu_connect(FAR struct nxfe_conn_s *conn)
   /* Send the handshake message back to the client */
 
   outmsg.msgid = NX_CLIMSG_CONNECTED;
-
-  ret = mq_send(conn->swrmq, &outmsg, sizeof(struct nxclimsg_connected_s), NX_CLIMSG_PRIO);
+  ret = nxmu_sendclient(conn, &outmsg, sizeof(struct nxclimsg_connected_s));
   if (ret < 0)
     {
-      gdbg("mq_send failed: %d\n", errno);
+      gdbg("nxmu_sendclient failed: %d\n", errno);
     }
 }
 
@@ -148,6 +147,26 @@ static inline void nxmu_shutdown(FAR struct nxfe_state_s *fe)
   for (wnd = fe->be.topwnd; wnd; wnd = wnd->below)
     {
        (void)nxmu_disconnect(wnd->conn);
+    }
+}
+
+/****************************************************************************
+ * Name: nxmu_blocked
+ ****************************************************************************/
+
+static inline void nxmu_blocked(FAR struct nxbe_window_s *wnd, FAR void *arg)
+{
+  struct nxclimsg_blocked_s outmsg;
+  int ret;
+
+  outmsg.msgid = NX_CLIMSG_BLOCKED;
+  outmsg.wnd   = wnd;
+  outmsg.arg   = arg;
+
+  ret = nxmu_sendclient(wnd->conn, &outmsg, sizeof(struct nxclimsg_blocked_s));
+  if (ret < 0)
+    {
+      gdbg("nxmu_sendclient failed: %d\n", errno);
     }
 }
 
@@ -356,6 +375,13 @@ int nx_runinstance(FAR const char *mqname, FAR NX_DRIVERTYPE *dev)
            {
              FAR struct nxsvrmsg_closewindow_s *closemsg = (FAR struct nxsvrmsg_closewindow_s *)buffer;
              nxbe_closewindow(closemsg->wnd);
+           }
+           break;
+
+         case NX_SVRMSG_BLOCKED: /* Block messsages to a window */
+           {
+             FAR struct nxsvrmsg_blocked_s *blocked = (FAR struct nxsvrmsg_blocked_s *)buffer;
+             nxmu_blocked(blocked->wnd, blocked->arg);
            }
            break;
 

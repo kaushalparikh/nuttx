@@ -46,36 +46,39 @@
 /****************************************************************************
  * Included Files
  ****************************************************************************/
+ 
+#include "nfs_mount.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define NFS_TICKINTVL      5     /* Desired time for a tick (msec) */
+#define NFS_TICKINTVL      5             /* Desired time for a tick (msec) */
 #define NFS_HZ             (CLOCKS_PER_SEC / nfs_ticks)  /* Ticks/sec */
 #define NFS_TIMEO          (1 * NFS_HZ)  /* Default timeout = 1 second */
 #define NFS_MINTIMEO       (1 * NFS_HZ)  /* Min timeout to use */
 #define NFS_MAXTIMEO       (60 * NFS_HZ) /* Max timeout to backoff to */
 #define NFS_MINIDEMTIMEO   (5 * NFS_HZ)  /* Min timeout for non-idempotent ops */
-#define NFS_TIMEOUTMUL     2     /* Timeout/Delay multiplier */
-#define NFS_MAXREXMIT      100   /* Stop counting after this many */
-#define NFS_RETRANS        10    /* Num of retrans for soft mounts */
-#define NFS_MAXGRPS        16    /* Max. size of groups list */
-#define NFS_MINATTRTIMO    5     /* Attribute cache timeout in sec */
+#define NFS_TIMEOUTMUL     2             /* Timeout/Delay multiplier */
+#define NFS_MAXREXMIT      100           /* Stop counting after this many */
+#define NFS_RETRANS        10            /* Num of retrans for soft mounts */
+#define NFS_MAXGRPS        16            /* Max. size of groups list */
+#define NFS_MINATTRTIMO    5             /* Attribute cache timeout in sec */
 #define NFS_MAXATTRTIMO    60
-#define NFS_WSIZE          8192  /* Def. write data size <= 8192 */
-#define NFS_RSIZE          8192  /* Def. read data size <= 8192 */
-#define NFS_READDIRSIZE    8192  /* Def. readdir size */
-#define NFS_DEFRAHEAD      1     /* Def. read ahead # blocks */
-#define NFS_MAXRAHEAD      4     /* Max. read ahead # blocks */
-#define NFS_MAXASYNCDAEMON 20    /* Max. number async_daemons runable */
+#define NFS_WSIZE          8192          /* Def. write data size <= 8192 */
+#define NFS_RSIZE          8192          /* Def. read data size <= 8192 */
+#define NFS_READDIRSIZE    8192          /* Def. readdir size */
+#define NFS_DEFRAHEAD      1             /* Def. read ahead # blocks */
+#define NFS_MAXRAHEAD      4             /* Max. read ahead # blocks */
+#define NFS_MAXASYNCDAEMON 20            /* Max. number async_daemons runable */
+#define NFS_NPROCS         23
 
 /* Ideally, NFS_DIRBLKSIZ should be bigger, but I've seen servers with
  * broken NFS/ethernet drivers that won't work with anything bigger (Linux..)
  */
 
-#define NFS_DIRBLKSIZ      1024  /* Must be a multiple of DIRBLKSIZ */
-#define NFS_READDIRBLKSIZ  512   /* Size of read dir blocks. XXX */
+#define NFS_DIRBLKSIZ      1024          /* Must be a multiple of DIRBLKSIZ */
+#define NFS_READDIRBLKSIZ  512           /* Size of read dir blocks. XXX */
 
 /* Oddballs */
 
@@ -187,13 +190,14 @@
 /* Bits for "nd_flag" */
 
 #define ND_NFSV3        0x08
-
 #define NFSD_CHECKSLP   0x01
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
+#undef COMP
+#ifdef COMP
 /* Structures for the nfssvc(2) syscall.
  * Not that anyone besides nfsd(8) should ever use it.
  */
@@ -207,60 +211,16 @@ struct nfsd_args
 
 struct nfsd_srvargs
 {
-  struct nfsd *nsd_nfsd;      /* Pointer to in kernel nfsd struct */
-  uid_t nsd_uid;              /* Effective uid mapped to cred */
-  uint32_t nsd_haddr;         /* IP address of client */
-  int nsd_authlen;            /* Length of auth string (ret) */
-  unsigned char *nsd_authstr; /* Auth string (ret) */
-  int nsd_verflen;            /* and the verifier */
+  struct nfsd *nsd_nfsd;        /* Pointer to in kernel nfsd struct */
+  uid_t nsd_uid;                /* Effective uid mapped to cred */
+  uint32_t nsd_haddr;           /* IP address of client */
+  int nsd_authlen;              /* Length of auth string (ret) */
+  unsigned char *nsd_authstr;   /* Auth string (ret) */
+  int nsd_verflen;              /* and the verifier */
   unsigned char *nsd_verfstr;
   struct timeval nsd_timestamp; /* timestamp from verifier */
-  uint32_t nsd_ttl;           /* credential ttl (sec) */
+  uint32_t nsd_ttl;             /* credential ttl (sec) */
 };
-
-/* Stats structure */
-
-struct nfsstats
-{
-  uint64_t attrcache_hits;
-  uint64_t attrcache_misses;
-  uint64_t lookupcache_hits;
-  uint64_t lookupcache_misses;
-  uint64_t direofcache_hits;
-  uint64_t direofcache_misses;
-  uint64_t biocache_reads;
-  uint64_t read_bios;
-  uint64_t read_physios;
-  uint64_t biocache_writes;
-  uint64_t write_bios;
-  uint64_t write_physios;
-  uint64_t biocache_readlinks;
-  uint64_t readlink_bios;
-  uint64_t biocache_readdirs;
-  uint64_t readdir_bios;
-  uint64_t rpccnt[NFS_NPROCS];
-  uint64_t rpcretries;
-  uint64_t srvrpccnt[NFS_NPROCS];
-  uint64_t srvrpc_errs;
-  uint64_t srv_errs;
-  uint64_t rpcrequests;
-  uint64_t rpctimeouts;
-  uint64_t rpcunexpected;
-  uint64_t rpcinvalid;
-  uint64_t srvcache_inproghits;
-  uint64_t srvcache_idemdonehits;
-  uint64_t srvcache_nonidemdonehits;
-  uint64_t srvcache_misses;
-  uint64_t forcedsync;
-  uint64_t srvnqnfs_leases;
-  uint64_t srvnqnfs_maxleases;
-  uint64_t srvnqnfs_getleases;
-  uint64_t srvvop_writes;
-};
-
-/****************************************************************************
- * Public Types
- ****************************************************************************/
 
 /* The set of signals the interrupt an I/O in progress for NFSMNT_INT mounts.
  * What should be in this set is open to debate, but I believe that since
@@ -269,11 +229,6 @@ struct nfsstats
  * such as SIGALRM will not expect file I/O system calls to be interrupted
  * by them and break.
  */
-
-struct uio;
-struct buf;
-struct vattr;
-struct nameidata;               /* XXX */
 
 /* Nfs outstanding request list element */
 
@@ -337,131 +292,70 @@ struct nfsrv_descript
   int nd_repstat;             /* Reply status */
   uint32_t nd_retxid;         /* Reply xid */
 };
+#endif
 
-/* NFS procedures args */
+/* Stats structure */
 
-struct wcc_attr
+struct nfsstats
 {
-  nfsuint64   size;
-  nfstime3    mtime;
-  nfstime3    ctime;
-}
-
-struct wcc_data
-{
-  wcc_attr    before;
-  nfs_fattr   after;
-};
-
-struct diropargs3
-{
-  nfsfh_t     dir;
-  const char  name;
-};
-
-struct CREATE3args
-{
-  diropargs3  where;
-  nfsv3_sattr how;
-};
-
-struct CREATE3resok
-{
-  const char  handle;
-  nfs_fattr   attributes;
-  wcc_data    dir_wcc;
-};
-
-struct READ3args
-{
-  nfstype     file;
-  uint64_t    offset;
-  uint32_t    count;
-};
-
-struct READ3resok
-{
-  nfs_fattr   file_attributes;
-  uint32_t    count;
-  bool        eof;
-  const char  data;
-};
-
-enum stable_how
-{
-  UNSTABLE  = 0,
-  DATA_SYNC = 1,
-  FILE_SYNC = 2
-};
-
-struct WRITE3args
-{
-  nfstype     file;
-  uint64_t    offset;
-  uint32_t    count;
-  stable_how  stable;
-  const char  data;
-};
-
-struct WRITE3resok
-{
-  wcc_data    file_wcc;
-  count3      count;
-  stable_how  committed;
-  unsigned char verf;
-};
-
-struct REMOVE3args
-{
-  diropargs3  object;
-};
-
-struct REMOVE3resok
-{
-  wcc_data    dir_wcc;
-};
-
-struct RENAME3args
-{
-  diropargs3  from;
-  diropargs3  to;
-};
-
-struct RENAME3resok
-{
-  wcc_data    fromdir_wcc;
-  wcc_data    todir_wcc;
-};
-
-struct MKDIR3args
-{
-  diropargs3  where;
-  nfsv3_sattr attributes;
-};
-
-struct MKDIR3resok
-{
-  const char  handle;
-  nfs_fattr   obj_attributes;
-  wcc_data    dir_wcc;
+  uint64_t attrcache_hits;
+  uint64_t attrcache_misses;
+  uint64_t lookupcache_hits;
+  uint64_t lookupcache_misses;
+  uint64_t direofcache_hits;
+  uint64_t direofcache_misses;
+  uint64_t biocache_reads;
+  uint64_t read_bios;
+  uint64_t read_physios;
+  uint64_t biocache_writes;
+  uint64_t write_bios;
+  uint64_t write_physios;
+  uint64_t biocache_readlinks;
+  uint64_t readlink_bios;
+  uint64_t biocache_readdirs;
+  uint64_t readdir_bios;
+  uint64_t rpccnt[NFS_NPROCS];
+  uint64_t rpcretries;
+  uint64_t srvrpccnt[NFS_NPROCS];
+  uint64_t srvrpc_errs;
+  uint64_t srv_errs;
+  uint64_t rpcrequests;
+  uint64_t rpctimeouts;
+  uint64_t rpcunexpected;
+  uint64_t rpcinvalid;
+  uint64_t srvcache_inproghits;
+  uint64_t srvcache_idemdonehits;
+  uint64_t srvcache_nonidemdonehits;
+  uint64_t srvcache_misses;
+  uint64_t forcedsync;
+  uint64_t srvnqnfs_leases;
+  uint64_t srvnqnfs_maxleases;
+  uint64_t srvnqnfs_getleases;
+  uint64_t srvvop_writes;
 };
 
 /****************************************************************************
  * Public Data
  ****************************************************************************/
-/*
-extern int nfs_niothreads;
-extern TAILQ_HEAD(nfssvc_sockhead, nfssvc_sock) nfssvc_sockhead;
-extern int nfssvc_sockhead_flag;
-
-extern struct pool nfsreqpl;
-extern struct pool nfs_node_pool;
-extern TAILQ_HEAD(nfsdhead, nfsd) nfsd_head;
-extern int nfsd_head_flag;
-*/
 
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
 
+EXTERN void nfs_semtake(struct nfsmount *nmp);
+EXTERN void nfs_semgive(struct nfsmount *nmp);
+EXTERN int  nfs_checkmount(struct nfsmount *nmp);
+
+#undef EXTERN
+#if defined(__cplusplus)
+}
+#endif
+ 
 #endif /* _NFS_NFS_H */

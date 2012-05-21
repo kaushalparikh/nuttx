@@ -1,7 +1,7 @@
 /****************************************************************************
  * graphics/nxmu/nxfe.h
  *
- *   Copyright (C) 2008-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2008-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -146,6 +146,7 @@ enum nxmsg_e
   NX_CLIMSG_NEWPOSITION,      /* New window size/position */
   NX_CLIMSG_MOUSEIN,          /* New mouse positional data available for window */
   NX_CLIMSG_KBDIN,            /* New keypad input available for window */
+  NX_CLIMSG_BLOCKED,          /* The window is blocked */
 
   /* Client-to-Server Messages **********************************************/
 
@@ -153,6 +154,7 @@ enum nxmsg_e
   NX_SVRMSG_DISCONNECT,       /* Tear down connection with terminating client */
   NX_SVRMSG_OPENWINDOW,       /* Create a new window */
   NX_SVRMSG_CLOSEWINDOW,      /* Close an existing window */
+  NX_SVRMSG_BLOCKED,          /* The window is blocked */
   NX_SVRMSG_REQUESTBKGD,      /* Open the background window */
   NX_SVRMSG_RELEASEBKGD,      /* Release the background window */
   NX_SVRMSG_SETPOSITION,      /* Window position has changed */
@@ -248,6 +250,17 @@ struct nxclimsg_kbdin_s
 };
 #endif
 
+/* This messsage confirms that that all queued window messages have been
+ * flushed and that the all further window messages are blocked.
+ */
+
+struct nxclimsg_blocked_s
+{
+  uint32_t msgid;                /* NX_CLIMSG_BLOCKED */
+  FAR struct nxbe_window_s *wnd; /* The window that is blocked */
+  FAR void *arg;                 /* User argument */
+};
+
 /* Client-to-Server Message Structures **************************************/
 
 /* The generic message structure.  All server messages begin with this form.  Also
@@ -275,6 +288,19 @@ struct nxsvrmsg_closewindow_s
 {
   uint32_t msgid;                  /* NX_SVRMSG_CLOSEWINDOW */
   FAR struct nxbe_window_s *wnd;   /* The window to be closed */
+};
+
+/* This messsage is just a marker that is queued and forwarded by the server
+ * (NX_CLIMSG_BLOCKED).  Messages to the window were blocked just after this
+ * message was sent.  Receipt of this message indicates both that the window
+ * blocked and that there are no further queued messages for the window.
+ */
+
+struct nxsvrmsg_blocked_s
+{
+  uint32_t msgid;                /* NX_SVRMSG_BLOCKED */
+  FAR struct nxbe_window_s *wnd; /* The window that is blocked */
+  FAR void *arg;                 /* User argument */
 };
 
 /* This message requests the server to create a new window */
@@ -501,6 +527,64 @@ EXTERN int nxfe_constructwindow(NXHANDLE handle,
  ****************************************************************************/
 
 EXTERN void nxmu_semtake(sem_t *sem);
+
+/****************************************************************************
+ * Name: nxmu_sendserver
+ *
+ * Description:
+ *  Send a message to the server at NX_SVRMSG_PRIO priority
+ *
+ * Input Parameters:
+ *   conn   - A pointer to the server connection structure
+ *   msg    - A pointer to the message to send
+ *   msglen - The length of the message in bytes.
+ *
+ * Return:
+ *   OK on success; ERROR on failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+EXTERN int nxmu_sendserver(FAR struct nxfe_conn_s *conn,
+                           FAR const void *msg, size_t msglen);
+
+/****************************************************************************
+ * Name: nxmu_sendwindow
+ *
+ * Description:
+ *  Send a message to the server detined for a specific window at
+ *  NX_SVRMSG_PRIO priority
+ *
+ * Input Parameters:
+ *   wnd    - A pointer to the back-end window structure
+ *   msg    - A pointer to the message to send
+ *   msglen - The length of the message in bytes.
+ *
+ * Return:
+ *   OK on success; ERROR on failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+EXTERN int nxmu_sendwindow(FAR struct nxbe_window_s *wnd, FAR const void *msg,
+                           size_t msglen);
+
+/****************************************************************************
+ * Name: nxmu_sendclient
+ *
+ * Description:
+ *  Send a message to the client at NX_CLIMSG_PRIO priority
+ *
+ * Input Parameters:
+ *   conn   - A pointer to the server connection structure
+ *   msg    - A pointer to the message to send
+ *   msglen - The length of the message in bytes.
+ *
+ * Return:
+ *   OK on success; ERROR on failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+EXTERN int nxmu_sendclient(FAR struct nxfe_conn_s *conn,
+                           FAR const void *msg, size_t msglen);
 
 /****************************************************************************
  * Name: nxmu_openwindow

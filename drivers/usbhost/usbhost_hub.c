@@ -55,7 +55,7 @@
 #include <debug.h>
 
 #include <nuttx/kmalloc.h>
-#include <nuttx/fs.h>
+#include <nuttx/fs/fs.h>
 #include <nuttx/arch.h>
 #include <nuttx/wqueue.h>
 #include <nuttx/scsi.h>
@@ -83,10 +83,6 @@
 #define USBHOST_IFFOUND     0x01 /* Required I/F descriptor found */
 #define USBHOST_EPINFOUND   0x02 /* Required interrupt IN EP descriptor found */
 #define USBHOST_ALLFOUND    (USBHOST_IFFOUND|USBHOST_EPINFOUND)
-
-/* Check for root hub */
-
-#define ROOTHUB(class)  ((class)->parent == NULL)
 
 /****************************************************************************
  * Private Types

@@ -73,6 +73,10 @@ CONFIG_SIM_TOUCHSCREEN=n
 # CONFIG_DEBUG_VERBOSE - enables verbose debug output
 # CONFIG_DEBUG_SYMBOLS - build without optimization and with
 #   debug symbols (needed for use with a debugger).
+# CONFIG_HAVE_CXX - Enable support for C++
+# CONFIG_HAVE_CXXINITIALIZE - The platform-specific logic includes support
+#   for initialization of static C++ instances for this architecture
+#   and for the selected toolchain (via up_cxxinitialize()).
 # CONFIG_MM_REGIONS - If the architecture includes multiple
 #   regions of memory to allocate from, this specifies the
 #   number of memory regions that the memory manager must
@@ -134,6 +138,8 @@ CONFIG_DEBUG=y
 CONFIG_DEBUG_VERBOSE=y
 CONFIG_DEBUG_SYMBOLS=n
 CONFIG_DEBUG_GRAPHICS=y
+CONFIG_HAVE_CXX=n
+CONFIG_HAVE_CXXINITIALIZE=n
 CONFIG_MM_REGIONS=1
 CONFIG_ARCH_LOWPUTC=y
 CONFIG_RR_INTERVAL=0
@@ -431,10 +437,6 @@ CONFIG_NX_MXCLIENTMSGS=16
 #   Currently, NxConsole supports only a single pixel depth. This
 #   configuration setting must be provided to support that single pixel depth.
 #   Default: The smallest enabled pixel depth. (see CONFIG_NX_DISABLE_*BPP)
-# CONFIG_NXCONSOLE_NOGETRUN
-#   NxConsole needs to know if it can read from the LCD or not. If reading
-#   from the LCD is supported, then NxConsole can do more efficient
-#   scrolling. Default: Supported
 # CONFIG_NXCONSOLE_MXCHARS
 #   NxConsole needs to remember every character written to the console so
 #   that it can redraw the window. This setting determines the size of some
@@ -458,7 +460,6 @@ CONFIG_NX_MXCLIENTMSGS=16
 #
 CONFIG_NXCONSOLE=n
 CONFIG_NXCONSOLE_BPP=32
-# CONFIG_NXCONSOLE_NOGETRUN
 CONFIG_NXCONSOLE_MXCHARS=256
 # CONFIG_NXCONSOLE_CACHESIZE
 # CONFIG_NXCONSOLE_LINESEPARATION

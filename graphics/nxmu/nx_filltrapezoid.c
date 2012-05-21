@@ -1,8 +1,8 @@
 /****************************************************************************
  * graphics/nxmu/nx_filltrapezoid.c
  *
- *   Copyright (C) 2008-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -94,12 +94,13 @@ int nx_filltrapezoid(NXWINDOW hwnd, FAR const struct nxgl_rect_s *clip,
                      nxgl_mxpixel_t color[CONFIG_NX_NPLANES])
 {
   FAR struct nxbe_window_s *wnd = (FAR struct nxbe_window_s *)hwnd;
-  struct nxsvrmsg_filltrapezoid_s  outmsg;
-  int ret;
+  struct nxsvrmsg_filltrapezoid_s outmsg;
   int i;
 
+  /* Some debug-only sanity checks */
+
 #ifdef CONFIG_DEBUG
-  if (!wnd || !wnd->conn || !trap || !color)
+  if (!wnd || !trap || !color)
     {
       errno = EINVAL;
       return ERROR;
@@ -111,28 +112,31 @@ int nx_filltrapezoid(NXWINDOW hwnd, FAR const struct nxgl_rect_s *clip,
   outmsg.msgid = NX_SVRMSG_FILLTRAP;
   outmsg.wnd   = wnd;
 
+  /* If no clipping window was provided, then use the size of the entire window */
+
   if (clip)
     {
       nxgl_rectcopy(&outmsg.clip, clip);
     }
   else
     {
-      memset(&outmsg.clip, 0, sizeof(struct nxgl_rect_s));
+      nxgl_rectcopy(&outmsg.clip, &wnd->bounds);
     }
+
+  /* Copy the trapezod and the color into the message */
+
   nxgl_trapcopy(&outmsg.trap, trap);
 
+#if CONFIG_NX_NPLANES > 1
   for (i = 0; i < CONFIG_NX_NPLANES; i++)
+#else
+  i = 0;
+#endif
     {
       outmsg.color[i] = color[i];
     }
 
-  /* Forward the fill command to the server */
+  /* Forward the trapezoid fill command to the server */
 
-  ret = mq_send(wnd->conn->cwrmq, &outmsg,
-                sizeof(struct nxsvrmsg_filltrapezoid_s), NX_SVRMSG_PRIO);
-  if (ret < 0)
-    {
-      gdbg("mq_send failed: %d\n", errno);
-    }
-  return ret;
+  return nxmu_sendwindow(wnd, &outmsg, sizeof(struct nxsvrmsg_filltrapezoid_s));
 }

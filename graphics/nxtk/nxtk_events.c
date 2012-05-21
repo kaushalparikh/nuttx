@@ -217,35 +217,59 @@ static void nxtk_mousein(NXWINDOW hwnd, FAR const struct nxgl_point_s *pos,
                           uint8_t buttons, FAR void *arg)
 {
   FAR struct nxtk_framedwindow_s *fwnd = (FAR struct nxtk_framedwindow_s *)hwnd;
+  struct nxgl_point_s abspos;
   struct nxgl_point_s relpos;
+
+  /* Raise the window to the top if any mouse button was pressed or if auto-raise
+   * is configured.  Do this before reporting the mouse event (because processing
+   * of the mouse event could change the ordering again).
+   */
+
+  /* REVISIT:  This does not work correctly.  In a scenario where (1) there are
+   * multiple queued touchscreen events and (2) the result of the first input
+   * was to switch windows, then this autoraise implementation will cause the
+   * window to revert to the previous window.  Not good behavior.
+   */
+
+#ifndef CONFIG_NX_MULTIUSER /* Queuing only happens in multi-user mode */
+#ifdef CONFIG_NXTK_AUTORAISE
+  if (fwnd->wnd.above != NULL)
+#else
+  if (buttons != 0 && fwnd->wnd.above != NULL)
+#endif
+    {
+       nx_raise((NXWINDOW)&fwnd->wnd);
+    }
+#endif
+
+  /* When we get here, the mouse position that we receive has already been
+   * offset by the window origin.  Here we need to detect mouse events in
+   * the various regions of the windows:  The toolbar, the client window,
+   * or the frame.  And then offset the position accordingly.
+   */
+
+  /* The fwrect and tbrect boxes are both in absolute display coordinates. So
+   * the easiest thing to do is to restore the mouse position to absolute
+   * display coordiantes before making the comparisons and adjustments.
+   */
+
+  nxgl_vectoradd(&abspos, pos, &fwnd->wnd.bounds.pt1);
 
   /* Is the mouse position inside of the client window region? */
 
-  if (fwnd->fwcb->mousein && nxgl_rectinside(&fwnd->fwrect, pos))
+  if (fwnd->fwcb->mousein && nxgl_rectinside(&fwnd->fwrect, &abspos))
     {
-      nxgl_vectsubtract(&relpos, pos, &fwnd->fwrect.pt1);
+      nxgl_vectsubtract(&relpos, &abspos, &fwnd->fwrect.pt1);
       fwnd->fwcb->mousein((NXTKWINDOW)fwnd, &relpos, buttons, fwnd->fwarg);
     }
 
   /* If the mouse position inside the toobar region? */
 
-  else if (fwnd->tbcb->mousein && nxgl_rectinside(&fwnd->tbrect, pos))
+  else if (fwnd->tbcb->mousein && nxgl_rectinside(&fwnd->tbrect, &abspos))
     {
-      nxgl_vectsubtract(&relpos, pos, &fwnd->tbrect.pt1);
+      nxgl_vectsubtract(&relpos, &abspos, &fwnd->tbrect.pt1);
       fwnd->tbcb->mousein((NXTKWINDOW)fwnd, &relpos, buttons, fwnd->tbarg);
     }
-
-  /* Raise the window to the top if any mouse button was pressed or if auto-raise
-   * is configured.
-   */
-
-#ifndef CONFIG_NXTK_AUTORAISE
-  if (buttons != 0)
-#endif
-    {
-       nx_raise((NXWINDOW)&fwnd->wnd);
-    }
-
 }
 #endif
 

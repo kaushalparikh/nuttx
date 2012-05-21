@@ -49,6 +49,8 @@
  * Included Files
  ****************************************************************************/
 
+#include <arpa/inet.h>
+ 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -62,8 +64,8 @@
  * but we cannot count on their alignment anyway.
  */
 
-#define fxdr_unsigned(t, v)  ((t)ntohl((int32_t)(v)))
-#define txdr_unsigned(v)     (htonl((int32_t)(v)))
+#define fxdr_unsigned(t, v)  ((t)ntohl(v))
+#define txdr_unsigned(v)     (htonl(v))
 
 #define fxdr_nfsv2time(f, t) { \
   (t)->tv_sec = ntohl(((struct nfsv2_time *)(f))->nfsv2_sec); \
@@ -84,6 +86,11 @@
 #define fxdr_nfsv3time(f, t) { \
   (t)->tv_sec = ntohl(((struct nfsv3_time *)(f))->nfsv3_sec); \
   (t)->tv_nsec = ntohl(((struct nfsv3_time *)(f))->nfsv3_nsec); \
+}
+
+#define fxdr_nfsv3time2(f, t) { \
+  (t)->nfsv3_sec = ntohl(((struct nfsv3_time *)(f))->nfsv3_sec); \
+  (t)->nfsv3_nsec = ntohl(((struct nfsv3_time *)(f))->nfsv3_nsec); \
 }
 
 #define txdr_nfsv3time(f, t) { \

@@ -1,7 +1,7 @@
 /****************************************************************************
- * examples/examples/pwm.h
+ * examples/examples/pwm/pwm.h
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,10 +52,10 @@
  * CONFIG_EXAMPLES_PWM_DEVPATH - The path to the PWM device. Default: /dev/pwm0
  * CONFIG_EXAMPLES_PWM_FREQUENCY - The initial PWM frequency.  Default: 100 Hz
  * CONFIG_EXAMPLES_PWM_DUTYPCT - The initial PWM duty as a percentage.  Default: 50%
- * CONFIG_EXAMPLES_PWM_DURATION - The initial PWM pulse train duration in sectonds.
- *   as a percentage. Used only if the current pulse count is zero (pulse count
- *   is only supported if CONFIG_PWM_PULSECOUNT is defined). Default: 5 seconds
- * CONFIG_EXAMPLES_PWM_COUNT - The initial PWM pulse count.  This option is
+ * CONFIG_EXAMPLES_PWM_DURATION - The initial PWM pulse train duration in seconds.
+ *   Used only if the current pulse count is zero (pulse count is only supported
+ *   if CONFIG_PWM_PULSECOUNT is defined). Default: 5 seconds
+ * CONFIG_EXAMPLES_PWM_PULSECOUNT - The initial PWM pulse count.  This option is
  *   only available if CONFIG_PWM_PULSECOUNT is defined. Default: 0 (i.e., use
  *   the duration, not the count).
  */

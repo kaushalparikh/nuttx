@@ -18,6 +18,7 @@ Contents
   - CAN
   - FPU
   - FSMC SRAM
+  - I/O Exanders
   - STM3240G-EVAL-specific Configuration Options
   - Configurations
 
@@ -496,6 +497,37 @@ There are 4 possible SRAM configurations:
                    CONFIG_MM_REGIONS == 3
                    CONFIG_STM32_FSMC_SRAM defined
                    CONFIG_STM32_CCMEXCLUDE NOT defined
+I/O Exanders
+============
+
+The STM3240G-EVAL has two STMPE11QTR I/O expanders on board both connected to
+the STM32 via I2C1.  They share a common interrupt line: PI2.
+
+STMPE11 U24, I2C address 0x41 (7-bit)
+------ ---- ---------------- --------------------------------------------
+STPE11 PIN  BOARD SIGNAL     BOARD CONNECTION
+------ ---- ---------------- --------------------------------------------
+  Y-        TouchScreen_Y-   LCD Connector XL
+  X-        TouchScreen_X-   LCD Connector XR
+  Y+        TouchScreen_Y+   LCD Connector XD
+  X+        TouchScreen_X+   LCD Connector XU
+  IN3       EXP_IO9
+  IN2       EXP_IO10
+  IN1       EXP_IO11
+  IN0       EXP_IO12
+
+STMPE11 U29, I2C address 0x44 (7-bit)
+------ ---- ---------------- --------------------------------------------
+STPE11 PIN  BOARD SIGNAL     BOARD CONNECTION
+------ ---- ---------------- --------------------------------------------
+  Y-        EXP_IO1
+  X-        EXP_IO2
+  Y+        EXP_IO3
+  X+        EXP_IO4
+  IN3       EXP_IO5
+  IN2       EXP_IO6
+  IN1       EXP_IO7
+  IN0       EXP_IO8
 
 STM3240G-EVAL-specific Configuration Options
 ============================================
@@ -630,6 +662,7 @@ STM3240G-EVAL-specific Configuration Options
     CONFIG_STM32_TIM13
     CONFIG_STM32_TIM14
     CONFIG_STM32_WWDG
+    CONFIG_STM32_IWDG
     CONFIG_STM32_SPI2
     CONFIG_STM32_SPI3
     CONFIG_STM32_USART2
@@ -767,6 +800,47 @@ STM3240G-EVAL-specific Configuration Options
 
   STM3240G-EVAL LCD Hardware Configuration
 
+  The LCD driver supports the following LCDs on the STM324xG_EVAL board:
+
+    AM-240320L8TNQW00H (LCD_ILI9320 or LCD_ILI9321) OR 
+    AM-240320D5TOQW01H (LCD_ILI9325)
+
+  Configuration options.
+
+    CONFIG_LCD_LANDSCAPE - Define for 320x240 display "landscape"
+      support. Default is this 320x240 "landscape" orientation
+      For the STM3240G-EVAL board, the edge opposite from the row of buttons
+      is used as the top of the display in this orientation.
+    CONFIG_LCD_RLANDSCAPE - Define for 320x240 display "reverse
+      landscape" support. Default is this 320x240 "landscape"
+      orientation
+      For the STM3240G-EVAL board, the edge next to the row of buttons
+      is used as the top of the display in this orientation.
+    CONFIG_LCD_PORTRAIT - Define for 240x320 display "portrait"
+      orientation support.  In this orientation, the STM3210E-EVAL's
+      LCD ribbon cable is at the bottom of the display. Default is
+      320x240 "landscape" orientation.
+      In this orientation, the top of the display is to the left
+      of the buttons (if the board is held so that the buttons are at the
+      botton of the board).
+    CONFIG_LCD_RPORTRAIT - Define for 240x320 display "reverse
+      portrait" orientation support.  In this orientation, the
+      STM3210E-EVAL's LCD ribbon cable is at the top of the display.
+      Default is 320x240 "landscape" orientation.
+      In this orientation, the top of the display is to the right
+      of the buttons (if the board is held so that the buttons are at the
+      botton of the board).
+    CONFIG_LCD_RDSHIFT - When reading 16-bit gram data, there appears
+      to be a shift in the returned data.  This value fixes the offset.
+      Default 5.
+
+    The LCD driver dynamically selects the LCD based on the reported LCD
+    ID value.  However, code size can be reduced by suppressing support for
+    individual LCDs using:
+
+    CONFIG_STM32_ILI9320_DISABLE (includes ILI9321)
+    CONFIG_STM32_ILI9325_DISABLE
+
 Configurations
 ==============
 
@@ -900,7 +974,39 @@ Where <subdir> is one of the following:
 
        CONFIG_DISABLE_POLL=n
 
-    7. This configuration requires that jumper JP22 be set to enable RS-232 operation.
+    7. This example supports the watchdog timer test (apps/examples/watchdog)
+       but this must be manually enabled by selecting:
+
+       CONFIG_WATCHDOG=y         : Enables watchdog timer driver support
+       CONFIG_STM32_WWDG=y       : Enables the WWDG timer facility, OR
+       CONFIG_STM32_IWDG=y       : Enables the IWDG timer facility (but not both)
+
+       The WWDG watchdog is driven off the (fast) 42MHz PCLK1 and, as result,
+       has a maximum timeout value of 49 milliseconds.  For WWDG watchdog, you
+       should also add the fillowing to the configuration file:
+
+       CONFIG_EXAMPLES_WATCHDOG_PINGDELAY=20
+       CONFIG_EXAMPLES_WATCHDOG_TIMEOUT=49
+
+       The IWDG timer has a range of about 35 seconds and should not be an issue.
+
+    7. Adding LCD and graphics support:
+ 
+       appconfig (apps/.config):  Enable the application configurations that you
+       want to use.  Asexamples:
+
+       CONFIGURED_APPS += examples/nx       : Pick one or more
+       CONFIGURED_APPS += examples/nxhello  :
+       CONFIGURED_APPS += examples/nximage  :
+       CONFIGURED_APPS += examples/nxlines  :
+
+       defconfig (nuttx/.config):  
+       
+       CONFIG_STM32_FSMC=y                  : FSMC support is required for the LCD
+       CONFIG_NX=y                          : Enable graphics suppport
+       CONFIG_MM_REGIONS=3                  : When FSMC is enabled, so is the on-board SRAM memory region
+
+    8. This configuration requires that jumper JP22 be set to enable RS-232 operation.
 
   nsh2:
   -----
@@ -938,7 +1044,8 @@ Where <subdir> is one of the following:
 
     NOTES:
     1. See the notes for the nsh configuration.  Most also apply to the nsh2
-       configuration.
+       configuration.  Like the nsh configuration, this configuration can
+       be modified to support a variety of additional tests.
 
     2. RS-232 is disabled, but Telnet is still available for use as a console.
        Since RS-232 and SDIO use the same pins (one controlled by JP22), RS232
@@ -978,6 +1085,49 @@ Where <subdir> is one of the following:
        that is not reported by the DMA registers."
 
        There is nothing in the DMA driver to prevent this now.
+
+  nxconsole:
+  ----------
+    This is yet another NSH configuration.  This NSH configuration differs
+    from the others, however, in that it uses the NxConsole driver to host
+    the NSH shell.
+
+    Some of the differences in this configuration and the normal nsh configuration
+    include these settings in the defconfig file:
+
+    These select NX Multi-User mode:
+
+      CONFG_NX_MULTIUSER=y
+      CONFIG_DISABLE_MQUEUE=n
+ 
+    The following definition in the defconfig file to enables the NxConsole
+    driver:
+
+      CONFIG_NXCONSOLE=y
+
+    The appconfig file selects examples/nxconsole instead of examples/nsh:
+
+      CONFIGURED_APPS += examples/nxconsole
+
+    Other configuration settings:
+
+      CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+      CONFIG_LCD_LANDSCAPE=y        : 320x240 landscape
+
+  nxwm
+  ----
+    This is a special configuration setup for the NxWM window manager
+    UnitTest.  The NxWM window manager can be found here:
+
+      trunk/NxWidgets/nxwm
+
+    The NxWM unit test can be found at:
+
+      trunk/NxWidgets/UnitTests/nxwm
+
+    Documentation for installing the NxWM unit test can be found here:
+
+      trunk/NxWidgets/UnitTests/READEM.txt
 
   ostest:
   ------

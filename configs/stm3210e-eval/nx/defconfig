@@ -131,6 +131,7 @@ CONFIG_STM32_TIM5=n
 CONFIG_STM32_TIM6=n
 CONFIG_STM32_TIM7=n
 CONFIG_STM32_WWDG=n
+CONFIG_STM32_IWDG=n
 CONFIG_STM32_SPI2=n
 CONFIG_STM32_SPI4=n
 CONFIG_STM32_USART2=y
@@ -757,6 +758,18 @@ CONFIG_USBMSC_VERSIONNO=0x0399
 CONFIG_USBMSC_REMOVABLE=y
 
 #
+# Watchdog timer configuration
+#
+# CONFIG_WATCHDOG - Enable overall watchdog timer driver support.
+#
+# The STM32 also needs one of the following enabled:
+#
+#  CONFIG_STM32_WWDG=y, OR
+#  CONFIG_STM32_IWDG=y (but not both)
+#
+CONFIG_WATCHDOG=n
+
+#
 # Graphics related configuration settings
 #
 # CONFIG_NX
@@ -899,10 +912,6 @@ CONFIG_NX_MXCLIENTMSGS=16
 #   Currently, NxConsole supports only a single pixel depth. This
 #   configuration setting must be provided to support that single pixel depth.
 #   Default: The smallest enabled pixel depth. (see CONFIG_NX_DISABLE_*BPP)
-# CONFIG_NXCONSOLE_NOGETRUN
-#   NxConsole needs to know if it can read from the LCD or not. If reading
-#   from the LCD is supported, then NxConsole can do more efficient
-#   scrolling. Default: Supported
 # CONFIG_NXCONSOLE_MXCHARS
 #   NxConsole needs to remember every character written to the console so
 #   that it can redraw the window. This setting determines the size of some
@@ -926,7 +935,6 @@ CONFIG_NX_MXCLIENTMSGS=16
 #
 CONFIG_NXCONSOLE=n
 CONFIG_NXCONSOLE_BPP=16
-CONFIG_NXCONSOLE_NOGETRUN=y
 CONFIG_NXCONSOLE_MXCHARS=256
 CONFIG_NXCONSOLE_CACHESIZE=32
 # CONFIG_NXCONSOLE_LINESEPARATION
@@ -935,6 +943,10 @@ CONFIG_NXCONSOLE_CACHESIZE=32
 #
 # STM3210E-EVAL LCD Hardware Configuration
 #
+# CONFIG_LCD_NOGETRUN
+#   NX components need to know if it can read from the LCD or not. If reading
+#   from the LCD is supported, then NxConsole can do more efficient
+#   scrolling. Default: Supported
 # CONFIG_LCD_LANDSCAPE - Define for 320x240 display "landscape"
 #   support. Default is this 320x240 "landscape" orientation
 #   (this setting is informative only... not used).
@@ -954,6 +966,7 @@ CONFIG_NXCONSOLE_CACHESIZE=32
 #   CONFIG_STM32_TIM1) is not defined, then a simple on/off backlight
 #   is provided.
 #
+CONFIG_LCD_NOGETRUN=y
 CONFIG_LCD_LANDSCAPE=n
 CONFIG_LCD_PORTRAIT=n
 CONFIG_LCD_RPORTRAIT=y
@@ -1193,6 +1206,40 @@ CONFIG_EXAMPLES_NXLINES_LINEWIDTH=16
 CONFIG_EXAMPLES_NXLINES_LINECOLOR=0xffe0
 CONFIG_EXAMPLES_NXLINES_BPP=16
 CONFIG_EXAMPLES_NXLINES_EXTERNINIT=n
+
+#
+# Settings for examples/watchdog
+#
+# This test depends on these specific Watchdog/NSH configurations settings (your
+# specific watchdog hardware settings might require additional settings).
+#
+#   CONFIG_WATCHDOG- Enables watchdog timer support support.
+#   CONFIG_NSH_BUILTIN_APPS - Build the watchdog time test as an NSH
+#     built-in function. Default: Not built!  The example can only be used
+#     as an NSH built-in application
+#
+# The STM32 also needs one of the following enabled:
+#
+#  CONFIG_STM32_WWDG=y, OR
+#  CONFIG_STM32_IWDG=y (but not both)
+#
+# Specific configuration options for this example include:
+#
+# CONFIG_EXAMPLES_WATCHDOG_DEVPATH - The path to the Watchdog device.
+#   Default: /dev/watchdog0
+# CONFIG_EXAMPLES_WATCHDOG_PINGTIME - Time in milliseconds that the example
+#   will ping the watchdog before letting the watchdog expire. Default: 5000
+#   milliseconds
+# CONFIG_EXAMPLES_WATCHDOG_PINGDELAY - Time delay between pings in
+#   milliseconds. Default: 500 milliseconds.
+# CONFIG_EXAMPLES_WATCHDOG_TIMEOUT - The watchdog timeout value in
+#   milliseconds before the watchdog timer expires.  Default:  2000
+#   milliseconds.
+#
+# CONFIG_EXAMPLES_WATCHDOG_DEVPATH
+# CONFIG_EXAMPLES_WATCHDOG_PINGTIME
+# CONFIG_EXAMPLES_WATCHDOG_PINGDELAY
+# CONFIG_EXAMPLES_WATCHDOG_TIMEOUT
 
 #
 # Stack and heap information

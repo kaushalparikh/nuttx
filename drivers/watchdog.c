@@ -60,7 +60,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 /* Debug ********************************************************************/
-/* Non-standard debug that may be enabled just for testing PWM */
+/* Non-standard debug that may be enabled just for testing the watchdog driver */
 
 #ifdef CONFIG_DEBUG_WATCHDOG
 #  define wddbg    dbg
@@ -478,6 +478,7 @@ FAR void *watchdog_register(FAR const char *path,
   int ret;
 
   DEBUGASSERT(path && lower);
+  wdvdbg("Entry: path=%s\n", path);
 
   /* Allocate the upper-half data structure */
 
@@ -507,7 +508,6 @@ FAR void *watchdog_register(FAR const char *path,
 
   /* Register the watchdog timer device */
 
-  wdvdbg("Registering %s\n", path);
   ret = register_driver(path, &g_wdogops, 0666, upper);
   if (ret < 0)
     {
@@ -548,13 +548,13 @@ void watchdog_unregister(FAR void *handle)
   FAR struct watchdog_upperhalf_s *upper;
   FAR struct watchdog_lowerhalf_s *lower;
 
-  wdvdbg("cmd: %d arg: %ld\n", cmd, arg);
-
   /* Recover the pointer to the upper-half driver state */
 
   upper = (FAR struct watchdog_upperhalf_s *)handle;
   lower = upper->lower;
   DEBUGASSERT(upper && lower);
+
+  wdvdbg("Unregistering: %s\n", upper->path);
 
   /* Disable the watchdog timer */
 

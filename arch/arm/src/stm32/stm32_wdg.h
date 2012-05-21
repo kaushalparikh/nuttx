@@ -1,8 +1,8 @@
-/************************************************************************************
+/****************************************************************************
  * arch/arm/src/stm32/stm32_wdg.h
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,34 +31,88 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 #ifndef __ARCH_ARM_SRC_STM32_STM32_WDG_H
 #define __ARCH_ARM_SRC_STM32_STM32_WDG_H
 
-/************************************************************************************
+/****************************************************************************
  * Included Files
- ************************************************************************************/
+ ****************************************************************************/
 
 #include <nuttx/config.h>
 
 #include "chip.h"
 #include "chip/stm32_wdg.h"
 
-/************************************************************************************
+#ifdef CONFIG_WATCHDOG
+
+/****************************************************************************
  * Pre-processor Definitions
- ************************************************************************************/
+ ****************************************************************************/
 
-/************************************************************************************
- * Public Types
- ************************************************************************************/
+#ifndef __ASSEMBLY__
 
-/************************************************************************************
- * Public Data
- ************************************************************************************/
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
 
-/************************************************************************************
+/****************************************************************************
  * Public Functions
- ************************************************************************************/
+ ****************************************************************************/
 
+/****************************************************************************
+ * Name: stm32_iwdginitialize
+ *
+ * Description:
+ *   Initialize the IWDG watchdog time.  The watchdog timer is intialized and
+ *   registers as 'devpath.  The initial state of the watchdog time is
+ *   disabled.
+ *
+ * Input Parameters:
+ *   devpath - The full path to the watchdog.  This should be of the form
+ *     /dev/watchdog0
+ *   lsifreq - The calibrated LSI clock frequency
+ *
+ * Returned Values:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_STM32_IWDG
+EXTERN void stm32_iwdginitialize(FAR const char *devpath, uint32_t lsifreq);
+#endif
+
+/****************************************************************************
+ * Name: stm32_wwdginitialize
+ *
+ * Description:
+ *   Initialize the WWDG watchdog time.  The watchdog timer is intialized and
+ *   registers as 'devpath.  The initial state of the watchdog time is
+ *   disabled.
+ *
+ * Input Parameters:
+ *   devpath - The full path to the watchdog.  This should be of the form
+ *     /dev/watchdog0
+ *
+ * Returned Values:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_STM32_WWDG
+EXTERN void stm32_wwdginitialize(FAR const char *devpath);
+#endif
+
+#undef EXTERN
+#if defined(__cplusplus)
+}
+#endif
+
+#endif /* __ASSEMBLY__ */
+#endif /* CONFIG_WATCHDOG */
 #endif /* __ARCH_ARM_SRC_STM32_STM32_WDG_H */

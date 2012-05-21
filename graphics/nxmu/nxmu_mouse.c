@@ -1,8 +1,8 @@
 /****************************************************************************
  * graphics/nxmu/nxmu__mouse.c
  *
- *   Copyright (C) 2008-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -111,7 +111,6 @@ void nxmu_mouseinit(int x, int y)
 int nxmu_mousereport(struct nxbe_window_s *wnd)
 {
   struct nxclimsg_mousein_s outmsg;
-  int ret;
 
   /* Does this window support mouse callbacks? */
 
@@ -130,13 +129,7 @@ int nxmu_mousereport(struct nxbe_window_s *wnd)
           outmsg.buttons = g_mbutton;
           nxgl_vectsubtract(&outmsg.pos, &g_mpos, &wnd->bounds.pt1);
 
-          ret = mq_send(wnd->conn->swrmq, &outmsg,
-                        sizeof(struct nxclimsg_mousein_s), NX_SVRMSG_PRIO);
-          if (ret < 0)
-            {
-              gdbg("mq_send failed: %d\n", errno);
-            }
-          return ret;
+          return nxmu_sendclient(wnd->conn, &outmsg, sizeof(struct nxclimsg_mousein_s));
         }
     }
 
@@ -194,7 +187,7 @@ int nxmu_mousein(FAR struct nxfe_state_s *fe,
       g_mbutton = buttons;
 
       /* Pick the window to receive the mouse event.  Start with
-       * the top window and go down.  Step with the first window
+       * the top window and go down.  Stop with the first window
        * that gets the mouse report
        */
 

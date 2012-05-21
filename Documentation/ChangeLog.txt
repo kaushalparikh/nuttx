@@ -2653,4 +2653,131 @@
 	  driver interface.
 	* drivers/watchdog.c:  The "upper half" watchdog timer driver.
 
-6.18 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.18 2012-05-19 Gregory Nutt <gnutt@nuttx.org>
+
+	* Kconfig:  Continued Kconfig file updates (no longer tracking on a per-file
+	  basis in the ChangeLog)
+	* arch/arm/src/stm32/stm32_iwdog.c and stm32_wwdog.c:  Add the STM32 IWDG
+	  and WWDIG watchdog timer driver.
+	* configs/stm3240g-eval/src/up_lcd.c: Add LCD from for the STM3240G-EVAL (the
+	  initial check-in is just a stm3210e-eval driver with renaming).
+	* sched/sched_setscheduler.c:  Correct successful return value (Contributed
+	  by Richard Cochran).
+	* include/fcntl.h and lib/stdio:  Ignore CONFIG_STDIO_LINEBUFFER is the
+	  file was opened in binary mode.
+	* lib/stdio/lib_fopen.c:  Correct an error in parsing open mode string.  The
+	  plus sign may not appear right after the basic mode.  For example, "r+", "rb+",
+	  and "r+b" are all valid open strings and mean the same thing.
+	* lib/stdio/lib_fopen.c:  Correct return errno value from f_open() and
+	  f_fdopen() if the open mode string is invalid.
+	* drivers/serial/serial.c:  Do not disable Rx interrupts on each byte.
+	  Rather, only disable Rx interrupts when the Rx ring buffer may be empty.
+	* include/nuttx/usb/audio.h:  USB Audio 1.0 definitions (in progress).
+	* arch/arm/src/stm32/stm32fxx_dma.c:  STM32 F4 DMA now supports circular
+	  buffer mode (contributed by Mike Smith)
+	* arch/arm/src/stm32/stm32_serial.c:  The serial driver can now support
+	  Rx DMA into a circular buffer (contributed by Mike Smith)
+	* configs/pic32mx7mmb: Beginning of a configuration for the Mikroelektronka
+	  PIC32MX7 Multimedia Board (MMB).
+	* net/recvfrom.c:  Fix a compilation problem.  Some UDP logic was conditioned
+	  on TCP, not UDP.
+	* drivers/usbdev/cdcacm.c: Fix an infinite loop that occurs when the serial
+	  device is unregisters.
+	* arch/arm/src/stm32/stm32_otgfs.c: The driver needs to reset the software (in
+	  order to flush the requests) and to disable the software connection when the
+	  device is unregistered.
+	* include/sys/prctl.h, sched/prctl.c, include/pthread.h:  Add interfaces to
+	  support getting and setting of the thread or task name.
+	* configs/ubw32:  Added a configuration to support the Sparkfun UBW32 PIC32 board.
+	* configs/ubw32/nsh:  Added an NSH configuration for the Sparkfun UBW32 PIC32 board.
+	* configs/ubw32/up_buttons.c:  Added button support for Bit Whacker board.
+	* configs/stm3240g-eval/nxconsole:  Added a configuration to run the NSH
+	  shell in an NX window for the STM3240G-EVAL board.
+	* include/cxx/cunistd:  C++ header file to make sure that everything in
+	  unistd.h is in the std:: namespace.
+	* configs/sim/nxwm:  Added a configuration for testing the NuttX Window Manager
+	  (NxWM)
+	* fs/fs_fcntl.h:  On success, always returned OK.  However, some fcntl commands
+	  require returning other values on success.
+	* Various files.  Fix warnings about variables that were initialized by not used.
+	* configs/sim/*/defconfig:  Changes to build a 32-bit simulation on a 32-bit
+	  platform did not make into all of the Make.defs files.
+	* graphics/nxmu/nx_move.c:  Wrong opcode was being used in the server message;
+	  Also there was an error in the offset calculation.
+	* graphics/nxglib/fb/nxglib_moverectangle.c:  Offset argument is really a 
+	  position, not an offset.
+	* graphics/nxtk/nxtk_drawframe.c:  Framed windows are now drawn in three
+	  colors (instead of just two).
+	* drivers/input/stmpe11_*:  Added a driver to support the STMicro STMPE11
+	  IO Expander and touchscreen driver.
+	* configs/stm3240g-eval/nxwm:  Added to configuration for testing the NxWM
+	  window manager on the STM3240G-EVAL board.
+	* graphics/nxtk/nxtk_toolbarbounds.c:  Added an interface to get the toolbar
+	  bounding box.
+	* graphics/nxtk/nxtk_drawframe.c:  Fix an error in drawing the window frame.
+	* NX, NxConsole:  Replace CONFIG_NXCONSOLE_NOGETRUN to CONFIG_LCD_GETRUN.  The
+	  inability to read from the LCD is a property of the LCD, not of NxConsole.
+	  Then add CONFIG_NX_WRITEONLY which is the more generic way of saying that
+	  no NX component should try to read from the underlying graphic device (LCD
+	  or other).
+	* configs/stm3240g-eval/src/up_stmpe11.c:  Add board-specific support for the
+	  the STMPE11 I/O expander on the STM3240G-EVAL board.  Verfied that the
+	  STM3240G-EVAL touchscreen is now fully functional.
+	* include/cxx/cfcntl:  Added std:: header file.
+	* graphics/nxbe/nxbe_filltrapezoid.c and graphics/nxglib/fb/nxglib_filltrapezoid.c:
+	  Fix several errors in the trapezoid fill logic.
+	* include/nuttx/input/touchscreen.h, configs/hymini-stm32, configs/stm3240g-evel,
+	* configs/sam3u-ek, configs/sim, arch/sim/src/up_touchscreen.c, and
+	  apps/examples/touchscreen: Standardize the board-specific, touchscreen
+	  initialization interfaces.
+	* drivers/input/stmpe11_base.c and configs/stm3240g-eval:  The STMPE11-based
+	  touchscreen seems to work better with edge (vs. level) interrupts
+	* drivers/input/stmpe11_tsc.c:  Fix some status checks so that the touchscreen
+	  interrupt handling logic does not read data if the fifo is not at the
+	  threshold level.
+	* include/nuttx/wqueue.h: Add macro work_available() to determine if the
+	  previously scheduled work has completed.
+	* drivers/stmpe11_tsc.c:  Correct errors: (1) Since all interrupt logic is done on
+	  the worker thread, disabling interrupts does not provide protected; Need to
+	  disable pre-emption.  (2) Fix handling of touch ID and (2) add some logic to
+	  prevent certain kinds of data overrun.
+	* include/nx/nxtk.h and graphics/nx/nxtk/nxtk_internal.h:  Move setting
+	  of configuration defaults from the internal header file to a place where
+	  other logic can use the defaults.
+	* graphics/nxtk/nxtk_events.c:  Fixed an important but in the logic that
+	  translates the mouse/touchscreen position data for framed windows and toolbars.
+	* drivers/input/stmpe11_tsc.c, tsc2007.c, and ads7843e.c:  Need to keep track of
+	  when if positional data is valid.  When the touch is released, the X/Y position
+	  of the release must be the same as the X/Y position of the last touch (se that
+	  the release occurs in the same window as the last touch).
+	* graphics/nxtk/nxtk_events.c:  Fix an error in mouse/touchscreen input logic:
+	  Was autoraising the window AFTER processing the mouse press.  This raises havoc
+	  if the result of processing the mouse click was to raise some other window!
+	* graphics/nxtk/nxtk_events.c:  I had to disable the whole autoraise feature
+	  for multi-user case because it does not work correctly.  In a scenario where (1) there
+	  are multiple queued touchscreen events for the same window and (2) the result of the
+	  first input was to switch windows, then the autoraise implementation will cause the
+	  window to revert to the previous window.  Not good behavior.
+	* sched/sched_mergepending.c:  Add task switching instrumentation.  There is a case
+	  here where instrumentation was missing.  Contributed by Petri Tanskanen.
+	* CONFIG_STMPE11_THRESHX, CONFIG_STMPE11_THRESHX, and drivers/stmpe11_tsc.c:  Add some
+	  thresholding controls to all slow down processing of touchscreen samples.
+	  This is a problem with NX in multi-user mode:  touchscreen data gets sent
+	  via a message and when the message queue gets full the sender blocks and
+	  touch events are lost.  Basic data overrun.  The badly effects touchscreen
+	  human factors.
+	* include/sched.h:  Fix a typo (missing semicolon) in prototype of on_exit();
+	* sched/on_exit.c and include/nuttx/sched.h:  Fix some old typos that caused
+	  compilation errors when CONFIG_SCHED_ONEXIT is defined.
+	* configs/stm3240g-eval/nxwm/defconfig:  The default NxWM now uses the STMPE11
+	  touchscreen.
+	* include/cxx/csched: Added
+	* graphic/nxmu/nxmu_sendserver.c, nxmu_sendwindow.c, and nxmu_sendclient.c:
+	  Refactor NX messaging logic in preparation for a new message control
+	  feature.
+	* graphics/nxtk, graphics/nxmu, include/nuttx/nx:  Add a new window communication
+	  to support blocking and flushing of client window messages.  If there are
+	  stale, queue window messages at the time that a window is destroyed, very bad
+	  things happen.
+
+6.19 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>

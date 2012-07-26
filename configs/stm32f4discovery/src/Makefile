@@ -72,6 +72,14 @@ ifeq ($(CONFIG_WATCHDOG),y)
 CSRCS		+= up_watchdog.c
 endif
 
+ifeq ($(CONFIG_STM32_FSMC),y)
+CSRCS		+= up_extmem.c
+
+ifeq ($(CONFIG_LCD_SSD1289),y)
+CSRCS		+= up_ssd1289.c
+endif
+endif
+
 COBJS		= $(CSRCS:.c=$(OBJEXT))
 
 SRCS		= $(ASRCS) $(CSRCS)

@@ -4,6 +4,7 @@
  *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2012 Jose Pablo Rojas Vargas. All rights reserved.
  *   Author: Jose Pablo Rojas Vargas <jrojas@nx-engineering.com>
+ *           Gregory Nutt <gnutt@nuttx.org>
  *
  * Leveraged from OpenBSD:
  *
@@ -47,59 +48,93 @@
  * Included Files
  ****************************************************************************/
 
- #include <nuttx/fs/nfs.h>
- 
+#include <sys/socket.h>
+
+#include "rpc.h"
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-
-/* Convert mount ptr to nfsmount ptr. */
-
-#define VFSTONFS(mp)      ((struct nfsmount *)((mp)->i_private))
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
-/* Mount structure.
- * One allocated on every NFS mount.
- * Holds NFS specific information for mount.
+/* Mount structure. One mount structure is allocated for each NFS mount. This
+ * structure holds NFS specific information for mount.
  */
 
 struct nfsmount
 {
-  int nm_flag;                /* Flags for soft/hard... */
-  int nm_state;               /* Internal state flags */
-  struct nfsnode *nm_head;    /* A list to all files opened on this mountpoint */
-  bool nm_mounted;            /* true: The file system is ready */
-  sem_t nm_sem;               /* Used to assume thread-safe access */
-  int nm_numgrps;             /* Max. size of groupslist */
-  nfsfh_t nm_fh;              /* File handle of root dir */
-  char nm_path[90];           /* server's path of the directory being mount */
-  int nm_fhsize;              /* Size of root file handle */
-  struct rpcclnt *nm_rpcclnt; /* rpc state */
-  struct socket *nm_so;       /* Rpc socket */
-  uint8_t nm_sotype;          /* Type of socket */
-  uint8_t nm_soproto;         /* and protocol */
-  uint8_t nm_soflags;         /* pr_flags for socket protocol */
-  struct sockaddr nm_nam;     /* Addr of server */
-  int nm_timeo;               /* Init timer for NFSMNT_DUMBTIMR */
-  int nm_retry;               /* Max retries */
-  int nm_srtt[4];             /* Timers for rpcs */
-  int nm_sdrtt[4];
-  int nm_sent;                /* Request send count */
-  int nm_cwnd;                /* Request send window */
-  int nm_timeouts;            /* Request timeouts */
-  int nm_deadthresh;          /* Threshold of timeouts-->dead server */
-  int nm_rsize;               /* Max size of read rpc */
-  int nm_wsize;               /* Max size of write rpc */
-  int nm_readdirsize;         /* Size of a readdir rpc */
-  int nm_readahead;           /* Num. of blocks to readahead */
-  int nm_acdirmin;            /* Directory attr cache min lifetime */
-  int nm_acdirmax;            /* Directory attr cache max lifetime */
-  int nm_acregmin;            /* Reg file attr cache min lifetime */
-  int nm_acregmax;            /* Reg file attr cache max lifetime */
-  unsigned char *nm_verf;     /* V3 write verifier */
+  struct nfsnode  *nm_head;                   /* A list of all files opened on this mountpoint */
+  sem_t            nm_sem;                    /* Used to assure thread-safe access */
+  nfsfh_t          nm_fh;                     /* File handle of root dir */
+  char             nm_path[90];               /* server's path of the directory being mounted */
+  struct nfs_fattr nm_fattr;                  /* nfs file attribute cache */
+  struct rpcclnt  *nm_rpcclnt;                /* RPC state */
+  struct socket   *nm_so;                     /* RPC socket */
+  struct sockaddr  nm_nam;                    /* Addr of server */
+  bool             nm_mounted;                /* true: The file system is ready */
+  uint8_t          nm_fhsize;                 /* Size of root file handle (host order) */
+  uint8_t          nm_sotype;                 /* Type of socket */
+  uint8_t          nm_retry;                  /* Max retries */
+  uint16_t         nm_timeo;                  /* Timeout value (in system clock ticks) */
+  uint16_t         nm_rsize;                  /* Max size of read RPC */
+  uint16_t         nm_wsize;                  /* Max size of write RPC */
+  uint16_t         nm_readdirsize;            /* Size of a readdir RPC */
+  uint16_t         nm_buflen;                 /* Size of I/O buffer */
+
+  /* Set aside memory on the stack to hold the largest call message.  NOTE
+   * that for the case of the write call message, it is the reply message that
+   * is in this union.
+   */
+
+  union
+  {
+    struct rpc_call_pmap    pmap;
+    struct rpc_call_mount   mountd;
+    struct rpc_call_create  create;
+    struct rpc_call_lookup  lookup;
+    struct rpc_call_read    read;
+    struct rpc_call_remove  removef;
+    struct rpc_call_rename  renamef;
+    struct rpc_call_mkdir   mkdir;
+    struct rpc_call_rmdir   rmdir;
+    struct rpc_call_readdir readdir;
+    struct rpc_call_fs      fsstat;
+    struct rpc_call_setattr setattr;
+    struct rpc_call_fs      fs;
+    struct rpc_reply_write  write;
+  } nm_msgbuffer;
+
+  /* I/O buffer (must be a aligned to 32-bit boundaries).  This buffer used for all
+   * reply messages EXCEPT for the WRITE RPC. In that case it is used for the WRITE
+   * call message that contains the data to be written.  This buffer must be
+   * dynamically sized based on the characteristics of the server and upon the
+   * configuration of the NuttX network.  It must be sized to hold the largest
+   * possible WRITE call message or READ response message.
+   */
+
+  uint32_t         nm_iobuffer[1];            /* Actual size is given by nm_buflen */
+};
+
+/* The size of the nfsmount structure will debug on the size of the allocated I/O
+ * buffer.
+ */
+
+#define SIZEOF_nfsmount(n) (sizeof(struct nfsmount) + ((n + 3) & ~3) - sizeof(uint32_t))
+
+/* Mount parameters structure. This structure is use in nfs_decode_args funtion before one
+ * mount structure is allocated in each NFS mount.
+ */
+
+struct nfs_mount_parameters
+{
+  uint8_t          timeo;                  /* Timeout value (in deciseconds) */
+  uint8_t          retry;                  /* Max retries */
+  uint16_t         rsize;                  /* Max size of read RPC */
+  uint16_t         wsize;                  /* Max size of write RPC */
+  uint16_t         readdirsize;            /* Size of a readdir RPC */
 };
 
 #endif

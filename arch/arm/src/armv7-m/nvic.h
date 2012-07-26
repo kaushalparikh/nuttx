@@ -52,7 +52,7 @@
 
 /* NVIC register offsets ************************************************************/
 
-#define NVIC_INTCTRL_TYPE_OFFSET        0x0004 /* Interrupt controller type */
+#define NVIC_ICTR_OFFSET                0x0004 /* Interrupt controller type register */
 #define NVIC_SYSTICK_CTRL_OFFSET        0x0010 /* SysTick control and status register */
 #define NVIC_SYSTICK_RELOAD_OFFSET      0x0014 /* SysTick reload value register */
 #define NVIC_SYSTICK_CURRENT_OFFSET     0x0018 /* SysTick current value register */
@@ -224,7 +224,7 @@
 
 /* NVIC register addresses **********************************************************/
 
-#define NVIC_INTCTRL_TYPE               (ARMV7M_NVIC_BASE + NVIC_INTCTRL_TYPE_OFFSET)
+#define NVIC_ICTR                       (ARMV7M_NVIC_BASE + NVIC_ICTR_OFFSET)
 #define NVIC_SYSTICK_CTRL               (ARMV7M_NVIC_BASE + NVIC_SYSTICK_CTRL_OFFSET)
 #define NVIC_SYSTICK_RELOAD             (ARMV7M_NVIC_BASE + NVIC_SYSTICK_RELOAD_OFFSET)
 #define NVIC_SYSTICK_CURRENT            (ARMV7M_NVIC_BASE + NVIC_SYSTICK_CURRENT_OFFSET)
@@ -391,8 +391,8 @@
 
 /* Interrrupt controller type (INCTCTL_TYPE) */
 
-#define NVIC_INTCTRL_TYPE_INTLINESNUM_SHIFT 0    /* Bits 4-0: Number of interrupt intputs / 32 */
-#define NVIC_INTCTRL_TYPE_INTLINESNUM_MASK  (0x1f << NVIC_INTCTRL_TYPE_INTLINESNUM_SHIFT)
+#define NVIC_ICTR_INTLINESNUM_SHIFT     0    /* Bits 4-0: Number of interrupt intputs / 32 */
+#define NVIC_ICTR_INTLINESNUM_MASK      (0x1f << NVIC_ICTR_INTLINESNUM_SHIFT)
 
 /* SysTick control and status register (SYSTICK_CTRL) */
 

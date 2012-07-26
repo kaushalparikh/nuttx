@@ -52,10 +52,10 @@ fi
 # the Linux PIC32MX toolchain as well
 export TOOLCHAIN_BIN="/cygdrive/c/MicroChip/mplabc32/v1.12/bin"
 
-# This is the path to the toosl subdirectory
+# This is the path to the tools subdirectory
 export PIC32TOOL_DIR="${WD}/configs/pic32mx7mmb/tools"
 
-# Add the path to the toolchain to the PATH varialble
+# Add the path to the toolchain to the PATH variable
 export PATH="${TOOLCHAIN_BIN}:${PIC32TOOL_DIR}:/sbin:/usr/sbin:${PATH_ORIG}"
 
 echo "PATH : ${PATH}"

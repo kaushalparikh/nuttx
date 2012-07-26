@@ -17,7 +17,7 @@ nuttx/
   (3)  USB (drivers/usbdev, drivers/usbhost)
   (8)  Libraries (lib/)
  (10)  File system/Generic drivers (fs/, drivers/)
-  (4)  Graphics subystem (graphics/)
+  (5)  Graphics subystem (graphics/)
   (1)  Pascal add-on (pcode/)
   (1)  Documentation (Documentation/)
   (7)  Build system / Toolchains
@@ -35,7 +35,7 @@ nuttx/
   (3)  AVR (arch/avr)
   (0)  Intel x86 (arch/x86)
   (4)  8051 / MCS51 (arch/8051/)
-  (1)  MIPS/PIC32 (arch/mips)
+  (3)  MIPS/PIC32 (arch/mips)
   (1)  Hitachi/Renesas SH-1 (arch/sh/src/sh1)
   (4)  Renesas M16C/26 (arch/sh/src/m16c)
  (10)  z80/z8/ez80 (arch/z80/)
@@ -757,6 +757,8 @@ o File system / Generic drivers (fs/, drivers/)
 o Graphics subystem (graphics/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+  See also the NxWidgets TODO list file for related issues.
+
   Title:       UNTESTED GRAPHICS APIS
   Description: Testing of all APIs is not complete.  See
                http://nuttx.sourceforge.net/NXGraphicsSubsystem.html#testcoverage
@@ -781,7 +783,7 @@ o Graphics subystem (graphics/)
   Priority:    Low
 
   Title:       AUTO-RAISE DISABLED
-  Descption:   Auto-raise is currently disabled in NX multi-server mode.  The
+  Description: Auto-raise is currently disabled in NX multi-server mode.  The
                reason is complex:
                - Most touchscreen controls send touch data a high rates
                - In multi-server mode, touch events get queued in a message
@@ -795,6 +797,18 @@ o Graphics subystem (graphics/)
   Status:      Open
   Priority:    Medium low
 
+  Title:       IMPROVED NXCONSOLE FONT CACHING
+  Description: Now each NxConsole instance has its own private font cache
+               whose size is determined by CONFIG_NXCONSOLE_MXCHARS.  If there
+               are multiple NxConsole instances using the same font, each will
+               have a separate font cache.  This is inefficient and wasteful
+               of memory:  Each NxConsole instance should share a common font
+               cache.
+  Status:      Open
+  Priority:    Medium.  Not important for day-to-day testing but would be
+               a critical improvement if NxConsole were to be used in a
+               product.
+ 
 o Pascal Add-On (pcode/)
   ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1428,6 +1442,7 @@ o MIPS/PIC32(arch/mips)
   ^^^^^^^^^^^^^^^^^^^^^
 
   Title:       PIC32 USB DRIVER DOES NOT WORK WITH MASS STORAGE CLASS
+               UPDATE:  ** ONLY USING RAM DISK FOR EXPORTED VOLUME ***
   Description: The PIC32 USB driver either crashes or hangs when used with
                the mass storage class when trying to write files to the target
                storage device.  This usually works with debug on, but does not
@@ -1450,8 +1465,46 @@ o MIPS/PIC32(arch/mips)
                   up and crashes with a bad stack.
 
                So far, I have no clue why this is failing.
+               UPDATE:  This bug was recorded using the PIC32 Ethernet
+               Starter kit with a RAM disk (that board has no SD card slot).
+               Howevever, using the USB mass storage device with the
+               Mikroelektronika using a real SD card, there is no such
+               problem -- the mass storage device is quite stable.
   Status:      Open
-  Priority:    High
+  Priority:    Originally, High BUT reduced to very Low based on the
+               UPDATED comments.
+
+  Title:       PIC32 USB MASS STORAGE DEVICE FAILS TO RE-CONNECT
+  Description: Found using configuration configs/pic32mx7mmb/nsh.
+               In this configuratin, the NSH 'msconn' command will connect the
+               mass storage device to the host; the 'msdis' command will
+               disconnect the device.  The first 'msconn' works perfectly.
+               However, when attempting to re-connect, the second 'msconn'
+               command does not command properly:  Windows reports an
+               unrecognized device.  Apparently, some state is being properly
+               reset when the mass storage device is disconnected.  Shouldn't
+               be hard to fix.
+  Status:      Open
+  Priority:    Medium
+
+  Title:       POSSIBLE INTERRUPT CONTROL ISSUE
+  Description: There is a kludge in the file arch/mips/src/common/up_idle.c.
+               Basically, if there is nothing else going on in the IDLE loop,
+               you have to disable then re-enable interrupts.  Logically nothing
+               changes, but if you don't do this interrupts will be be disabled
+               in the IDLE loop which is a very bad thing to happen.
+
+               Some odd behavior in the interrupt setup on the IDLE loop is
+               not really a big concern, but what I do not understand is if
+               this behavior is occurring on all threads after all context
+               switches:  Are interrupts always disabled until re-enabled?
+               This requires some further investigation at some point; it
+               may be nothing but may also be a symptom of some changes
+               required to the interrupt return logic (perhaps some CP0
+               status hazard?)
+  Status:      Open
+  Priority:    Low. Puzzling and needs some investigation, but there there
+               is no known misbehavior.
 
 o Hitachi/Renesas SH-1 (arch/sh/src/sh1)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

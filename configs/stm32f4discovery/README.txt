@@ -17,6 +17,7 @@ Contents
   - Timer Inputs/Outputs
   - FPU
   - FSMC SRAM
+  - SSD1289
   - STM32F4Discovery-specific Configuration Options
   - Configurations
 
@@ -219,17 +220,17 @@ defined.  In that case, the usage by the board port is defined in
 include/board.h and src/up_leds.c. The LEDs are used to encode OS-related
 events as follows:
 
-	SYMBOL				Meaning					LED1*	LED2	LED3	LED4
+  SYMBOL        Meaning          LED1*  LED2  LED3  LED4
                                                 green   orange  red     blue
-	-------------------	-----------------------	-------	-------	-------	------
-	LED_STARTED			NuttX has been started	ON		OFF		OFF		OFF
-	LED_HEAPALLOCATE	Heap has been allocated	OFF		ON		OFF		OFF
-	LED_IRQSENABLED		Interrupts enabled		ON		ON		OFF		OFF
-	LED_STACKCREATED	Idle stack created		OFF		OFF		ON		OFF
-	LED_INIRQ			In an interrupt**		ON		N/C		N/C		OFF
-	LED_SIGNAL			In a signal handler***  N/C		ON		N/C		OFF
-	LED_ASSERTION		An assertion failed		ON		ON		N/C		OFF
-	LED_PANIC			The system has crashed	N/C		N/C		N/C		ON
+  -------------------  -----------------------  -------  -------  -------  ------
+  LED_STARTED      NuttX has been started  ON    OFF    OFF    OFF
+  LED_HEAPALLOCATE  Heap has been allocated  OFF    ON    OFF    OFF
+  LED_IRQSENABLED    Interrupts enabled    ON    ON    OFF    OFF
+  LED_STACKCREATED  Idle stack created    OFF    OFF    ON    OFF
+  LED_INIRQ      In an interrupt**    ON    N/C    N/C    OFF
+  LED_SIGNAL      In a signal handler***  N/C    ON    N/C    OFF
+  LED_ASSERTION    An assertion failed    ON    ON    N/C    OFF
+  LED_PANIC      The system has crashed  N/C    N/C    N/C    ON
     LED_IDLE            STM32 is is sleep mode  (Optional, not used)
 
   * If LED1, LED2, LED3 are statically on, then NuttX probably failed to boot
@@ -499,6 +500,146 @@ in order to successfully build NuttX using the Atollic toolchain WITH FPU suppor
 See the section above on Toolchains, NOTE 2, for explanations for some of
 the configuration settings.  Some of the usual settings are just not supported
 by the "Lite" version of the Atollic toolchain.
+
+SSD1289
+=======
+
+I purchased an LCD display on eBay from china.  The LCD is 320x240 RGB565 and
+is based on an SSD1289 LCD controller and an XPT2046 touch IC.  The pin out
+from the 2x16 connect on the LCD is labeled as follows:
+
+LCD CONNECTOR:          SSD1289 MPU INTERFACE PINS
+
+   +------+------+      DEN     I  Display enble pin
+1  | GND  | 3V3  |  2   VSYNC   I  Frame synchonrization signal
+   +------+------+      HSYNC   I  Line synchroniziation signal
+3  | D1   | D0   |  4   DOTCLIK I  Dot clock ans OSC source
+   +------+------+      DC      I  Data or command
+5  | D3   | D2   |  6   E (~RD) I  Enable/Read strobe
+   +------+------+      R (~WR) I  Read/Write strobe
+7  | D5   | D4   |  8   D0-D17  IO For parallel mode, 8/9/16/18 bit interface
+   +------+------+      WSYNC   O  RAM write synchronizatin output
+9  | D7   | D6   | 10   ~RES    I  System reset
+   +------+------+      ~CS     I  Chip select of serial interface
+11 | D9   | D8   | 12   SCK     I  Clock of serial interface
+   +------+------+      SDI     I  Data input in serial mode
+13 | D11  | D10  | 14   SDO     O  Data output in serial moce
+   +------+------+
+15 | D13  | D12  | 16
+   +------+------+
+17 | D15  | D14  | 18
+   +------+------+
+19 | RS   | CS   | 20
+   +------+------+
+21 | RD   | WR   | 22
+   +------+------+
+23 |EL_CNT|RESET | 24
+   +------+------+
+25 |TP_RQ |TP_S0 | 26  These pins are for the touch panel
+   +------+------+
+27 | NC   |TP_SI | 28
+   +------+------+
+29 | NC   |TP_SCX| 30
+   +------+------+
+31 | NC   |TP_CS | 32
+   +------+------+
+
+MAPPING TO STM32 F4:
+
+  ---------------- ------------- ----------------------------------
+   STM32 FUNCTION  LCD PIN       STM32F4Discovery PIN
+  ---------------- ------------- ----------------------------------
+   FSMC_D0          D0    pin 4   PD14 P1 pin 46 Conflict (Note 1)
+   FSMC_D1          D1    pin 3   PD15 P1 pin 47 Conflict (Note 2)
+   FSMC_D2          D2    pin 6   PD0  P2 pin 36 Free I/O
+   FSMC_D3          D3    pin 5   PD1  P2 pin 33 Free I/O
+   FSMC_D4          D4    pin 8   PE7  P1 pin 25 Free I/O
+   FSMC_D5          D5    pin 7   PE8  P1 pin 26 Free I/O
+   FSMC_D6          D6    pin 10  PE9  P1 pin 27 Free I/O
+   FSMC_D7          D7    pin 9   PE10 P1 pin 28 Free I/O
+   FSMC_D8          D8    pin 12  PE11 P1 pin 29 Free I/O
+   FSMC_D9          D9    pin 11  PE12 P1 pin 30 Free I/O
+   FSMC_D10         D10   pin 14  PE13 P1 pin 31 Free I/O
+   FSMC_D11         D11   pin 13  PE14 P1 pin 32 Free I/O
+   FSMC_D12         D12   pin 16  PE15 P1 pin 33 Free I/O
+   FSMC_D13         D13   pin 15  PD8  P1 pin 40 Free I/O
+   FSMC_D14         D14   pin 18  PD9  P1 pin 41 Free I/O
+   FSMC_D15         D15   pin 17  PD10 P1 pin 42 Free I/O
+   FSMC_A16         RS    pin 19  PD11 P1 pin 27 Free I/O
+   FSMC_NE1         ~CS   pin 10  PD7  P2 pin 27 Free I/O
+   FSMC_NWE         ~WR   pin 22  PD5  P2 pin 29 Conflict (Note 3)
+   FSMC_NOE         ~RD   pin 21  PD4  P2 pin 32 Conflict (Note 4)
+   PC6              RESET pin 24  PC6  P2 pin 47 Free I/O
+  ---------------- ------------- ----------------------------------
+
+   1 Used for the RED LED
+   2 Used for the BLUE LED
+   3 Used for the RED LED and for OTG FS Overcurrent.  It may be okay to use
+     for the parallel interface if PC0 is held high (or floating).  PC0 enables
+     the STMPS2141STR IC power switch that drives the OTG FS host VBUS.
+   4 Also the reset pin for the CS43L22 audio Codec.
+
+NOTE:  The configuration to test this LCD configuration is available at
+configs/stm32f4discover/nxlines.  As of this writing, I have not seen the
+LCD working so I probaby have some things wrong.
+
+I might need to use a bit-baning interface.  Below is the pin configurationf
+of a similar LCD to support a (write-only), bit banging interface:
+
+  LCD PIN   BOARD CONNECTION
+  LEDA      5V
+  VCC       5V
+  RD        3.3V
+  GND       GND
+  DB0-7     Port C pins configured as outputs
+  DB8-15    Port A pins configured as outputs
+  RS        Pin configured as output
+  WR        Pin configured as output
+  CS        Pin configured as output
+  RSET      Pin configured as output
+
+The following summarize the bit banging oprations:
+
+  /* Rese the LCD */
+  void Reset(void)
+  {
+    Set RSET output
+    delay
+    Clear RSET output
+    delay
+    Set RSET output
+  }
+
+  /* Write 16-bits of whatever */
+  void Write16(uint8_t ms, uint8_t ls)
+  {
+    Set port A to ms
+    Set port B to ls
+
+    Clear WR pin
+    Set   WR pin
+  }
+
+  /* Set the index register to an LCD register address */
+  void Index(uint8_t address)
+  {
+    Clear RS
+    Write16(0, address);
+  }
+
+  /* Write data to the LCD register or GRAM memory */
+  void WriteData(uin16_t data)
+  {
+    Set RS
+    Write16(data >> 8, data & 0xff);
+  }
+
+  /* Write to a register */
+  void WriteRegister(uint8_t address, uint16_t data)
+  {
+    Index(address);
+    WriteData(data);
+  }
 
 STM32F4Discovery-specific Configuration Options
 ===============================================
@@ -770,8 +911,9 @@ Where <subdir> is one of the following:
     examples/ostest.  By default, this project assumes that you are
     using the DFU bootloader.
 
-    CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+    Default toolchain:
 
+    CONFIG_STM32_CODESOURCERYL=y  : CodeSourcery under Linux / Mac OS X
 
     If you use the Atollic toolchain, then the FPU test can be enabled in the
     examples/ostest by adding the following your NuttX configuration file:
@@ -805,6 +947,8 @@ Where <subdir> is one of the following:
   ---
     Configures the NuttShell (nsh) located at apps/examples/nsh.  The
     Configuration enables both the serial and telnet NSH interfaces.
+
+    Default toolchain:
 
     CONFIG_STM32_CODESOURCERYL=y  : CodeSourcery under Linux / Mac OS X
 
@@ -853,3 +997,76 @@ Where <subdir> is one of the following:
 
        The IWDG timer has a range of about 35 seconds and should not be an issue.
 
+     4. USB Support (CDC/ACM device)
+
+        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
+        CONFIG_USBDEV=y           : USB device support must be enabled
+        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
+        CONFIG_NSH_BUILTIN_APPS=y : NSH built-in application support must be enabled
+
+     5. Using the USB console.
+
+        The STM32F4Discovery NSH configuration can be set up to use a USB CDC/ACM
+        (or PL2303) USB console.  The normal way that you would configure the
+        the USB console would be to change the .config file like this:
+
+        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
+        CONFIG_DEV_CONSOLE=n      : Inhibit use of /dev/console by other logic
+        CONFIG_USBDEV=y           : USB device support must be enabled
+        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
+        CONFIG_CDCACM_CONSOLE=y   : Enable the CDC/ACM USB console.
+
+        However, that configuration does not work.  It fails early probably because
+        of some dependency on /dev/console before the USB connection is established.
+
+        But there is a work around for this that works better (but has some side
+        effects).  The following configuration will also create a NSH USB console
+        but this version will will use /dev/console.  Instead, it will use the
+        normal /dev/ttyACM0 USB serial device for the console:
+
+        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
+        CONFIG_USBDEV=y           : USB device support must be enabled
+        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
+        CONFIG_CDCACM_CONSOLE=n   : Done use the CDC/ACM USB console.
+        CONFIG_NSH_USBCONSOLE=y   : Instead use some other USB device for the console
+
+        The particular USB device that is used is:
+
+        CONFIG_NSH_USBCONDEV="/dev/ttyACM0"
+
+        NOTE 1: When you first start the USB console, you have hit ENTER a few
+        times before NSH starts.  The logic does this to prevent sending USB data
+        before there is anything on the host side listening for USB serial input.
+
+        Now the side effects:
+
+        NOTE 2. When any other device other than /dev/console is used for a user
+        interface, linefeeds (\n) will not be expanded to carriage return /
+        linefeeds (\r\n).  You will need to set your terminal program to account
+        for this.
+
+        NOTE 3: /dev/console still exists and still refers to the serial port. So
+        you can still use certain kinds of debug output (see include/debug.h, all
+        of the interfaces based on lib_lowprintf will work in this configuration).
+
+  nxlines:
+  ------
+    An example using the NuttX graphics system (NX).   This example focuses on
+    placing lines on the background in various orientations.
+
+      CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+      CONFIG_LCD_LANDSCAPE=y        : 320x240 landscape orientation
+
+    The STM32F4Discovery board does not have any graphics capability.  This
+    configuration assumes that you have connected an SD1289-based LCD as
+    described about under "SSD1289".  NOTE:  At present, it has not been
+    proven that the STM32F4Discovery can actually drive an LCD.  There are
+    some issues with how some of the dedicated FSMC pins are used on the
+    boards.  This configuration may not be useful and may only serve as
+    an illustration of how to build for th SSD1289 LCD.
+
+    Default toolchain:
+
+      CONFIG_STM32_CODESOURCERYW=y : CodeSourcery under Windows
+
+    NOTE: As of this writing, I have not seen the LCD work!

@@ -602,6 +602,16 @@ o mount -t <fstype> <block-device> <dir-path>
     This is a test
     nsh>
 
+o mv <old-path> <new-path>
+
+  Rename the file object at <old-path> to <new-path>.  Both paths must
+  reside in the same mounted filesystem.
+
+o nfsmount <server-address> <mount-point> <remote-path>
+
+  Mount the remote NFS server directory <remote-path> at <mount-point> on the target machine.
+  <server-address> is the IP address of the remote server.
+
 o ps
 
   Show the currently active threads and tasks.  For example,
@@ -802,6 +812,8 @@ Command Dependencies on Configuration Settings
   mkfifo     CONFIG_NFILE_DESCRIPTORS > 0
   mkrd       !CONFIG_DISABLE_MOUNTPOINT && CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_FS_WRITABLE (see note 4)
   mount      !CONFIG_DISABLE_MOUNTPOINT && CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_FS_READABLE (see note 3)
+  mv         !CONFIG_DISABLE_MOUNTPOINT && CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_FS_WRITABLE (see note 4)
+  nfsmount   !CONFIG_DISABLE_MOUNTPOINT && CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_NET && CONFIG_NFS
   ping       CONFIG_NET && CONFIG_NET_ICMP && CONFIG_NET_ICMP_PING  && !CONFIG_DISABLE_CLOCK && !CONFIG_DISABLE_SIGNALS
   ps         --
   put        CONFIG_NET && CONFIG_NET_UDP && CONFIG_NFILE_DESCRIPTORS > 0 && CONFIG_NET_BUFSIZE >= 558 (see note 1,2)
@@ -840,12 +852,12 @@ also allow it to squeeze into very small memory footprints.
   CONFIG_NSH_DISABLE_LOSETUP,  CONFIG_NSH_DISABLE_LS,       CONFIG_NSH_DISABLE_MB,
   CONFIG_NSH_DISABLE_MKDIR,    CONFIG_NSH_DISABLE_MKFATFS,  CONFIG_NSH_DISABLE_MKFIFO,
   CONFIG_NSH_DISABLE_MKRD,     CONFIG_NSH_DISABLE_MH,       CONFIG_NSH_DISABLE_MOUNT,
-  CONFIG_NSH_DISABLE_MW,       CONFIG_NSH_DISABLE_PS,       CONFIG_NSH_DISABLE_PING,
-  CONFIG_NSH_DISABLE_PUT,      CONFIG_NSH_DISABLE_PWD,      CONFIG_NSH_DISABLE_RM,
-  CONFIG_NSH_DISABLE_RMDIR,    CONFIG_NSH_DISABLE_SET,      CONFIG_NSH_DISABLE_SH,
-  CONFIG_NSH_DISABLE_SLEEP,    CONFIG_NSH_DISABLE_TEST,     CONFIG_NSH_DISABLE_UMOUNT,
-  CONFIG_NSH_DISABLE_UNSET,    CONFIG_NSH_DISABLE_USLEEP,   CONFIG_NSH_DISABLE_WGET,
-  CONFIG_NSH_DISABLE_XD
+  CONFIG_NSH_DISABLE_MW,       CONFIG_NSH_DISABLE_MV,       CONFIG_NSH_DISABLE_NFSMOUNT,
+  CONFIG_NSH_DISABLE_PS,       CONFIG_NSH_DISABLE_PING,     CONFIG_NSH_DISABLE_PUT,
+  CONFIG_NSH_DISABLE_PWD,      CONFIG_NSH_DISABLE_RM,       CONFIG_NSH_DISABLE_RMDIR,
+  CONFIG_NSH_DISABLE_SET,      CONFIG_NSH_DISABLE_SH,       CONFIG_NSH_DISABLE_SLEEP,
+  CONFIG_NSH_DISABLE_TEST,     CONFIG_NSH_DISABLE_UMOUNT,   CONFIG_NSH_DISABLE_UNSET,
+  CONFIG_NSH_DISABLE_USLEEP,   CONFIG_NSH_DISABLE_WGET,     CONFIG_NSH_DISABLE_XD
 
 NSH-Specific Configuration Settings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -915,6 +927,40 @@ NSH-Specific Configuration Settings
       CONFIG_CDCACM and CONFIG_CDCACM_CONSOLE - Sets up the
         CDC/ACM serial device as a console device at
         dev/console.
+
+      CONFIG_NSH_USBCONSOLE
+        If defined, then the an arbitrary USB device may be used
+        to as the NSH console.  In this case, CONFIG_NSH_USBCONDEV
+        must be defined to indicate which USB device to use as
+        the console.
+
+      CONFIG_NSH_USBCONDEV
+        If CONFIG_NSH_USBCONSOLE is set to 'y', then CONFIG_NSH_USBCONDEV
+        must also be set to select the USB device used to support
+        the NSH console.   This should be set to the quoted name of a
+        readable/write-able USB driver such as:
+        CONFIG_NSH_USBCONDEV="/dev/ttyACM0".
+
+      If there are more than one USB devices, then a USB device
+      minor number may also need to be provided:
+
+      CONFIG_NSH_UBSDEV_MINOR
+        The minor device number of the USB device.  Default: 0
+
+      If USB tracing is enabled (CONFIG_USBDEV_TRACE), then NSH will
+      initialize USB tracing as requested by the following. Default:
+      Only USB errors are traced.
+
+      CONFIG_NSH_USBDEV_TRACEINIT
+        Show initialization events
+      CONFIG_NSH_USBDEV_TRACECLASS
+        Show class driver events
+      CONFIG_NSH_USBDEV_TRACETRANSFERS
+        Show data transfer events
+      CONFIG_NSH_USBDEV_TRACECONTROLLER
+        Show controller events
+      CONFIG_NSH_USBDEV_TRACEINTERRUPTS
+        Show interrupt-related events.
 
   * CONFIG_NSH_CONDEV
       If CONFIG_NSH_CONSOLE is set to 'y', then CONFIG_NSH_CONDEV

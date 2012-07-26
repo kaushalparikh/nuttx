@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <debug.h>
 
 #ifdef CONFIG_CDCACM
 #  include <nuttx/usb/cdcacm.h>
@@ -60,6 +61,12 @@
 /****************************************************************************
  * Definitions
  ****************************************************************************/
+
+#if defined(CONFIG_DEBUG) || defined(CONFIG_NSH_USBCONSOLE)
+#  define trmessage lib_lowprintf
+#else
+#  define trmessage printf
+#endif
 
 /****************************************************************************
  * Private Types
@@ -82,6 +89,18 @@
  ****************************************************************************/
 
 /****************************************************************************
+ * Name: nsh_tracecallback
+ ****************************************************************************/
+
+#ifdef CONFIG_USBDEV_TRACE
+static int nsh_tracecallback(struct usbtrace_s *trace, void *arg)
+{
+  usbtrace_trprintf((trprintf_t)trmessage, trace->event, trace->value);
+  return 0;
+}
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -92,8 +111,17 @@
 #ifdef HAVE_USB_CONSOLE
 int nsh_usbconsole(void)
 {
+  char inch;
+  ssize_t nbytes;
+  int nlc;
   int fd;
   int ret;
+
+  /* Initialize any USB tracing options that were requested */
+
+#ifdef CONFIG_USBDEV_TRACE
+  usbtrace_enable(TRACE_BITSET);
+#endif
 
   /* Don't start the NSH console until the console device is ready.  Chances
    * are, we get here with no functional console.  The USB console will not
@@ -103,26 +131,22 @@ int nsh_usbconsole(void)
 
   /* Initialize the USB serial driver */
 
+#if defined(CONFIG_PL2303) || defined(CONFIG_CDCACM)
 #ifdef CONFIG_CDCACM
-  ret = cdcacm_initialize(0, NULL);
+  ret = cdcacm_initialize(CONFIG_NSH_UBSDEV_MINOR, NULL);
 #else
-  ret = usbdev_serialinitialize(0);
+  ret = usbdev_serialinitialize(CONFIG_NSH_UBSDEV_MINOR);
 #endif
   DEBUGASSERT(ret == OK);
+#endif
 
-  /* Make sure the stdin, stdout, and stderr are closed */
-
-  (void)fclose(stdin);
-  (void)fclose(stdout);
-  (void)fclose(stderr);
-
-  /* Open the USB serial device for writing */
+  /* Open the USB serial device for read/write access */
 
   do
     {
       /* Try to open the console */
 
-      fd = open("/dev/console", O_RDWR);
+      fd = open(CONFIG_NSH_USBCONDEV, O_RDWR);
       if (fd < 0)
         {
           /* ENOTCONN means that the USB device is not yet connected. Anything
@@ -137,6 +161,43 @@ int nsh_usbconsole(void)
         }
     }
   while (fd < 0);
+
+  /* Now waiting until we successfully read a carriage return a few times. 
+   * That is a sure way of know that there is something at the other end of
+   * the USB serial connection that is ready to talk with us.  The user needs
+   * to hit ENTER a few times to get things started.
+   */
+
+  nlc = 0;
+  do
+    {
+      /* Read one byte */
+
+      inch = 0;
+      nbytes = read(fd, &inch, 1);
+
+      /* Is it a carriage return (or maybe a newline)? */
+
+      if (nbytes == 1 && (inch == '\n' || inch == '\r'))
+        {
+          /* Yes.. increment the count */
+
+          nlc++;
+        }
+      else
+        {
+          /* No.. Reset the count.  We need to see 3 in a row to continue. */
+
+          nlc = 0;
+        }
+    }
+  while (nlc < 3);
+
+  /* Make sure the stdin, stdout, and stderr are closed */
+
+  (void)fclose(stdin);
+  (void)fclose(stdout);
+  (void)fclose(stderr);
 
   /* Dup the fd to create standard fd 0-2 */
 
@@ -167,4 +228,16 @@ int nsh_usbconsole(void)
 }
 
 #endif /* HAVE_USB_CONSOLE */
+
+/****************************************************************************
+ * Name: nsh_usbtrace
+ ****************************************************************************/
+
+#if defined(CONFIG_USBDEV_TRACE) && defined(HAVE_USB_CONSOLE)
+void nsh_usbtrace(void)
+{
+  (void)usbtrace_enumerate(nsh_tracecallback, NULL);
+}
+#endif
+
 #endif /* CONFIG_USBDEV */

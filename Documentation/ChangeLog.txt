@@ -2900,7 +2900,82 @@
 	  Fix an error when the trapezoid is only 1 line high.  In this case, a
 	  divide by zero error would occur.  The fix is to draw the 1 line high
 	  trapezoid as a run.
-	* drivers/usbdev/pl2303.c:  Fixe a cut'n'paste error that snuck into
+	* drivers/usbdev/pl2303.c:  Fix a cut'n'paste error that snuck into
 	  the PL2303 emulation driver several months back.
 
-6.20 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.20 2012-07-12 Gregory Nutt <gnutt@nuttx.org>
+
+	* configs/stm3210e-eval/src and arch/arm/src/stm32/: Add beginnings of
+	  power management support for the STM32 and the STM3210E-EVAL board, in
+	  particular.
+	* Documentation/NfsHowTo.html:  Add a How-To document for the new NFS
+	  client feature.
+	* arch/mips/include/pic32mx and arch/mips/src/pic32mx:  Add support for the
+	  PIC32MX1 and PIC32MX2 families.
+	* configs/mirtoo:  Add a board configuration to support the DTX1-4000L
+	  "Mirtoo" module from http://www.dimitech.com/
+	* tools/pic32mx:  All of the duplicate directories containing the same
+	  same PIC32 tools were move to this single location.
+	* configs/mirtoo:  The basic Mirtoo port is now functional.
+	* configs/mirtoo/ostest:  Added support for the microchipOpen toolchain
+	  (see http://sourceforge.net/projects/microchipopen/).
+	* configs/mirtoo/nsh:  Added a NuttShell (NSH) configuration for
+	  the Mirtoo module.
+	* configs/mirtoo/scripts:  Move all Mirtoo linker scripts to a common
+	  directory.
+	* arch/mips/src/pic32mx/pic32mx-gpio.c:  All digital inputs were being
+	  configured as outputs.  This is a *critical* bug fix and needs to be
+	  incorporated by any PIC32 users.
+	* drivers/mtd/sst25.c:  Added a driver for the SST 25 SPI-based FLASH
+	  parts.
+	* configs/mirtoo/src/up_nsh.c:  The Mirtoo NSH configuration can now
+	  mount the SST 25 devices so that it can be used for a FAT file system.
+	  There are are, however, some NSH memory usage issues if this configuration
+	  enabled now.  Some tuning is still needed.
+	* configs/mirtoo/nxffs:  Add an alternative NSH configure for the Mirtoo
+	  module for testing the on-module SST 25 chip using the NXFFS file system.
+	* arch/arm/src/lpc43xx and arch/arm/include/lpc43xx:  The NXP LPC43xx port
+	  is slowly evolving in these directories.
+	* configs/stm3210e-eval/pm:  Add a new configuration for testing STM32 power
+	  management.
+	* configs/stm3210e-eval/scripts:  Moved all of the duplicate ST3210-EVAL 
+	  linker scripts into one set of linker scripts at this location.
+	* configs/stm3210e-eval/src/up_buttons.c, up_lcd.c, and up_pm.c:  New logic
+	  for testing STM32 power management.
+	* configs/lincoln60:  Add a configuration to support the Micromint Lincoln60
+	  board.
+	* configs/ekk-lm3s3b96:  Add a configuration to support the TI/Stellaris
+	  EKK-LM3S3B96 development board.  Contributed by Jose Pablo Rojas V.
+	* arch/arm/src/lpc43xx/chip:  Created header files for *all* (really)
+	  lpc43xx registers and all bit-fields.
+	* configs/lpc4330-xplorer:  Added a configuration for the NXP LPC43XX
+	  Xplorer board.  This is just to facilitate testing of the LPC43xx
+	  port but will, with any luck, become proper board support for that
+	  board.
+	* arch/arm/src/lm3s/lm3s_syscontrol.c:  Fix an optimization related problem
+	  by adding a volatile qualifier to a timing loop.  Oddly, the consequence
+	  of the bug is that when debug was off, the LM3S platform too a long time
+	  to boot.  It now boots rapidly whether debug is on or off.
+	* arch/*/include/limits.h:  Change all values in all limits.h for all
+	  architectures to signed decimal; the hex values were not sign extending
+	  appropriate in most uses (reported by Lorenz Meier).
+	* arch/arm/src/stm32/chip/stm32f103/7vc_pinmap:  Fix typographical error in
+	  two pinmap definition files.
+	* lib/net/lib_inetntoa.c:  Fix typographical error that cause compilation
+	  failure on platforms that do not support passing of structures as
+	  parameters.
+	* arch/arm/*/lpc43xx and configs/lpc4330-xplorer and code complete and
+	  ready for testing.  Hopefully, verified LPC43xx support will appear
+	  in NuttX-6.20.
+	* include/nuttx/stdarg.h:  If CONFIG_ARCH_STDARG_H=y is defined, the top-level
+	  makefile will copy the generic (GCC-only) stdarg.h header file from
+	  include/nuttx/stdarg.h to include/stdarg.h.  So for the architectures
+	  that cannot use their GCC toolchain's stdarg.h file, they can use this
+	  alternative by defining CONFIG_ARCH_STDARG_H=y.  If CONFIG_ARCH_STDARG_H,
+	  is not defined, then the redirecting stdarg.h header file will stay
+	  out-of-the-way in include/nuttx/.
+	* configs/lpc4330-xplorer/nsh:  Add an NSH configuration for the LPC4330
+	  Xplorer board.
+
+6.21 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+

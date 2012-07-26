@@ -79,10 +79,6 @@
  *   original state.  Otherwise, STOP mode did not occur and a negated
  *   errno value is returned to indicate the cause of the failure.
  *
- * Assumptions:
- *   The caller holds the PM semaphore (g_pmsem) if this function is used
- *   as part of the NuttX power management logic.
- *
  ****************************************************************************/
 
 int stm32_pmstop(bool lpds)
@@ -111,8 +107,16 @@ int stm32_pmstop(bool lpds)
   regval |= NVIC_SYSCON_SLEEPDEEP;
   putreg32(regval, NVIC_SYSCON);
   
-  /* Sleep until the wakeup interrupt occurs (us WFE to wait for an event) */
+  /* Sleep until the wakeup interrupt or event occurs */
 
-  asm("WFI");
+#ifdef CONFIG_PM_WFE
+  /* Mode: SLEEP + Entry with WFE */
+
+  __asm("wfe");
+#else
+  /* Mode: SLEEP + Entry with WFI */
+
+  __asm("wfi");
+#endif
   return OK;
 }

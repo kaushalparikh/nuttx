@@ -324,12 +324,6 @@ void up_irqinitialize(void)
 
 #ifndef CONFIG_SUPPRESS_INTERRUPTS
 
-  /* Initialize FIQs */
-
-#ifdef CONFIG_ARCH_FIQ
-  up_fiqinitialize();
-#endif
-
   /* Initialize logic to support a second level of interrupt decoding for
    * GPIO pins.
    */

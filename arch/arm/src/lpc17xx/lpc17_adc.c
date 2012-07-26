@@ -261,7 +261,7 @@ static int adc_interrupt(int irq, void *context)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: stm32_adcinitialize
+ * Name: lpc17_adcinitialize
  *
  * Description:
  *   Initialize the adc

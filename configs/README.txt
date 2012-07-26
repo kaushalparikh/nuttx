@@ -538,10 +538,62 @@ defconfig -- This is a configuration file similar to the Linux
       CONFIG_ARCH_STRNCPY, CONFIG_ARCH_STRLEN, CONFIG_ARCH_STRNLEN
       CONFIG_ARCH_BZERO
 
-    The architecture may provide custom versions of certain
-    standard header files:
+  The architecture may provide custom versions of certain standard header
+  files:
 
-      CONFIG_ARCH_MATH_H, CONFIG_ARCH_STDBOOL_H, CONFIG_ARCH_STDINT_H
+    CONFIG_ARCH_STDBOOL_H - The stdbool.h header file can be found at
+      nuttx/include/stdbool.h. However, that header includes logic to redirect
+      the inclusion of an architecture specific header file like:
+
+        #ifdef CONFIG_ARCH_STDBOOL_H
+        #  include <arch/stdbool.h>
+        #else
+        ...
+        #endif
+
+      Recall that that include path, include/arch, is a symbolic link and
+      will refer to a version of stdbool.h at nuttx/arch/<architecture>/include/stdbool.h.
+
+    CONFIG_ARCH_STDINT_H - Similar logic exists for the stdint.h header
+      file can also be found at nuttx/include/stdint.h.
+
+        #ifdef CONFIG_ARCH_STDBOOL_H
+        #  include <arch/stdinit.h>
+        #else
+        ...
+        #endif
+
+    CONFIG_ARCH_MATH_H - There is also a re-directing version of math.h in
+      the source tree. However, it resides out-of-the-way at include/nuttx/math.h
+      because it conflicts too often with the system math.h. If CONFIG_ARCH_MATH_H=y
+      is  defined, however, the top-level makefile will copy the redirecting
+      math.h header file from include/nuttx/math.h to include/math.h. math.h
+      will then include the architecture-specific version of math.h that you
+      must provide at nuttx/arch/>architecture</include/math.h.
+
+        #ifdef CONFIG_ARCH_MATH_H
+        #  include <arch/math.h>
+        #endif
+
+      So for the architectures that define CONFIG_ARCH_MATH_H=y, include/math.h
+      will be the redirecting math.h header file; for the architectures that
+      don't select CONFIG_ARCH_MATH_H, the redirecting math.h header file will
+      stay out-of-the-way in include/nuttx/.
+
+    CONFIG_ARCH_STDARG_H - There is also a redirecting version of stdarg.h in
+      the source tree as well. It also resides out-of-the-way at include/nuttx/stdarg.h.
+      This is because you should normally use your toolchain's stdarg.h file. But
+      sometimes, your toolchain's stdarg.h file may have other header file
+      dependencies and so may not be usable in the NuttX build environment. In
+      those cases, you may have to create a architecture-specific stdarg.h header
+      file at nuttx/arch/>architecture</include/stdarg.h
+
+      If CONFIG_ARCH_STDARG_H=y is defined, the top-level makefile will copy the
+      re-directing stdarg.h header file from include/nuttx/stdarg.h to
+      include/stdarg.h. So for the architectures that cannot use their toolchain's
+      stdarg.h file, they can use this alternative by defining CONFIG_ARCH_STDARG_H=y
+      and providing. If CONFIG_ARCH_STDARG_H, is not defined, then the stdarg.h
+      header file will stay out-of-the-way in include/nuttx/.
 
     CONFIG_ARCH_ROMGETC - In Harvard architectures, data accesses and
       instruction accesses occur on different busses, perhaps
@@ -1418,6 +1470,10 @@ configs/eagle100
   an ARM Cortex-M3 MCU, the Luminary LM3S6918. This OS is built with the
   arm-elf toolchain*.  STATUS:  This port is complete and mature.
 
+configs/ekk-lm3s9b96
+  TI/Stellaris EKK-LM3S9B96 board.  This board is based on the 
+  an EKK-LM3S9B96 which is a Cortex-M3.
+
 configs/ez80f0910200kitg
   ez80Acclaim! Microcontroller.  This port use the Zilog ez80f0910200kitg
   development kit, eZ80F091 part, and the Zilog ZDS-II Windows command line
@@ -1436,6 +1492,9 @@ configs/kwikstik-k40.
   Kinetis K40 Cortex-M4 MCU.  This port uses the FreeScale KwikStik-K40
   development board.
 
+configs/lincoln60
+   NuttX port to the Micromint Lincoln 60 board.
+  
 configs/lm3s6432-s2e
   Stellaris RDK-S2E Reference Design Kit and the MDL-S2E Ethernet to
   Serial module.
@@ -1452,6 +1511,10 @@ configs/lpcxpresso-lpc1768
   Embedded Artists base board with NXP LPCExpresso LPC1768.  This board
   is based on the NXP LPC1768.  The Code Red toolchain is used by default.
   STATUS:  Under development.
+
+configs/lpc4330-xplorer
+  NuttX port to the LPC4330-Xplorer board from NGX Technologies featuring
+  the NXP LPC4330FET100 MCU
 
 configs/m68322evb
   This is a work in progress for the venerable m68322evb board from
@@ -1472,6 +1535,10 @@ configs/micropendous3
   This is a port to the Opendous Micropendous 3 board. This board may
   be populated with either an AVR AT90USB646, 647, 1286, or 1287 MCU.
   Support is configured for the AT90USB647.
+
+configs/mirtoo
+  This is the port to the DTX1-4000L "Mirtoo" module.  This module uses MicroChip
+  PIC32MX250F128D.  See http://www.dimitech.com/ for further information.
 
 configs/mx1ads
   This is a port to the Motorola MX1ADS development board.  That board

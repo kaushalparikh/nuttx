@@ -1,8 +1,8 @@
 /************************************************************************************
  * arch/arm/src/lpc17xx/lpc17_rtc.h
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -222,7 +222,7 @@
 #define RTC_CTIME1_YEAR_SHIFT   (16)      /* Bits 16-27: Year */
 #define RTC_CTIME1_YEAR_MASK    (0x0fff << RTC_CTIME1_YEAR_SHIFT)
                                           /* Bits 28-31: Reserved */
-/* Consolidated Time Register 2 (Shouldn't DOY width be 9 bits?) */
+/* Consolidated Time Register 2 */
 
 #define RTC_CTIME2_DOY_SHIFT    (0)       /* Bits 0-11: Day of Year */
 #define RTC_CTIME2_DOY_MASK     (0x0fff << RTC_CTIME2_DOY_SHIFT)
@@ -243,7 +243,7 @@
 #define RTC_CALIB_CALVAL_SHIFT  (0)       /* Bits 0-16: calibration counter counts to this value */
 #define RTC_CALIB_CALVAL_MASK   (0xffff << RTC_CALIB_CALVAL_SHIFT)
 #define RTC_CALIB_CALDIR        (1 << 17) /* Bit 17: Calibration direction */
-                                          /* Bits 12-31: Reserved */
+                                          /* Bits 18-31: Reserved */
 /* Alarm register group */
 
 #define RTC_ALSEC_MASK          (0x003f)

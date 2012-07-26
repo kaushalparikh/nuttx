@@ -71,6 +71,7 @@
 
 void stm32_boardinitialize(void)
 {
+
   /* Configure on-board FSMC peripherals */
 
 #ifdef CONFIG_STM32_FSMC

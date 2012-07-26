@@ -2,8 +2,8 @@
  * configs/stm3210e-eval/src/up_boot.c
  * arch/arm/src/board/up_boot.c
  *
- *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,10 +92,10 @@ void stm32_boardinitialize(void)
     }
 #endif
 
-   /* Initialize USB is 1) USBDEV is selected, 2) the USB controller is not
-    * disabled, and 3) the weak function stm32_usbinitialize() has been brought
-    * into the build.
-    */
+  /* Initialize USB is 1) USBDEV is selected, 2) the USB controller is not
+   * disabled, and 3) the weak function stm32_usbinitialize() has been brought
+   * into the build.
+   */
 
 #if defined(CONFIG_USBDEV) && defined(CONFIG_STM32_USB)
   if (stm32_usbinitialize)

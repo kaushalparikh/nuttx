@@ -4,6 +4,7 @@
  *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2012 Jose Pablo Rojas Vargas. All rights reserved.
  *   Author: Jose Pablo Rojas Vargas <jrojas@nx-engineering.com>
+ *           Gregory Nutt <gnutt@nuttx.org>
  *
  * Leveraged from OpenBSD:
  *
@@ -47,10 +48,6 @@
  * Included Files
  ****************************************************************************/
 
-#include <nuttx/fs/nfs.h>
- 
-#include "nfs.h"
-
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -66,7 +63,6 @@
 #define NFS_VER2                2
 #define NFS_VER3                3
 #define NFS_VER4                4
-#define NFS_V2MAXDATA           8192
 #define NFS_MAXDGRAMDATA        32768
 #define MAXBSIZE                64000
 #define NFS_MAXDATA             MAXBSIZE
@@ -120,15 +116,7 @@
 
 #define NFSX_UNSIGNED           4
 
-/* specific to NFS Version 2 */
-
-#define NFSX_V2FH               32
-#define NFSX_V2FATTR            68
-#define NFSX_V2SATTR            32
-#define NFSX_V2COOKIE           4
-#define NFSX_V2STATFS           20
-
-/* specific to NFS Version 3 */
+/* Specific to NFS Version 3 */
 
 #define NFSX_V3FH               (sizeof (fhandle_t))  /* size this server uses */
 #define NFSX_V3FHMAX            64    /* max. allowed by protocol */
@@ -143,25 +131,6 @@
 #define NFSX_V3STATFS           52
 #define NFSX_V3FSINFO           48
 #define NFSX_V3PATHCONF         24
-
-/* Variants for both versions */
-
-#define NFSX_FH(v3)             ((v3) ? (NFSX_V3FHMAX + NFSX_UNSIGNED) : \
-                                        NFSX_V2FH)
-#define NFSX_SRVFH(v3)          ((v3) ? NFSX_V3FH : NFSX_V2FH)
-#define NFSX_FATTR(v3)          ((v3) ? NFSX_V3FATTR : NFSX_V2FATTR)
-#define NFSX_PREOPATTR(v3)      ((v3) ? (7 * NFSX_UNSIGNED) : 0)
-#define NFSX_POSTOPATTR(v3)     ((v3) ? (NFSX_V3FATTR + NFSX_UNSIGNED) : 0)
-#define NFSX_POSTOPORFATTR(v3)  ((v3) ? (NFSX_V3FATTR + NFSX_UNSIGNED) : \
-                                        NFSX_V2FATTR)
-#define NFSX_WCCDATA(v3)        ((v3) ? NFSX_V3WCCDATA : 0)
-#define NFSX_WCCORFATTR(v3)     ((v3) ? NFSX_V3WCCDATA : NFSX_V2FATTR)
-#define NFSX_SATTR(v3)          ((v3) ? NFSX_V3SATTR : NFSX_V2SATTR)
-#define NFSX_COOKIEVERF(v3)     ((v3) ? NFSX_V3COOKIEVERF : 0)
-#define NFSX_WRITEVERF(v3)      ((v3) ? NFSX_V3WRITEVERF : 0)
-#define NFSX_READDIR(v3)        ((v3) ? (5 * NFSX_UNSIGNED) : \
-                                        (2 * NFSX_UNSIGNED))
-#define NFSX_STATFS(v3)         ((v3) ? NFSX_V3STATFS : NFSX_V2STATFS)
 
 /* NFS RPC procedure numbers (before version mapping) */
 
@@ -190,71 +159,58 @@
 #define NFSPROC_NOOP            22
 #define NFS_NPROCS              23
 
-/* Actual Version 2 procedure numbers */
-
-#define NFSV2PROC_NULL          0
-#define NFSV2PROC_GETATTR       1
-#define NFSV2PROC_SETATTR       2
-#define NFSV2PROC_NOOP          3
-#define NFSV2PROC_ROOT          NFSV2PROC_NOOP/* Obsolete */
-#define NFSV2PROC_LOOKUP        4
-#define NFSV2PROC_READLINK      5
-#define NFSV2PROC_READ          6
-#define NFSV2PROC_WRITECACHE    NFSV2PROC_NOOP/* Obsolete */
-#define NFSV2PROC_WRITE         8
-#define NFSV2PROC_CREATE        9
-#define NFSV2PROC_REMOVE        10
-#define NFSV2PROC_RENAME        11
-#define NFSV2PROC_LINK          12
-#define NFSV2PROC_SYMLINK       13
-#define NFSV2PROC_MKDIR         14
-#define NFSV2PROC_RMDIR         15
-#define NFSV2PROC_READDIR       16
-#define NFSV2PROC_STATFS        17
 
 /* Constants used by the Version 3 protocol for various RPCs */
 
-#define NFSV3SATTRTIME_DONTCHANGE       0
-#define NFSV3SATTRTIME_TOSERVER         1
-#define NFSV3SATTRTIME_TOCLIENT         2
+#define NFSV3SATTRTIME_DONTCHANGE 0
+#define NFSV3SATTRTIME_TOSERVER   1
+#define NFSV3SATTRTIME_TOCLIENT   2
 
-#define NFSV3ACCESS_READ                0x01
-#define NFSV3ACCESS_LOOKUP              0x02
-#define NFSV3ACCESS_MODIFY              0x04
-#define NFSV3ACCESS_EXTEND              0x08
-#define NFSV3ACCESS_DELETE              0x10
-#define NFSV3ACCESS_EXECUTE             0x20
+#define NFSV3ACCESS_READ         0x01
+#define NFSV3ACCESS_LOOKUP       0x02
+#define NFSV3ACCESS_MODIFY       0x04
+#define NFSV3ACCESS_EXTEND       0x08
+#define NFSV3ACCESS_DELETE       0x10
+#define NFSV3ACCESS_EXECUTE      0x20
 
-#define NFSV3WRITE_UNSTABLE             0
-#define NFSV3WRITE_DATASYNC             1
-#define NFSV3WRITE_FILESYNC             2
+#define NFSV3WRITE_UNSTABLE      0
+#define NFSV3WRITE_DATASYNC      1
+#define NFSV3WRITE_FILESYNC      2
 
-#define NFSV3CREATE_UNCHECKED           0
-#define NFSV3CREATE_GUARDED             1
-#define NFSV3CREATE_EXCLUSIVE           2
+#define NFSV3CREATE_UNCHECKED    0
+#define NFSV3CREATE_GUARDED      1
+#define NFSV3CREATE_EXCLUSIVE    2
 
-#define NFSV3FSINFO_LINK                0x01
-#define NFSV3FSINFO_SYMLINK             0x02
-#define NFSV3FSINFO_HOMOGENEOUS         0x08
-#define NFSV3FSINFO_CANSETTIME          0x10
+#define NFSV3FSINFO_LINK         0x01
+#define NFSV3FSINFO_SYMLINK      0x02
+#define NFSV3FSINFO_HOMOGENEOUS  0x08
+#define NFSV3FSINFO_CANSETTIME   0x10
 
 /* Conversion macros */
 
-#define vtonfsv2_mode(t,m) \
-    txdr_unsigned(((t) == VFIFO) ? MAKEIMODE(VCHR, (m)) : \
-    MAKEIMODE((t), (m)))
-#define vtonfsv3_mode(m)        txdr_unsigned((m) & 07777)
-#define nfstov_mode(a)          (fxdr_unsigned(u_int16_t, (a))&07777)
-#define vtonfsv2_type(a)        txdr_unsigned(nfsv2_type[((int32_t)(a))])
-#define vtonfsv3_type(a)        txdr_unsigned(nfsv3_type[((int32_t)(a))])
-#define nfsv2tov_type(a)        nv2tov_type[fxdr_unsigned(uint32_t,(a))&0x7]
-#define nfsv3tov_type(a)        nv3tov_type[fxdr_unsigned(uint32_t,(a))&0x7]
+#define vtonfsv3_mode(m)         txdr_unsigned((m) & 07777)
+#define nfstov_mode(a)           (fxdr_unsigned(u_int16_t, (a))&07777)
+#define vtonfsv3_type(a)         txdr_unsigned(nfsv3_type[((int32_t)(a))])
+#define nfsv3tov_type(a)         nv3tov_type[fxdr_unsigned(uint32_t,(a))&0x7]
 
-#define NFS_MAXFHSIZE   64
+/* Mode bit values */
+
+#define NFSMODE_IXOTH            (1 << 0)      /* Execute permission for others on a file */
+#define NFSMODE_IWOTH            (1 << 1)      /* Write permission for others */
+#define NFSMODE_IROTH            (1 << 2)      /* Read permission for others */
+#define NFSMODE_IXGRP            (1 << 3)      /* Execute permission for group on a file */
+#define NFSMODE_IWGRP            (1 << 4)      /* Write permission for group */
+#define NFSMODE_IRGRP            (1 << 5)      /* Read permission for group */
+#define NFSMODE_IXUSR            (1 << 6)      /* Execute permission for owner on a file */
+#define NFSMODE_IWUSR            (1 << 7)      /* Write permission for owner */
+#define NFSMODE_IRUSR            (1 << 8)      /* Read permission for owner */
+#define NFSMODE_SAVETEXT         (1 << 9)      /* Save swapped text */
+#define NFSMODE_ISGID            (1 << 10)     /* Set group ID on execution */
+#define NFSMODE_ISUID            (1 << 11)     /* Set user ID on execution */
 
 /* File identifier */
 
-#define MAXFIDSZ        16
+#define MAXFIDSZ                 16
 
 /****************************************************************************
  * Public Types
@@ -264,57 +220,27 @@
 
 typedef enum
 {
-  NFNON = 0,
-  NFREG = 1,
-  NFDIR = 2,
-  NFBLK = 3,
-  NFCHR = 4,
-  NFLNK = 5,
-  NFSOCK = 6,
-  NFFIFO = 7
+  NFNON  = 0,                  /* Unknown type */
+  NFREG  = 1,                  /* Regular file */
+  NFDIR  = 2,                  /* Directory */
+  NFBLK  = 3,                  /* Block special device file */
+  NFCHR  = 4,                  /* Character special device file */
+  NFLNK  = 5,                  /* Symbolic link */
+  NFSOCK = 6,                  /* Socket */
+  NFFIFO = 7                   /* Named FIFO */
 } nfstype;
 
-typedef struct
-{
-  int32_t val[2];
-} fsid_t;                      /* file system id type */
-
-/* File identifier.
- * These are unique per filesystem on a single machine.
+/* File Handle variable is up to 64 bytes for version 3. This structures a 
+ * ariable sized and are provided only for setting aside maximum memory
+ * allocations for a file handle.
  */
 
-struct fid
+struct nfsfh
 {
-  unsigned short fid_len;      /* length of data in bytes */
-  unsigned short fid_reserved; /* force longword alignment */
-  char fid_data[MAXFIDSZ];     /* data (variable length) */
+  uint8_t fh_bytes[NFSX_V3FHMAX];
 };
-
-/* Generic file handle */
-
-struct fhandle
-{
-  fsid_t fh_fsid;              /* File system id of mount point */
-  struct fid fh_fid;           /* File sys specific id */
-};
-
-typedef struct fhandle fhandle_t;
-
-/* File Handle (32 bytes for version 2), variable up to 64 for version 3. */
-/*
-union nfsfh
-{
-  fhandle_t fh_generic;
-  unsigned char fh_bytes[NFS_MAXFHSIZE];
-};
-typedef union nfsfh nfsfh_t;
-*/
-struct nfsv2_time
-{
-  uint32_t nfsv2_sec;
-  uint32_t nfsv2_usec;
-};
-typedef struct nfsv2_time nfstime2;
+typedef struct nfsfh nfsfh_t;
+#define SIZEOF_nfsfh_t(n) (n)
 
 struct nfsv3_time
 {
@@ -347,215 +273,213 @@ typedef struct nfsv3_spec nfsv3spec;
  * used so that one pointer can refer to both variants. These structures
  * go out on the wire and must be densely packed, so no quad data types
  * are used. (all fields are longs or u_longs or structures of same)
- * NB: You can't do sizeof(struct nfs_fattr), you must use the
- *     NFSX_FATTR(v3) macro.
  */
 
 struct nfs_fattr
 {
-  uint32_t fa_type;
-  uint32_t fa_mode;
-  uint32_t fa_nlink;
-  uint32_t fa_uid;
-  uint32_t fa_gid;
-  union
-  {
-    struct
-    {
-      uint32_t nfsv2fa_size;
-      uint32_t nfsv2fa_blocksize;
-      uint32_t nfsv2fa_rdev;
-      uint32_t nfsv2fa_blocks;
-      uint32_t nfsv2fa_fsid;
-      uint32_t nfsv2fa_fileid;
-      nfstime2 nfsv2fa_atime;
-      nfstime2 nfsv2fa_mtime;
-      nfstime2 nfsv2fa_ctime;
-    } fa_nfsv2;
-    struct
-    {
-      nfsuint64 nfsv3fa_size;
-      nfsuint64 nfsv3fa_used;
-      nfsv3spec nfsv3fa_rdev;
-      nfsuint64 nfsv3fa_fsid;
-      nfsuint64 nfsv3fa_fileid;
-      nfstime3 nfsv3fa_atime;
-      nfstime3 nfsv3fa_mtime;
-      nfstime3 nfsv3fa_ctime;
-    } fa_nfsv3;
-  } fa_un;
+  uint32_t           fa_type;
+  uint32_t           fa_mode;
+  uint32_t           fa_nlink;
+  uint32_t           fa_uid;
+  uint32_t           fa_gid;
+  nfsuint64          fa_size;
+  nfsuint64          fa_used;
+  nfsv3spec          fa_rdev;
+  nfsuint64          fa_fsid;
+  nfsuint64          fa_fileid;
+  nfstime3           fa_atime;
+  nfstime3           fa_mtime;
+  nfstime3           fa_ctime;
 };
 
-/* And some ugly defines for accessing union components */
-
-#define fa2_size                fa_un.fa_nfsv2.nfsv2fa_size
-#define fa2_blocksize           fa_un.fa_nfsv2.nfsv2fa_blocksize
-#define fa2_rdev                fa_un.fa_nfsv2.nfsv2fa_rdev
-#define fa2_blocks              fa_un.fa_nfsv2.nfsv2fa_blocks
-#define fa2_fsid                fa_un.fa_nfsv2.nfsv2fa_fsid
-#define fa2_fileid              fa_un.fa_nfsv2.nfsv2fa_fileid
-#define fa2_atime               fa_un.fa_nfsv2.nfsv2fa_atime
-#define fa2_mtime               fa_un.fa_nfsv2.nfsv2fa_mtime
-#define fa2_ctime               fa_un.fa_nfsv2.nfsv2fa_ctime
-#define fa3_size                fa_un.fa_nfsv3.nfsv3fa_size
-#define fa3_used                fa_un.fa_nfsv3.nfsv3fa_used
-#define fa3_rdev                fa_un.fa_nfsv3.nfsv3fa_rdev
-#define fa3_fsid                fa_un.fa_nfsv3.nfsv3fa_fsid
-#define fa3_fileid              fa_un.fa_nfsv3.nfsv3fa_fileid
-#define fa3_atime               fa_un.fa_nfsv3.nfsv3fa_atime
-#define fa3_mtime               fa_un.fa_nfsv3.nfsv3fa_mtime
-#define fa3_ctime               fa_un.fa_nfsv3.nfsv3fa_ctime
-
-struct nfsv2_sattr
-{
-  uint32_t sa_mode;
-  uint32_t sa_uid;
-  uint32_t sa_gid;
-  uint32_t sa_size;
-  nfstime2 sa_atime;
-  nfstime2 sa_mtime;
-};
-
-/* NFS Version 3 sattr structure for the new node creation case. */
+/* NFS Version 3 sattr structure for the new node creation case.  This is the
+ * maximum size of the attributes; the actual size may vary if values are not
+ * include.
+ */
 
 struct nfsv3_sattr
 {
-  uint32_t sa_modetrue;
-  uint32_t sa_mode;
-  uint32_t sa_uidfalse;
-  uint32_t sa_gidfalse;
-  uint32_t sa_sizefalse;
-  uint32_t sa_atimetype;
-  nfstime3 sa_atime;
-  uint32_t sa_mtimetype;
-  nfstime3 sa_mtime;
+  uint32_t           sa_modefollows;   /* TRUE: Mode value follows */
+  uint32_t           sa_mode;          /* Mode value */
+  uint32_t           sa_uidfollows;    /* TRUE: Uid value follows */
+  uint32_t           sa_uid;           /* Uid value */
+  uint32_t           sa_gidfollows;    /* TRUE: Mode value follows */
+  uint32_t           sa_gid;           /* Mode value */
+  uint32_t           sa_sizefollows;   /* TRUE: Size value follows */
+  uint32_t           sa_size;          /* Size value */
+  uint32_t           sa_atimetype;     /* Don't change, use server timer, or use client time  */
+  nfstime3           sa_atime;         /* Client time */
+  uint32_t           sa_mtimetype;     /* Don't change, use server timer, or use client time  */
+  nfstime3           sa_mtime;         /* Client time */
 };
 
 struct nfs_statfs
 {
-  struct nfs_fattr obj_attributes;
-  union
-  {
-    struct
-    {
-      uint32_t nfsv2sf_tsize;
-      uint32_t nfsv2sf_bsize;
-      uint32_t nfsv2sf_blocks;
-      uint32_t nfsv2sf_bfree;
-      uint32_t nfsv2sf_bavail;
-    } sf_nfsv2;
-    struct
-    {
-      nfsuint64 nfsv3sf_tbytes;
-      nfsuint64 nfsv3sf_fbytes;
-      nfsuint64 nfsv3sf_abytes;
-      nfsuint64 nfsv3sf_tfiles;
-      nfsuint64 nfsv3sf_ffiles;
-      nfsuint64 nfsv3sf_afiles;
-      uint32_t nfsv3sf_invarsec;
-    } sf_nfsv3;
-  } sf_un;
+  struct nfs_fattr   obj_attributes;
+  nfsuint64          sf_tbytes;
+  nfsuint64          sf_fbytes;
+  nfsuint64          sf_abytes;
+  nfsuint64          sf_tfiles;
+  nfsuint64          sf_ffiles;
+  nfsuint64          sf_afiles;
+  uint32_t           sf_invarsec;
 };
-
-#define sf_tsize        sf_un.sf_nfsv2.nfsv2sf_tsize
-#define sf_bsize        sf_un.sf_nfsv2.nfsv2sf_bsize
-#define sf_blocks       sf_un.sf_nfsv2.nfsv2sf_blocks
-#define sf_bfree        sf_un.sf_nfsv2.nfsv2sf_bfree
-#define sf_bavail       sf_un.sf_nfsv2.nfsv2sf_bavail
-#define sf_tbytes       sf_un.sf_nfsv3.nfsv3sf_tbytes
-#define sf_fbytes       sf_un.sf_nfsv3.nfsv3sf_fbytes
-#define sf_abytes       sf_un.sf_nfsv3.nfsv3sf_abytes
-#define sf_tfiles       sf_un.sf_nfsv3.nfsv3sf_tfiles
-#define sf_ffiles       sf_un.sf_nfsv3.nfsv3sf_ffiles
-#define sf_afiles       sf_un.sf_nfsv3.nfsv3sf_afiles
-#define sf_invarsec     sf_un.sf_nfsv3.nfsv3sf_invarsec
+ 
+struct post_attr
+{
+  uint32_t           obj_attributesfalse;
+  struct nfs_fattr   attributes;
+};
 
 struct nfsv3_fsinfo
 {
-  struct nfs_fattr obj_attributes;
-  uint32_t fs_rtmax;
-  uint32_t fs_rtpref;
-  uint32_t fs_rtmult;
-  uint32_t fs_wtmax;
-  uint32_t fs_wtpref;
-  uint32_t fs_wtmult;
-  uint32_t fs_dtpref;
-  nfsuint64 fs_maxfilesize;
-  nfstime3 fs_timedelta;
-  uint32_t fs_properties;
+//struct post_attr   obj_attributes;
+  uint32_t           obj_attributesfalse;
+  uint32_t           fs_rtmax;
+  uint32_t           fs_rtpref;
+  uint32_t           fs_rtmult;
+  uint32_t           fs_wtmax;
+  uint32_t           fs_wtpref;
+  uint32_t           fs_wtmult;
+  uint32_t           fs_dtpref;
+  nfsuint64          fs_maxfilesize;
+  nfstime3           fs_timedelta;
+  uint32_t           fs_properties;
 };
 
 /* NFS procedures args */
 
 struct wcc_attr
 {
-  nfsuint64 size;
-  nfstime3 mtime;
-  nfstime3 ctime;
+  nfsuint64          size;
+  nfstime3           mtime;
+  nfstime3           ctime;
 };
 
 struct wcc_data
 {
-  struct wcc_attr     before;
-  struct nfs_fattr    after;
+  uint32_t           wcc_attr_follows;       /* True if data follows */
+  struct wcc_attr    before;
+  uint32_t           nfs_attr_follow;        /* True if attributes present */
+  struct nfs_fattr   after;
 };
+
+struct file_handle
+{
+  uint32_t           length;
+  nfsfh_t            handle;
+};
+#define SIZEOF_file_handle(n) (sizeof(uint32_t) + SIZEOF_nfsfh_t(n))
 
 struct diropargs3
 {
-  nfsfh_t            dir;
-  const char        *name;
+  struct file_handle fhandle;                  /* Variable length */
+  uint32_t           length;                   /* Size of name[] */
+  uint32_t           name[(NAME_MAX+3) >> 2];  /* Variable length */
 };
 
 struct CREATE3args
 {
   struct diropargs3  where;
+  uint32_t           create_mode;
   struct nfsv3_sattr how;
 };
 
 struct CREATE3resok
 {
-  nfsfh_t            handle;
-  struct nfs_fattr   attributes;
+  uint32_t           handle_follows;           /* True, handle follows */
+  struct file_handle fhandle;                  /* Variable length */
+  uint32_t           attributes_follows;       /* True, attributes follows */
+  struct nfs_fattr   attributes;               /* File attributes */
   struct wcc_data    dir_wcc;
+};
+
+/* The actual size of the lookup argument is variable.  These structures are, therefore,
+ * only useful in setting aside maximum memory usage for the LOOKUP arguments.
+ */
+
+struct LOOKUP3filename
+{
+  uint32_t           namelen;                  /* Size of name[] */
+  uint32_t           name[(NAME_MAX+3) >> 2];  /* Variable length */
+};
+
+struct LOOKUP3args
+{
+  struct file_handle     dirhandle;            /* Variable length */
+  struct LOOKUP3filename name;                 /* Variable length  */
+};
+
+struct SETATTR3args
+{
+  struct file_handle     fhandle;              /* Variable length */
+  struct nfsv3_sattr     new_attributes;       /* Variable length */
+  uint32_t               guard;                /* Guard value */
+};
+
+struct SETATTR3resok
+{
+  struct wcc_data         wcc_data;
+};
+
+/* Actual size of LOOKUP3args */
+
+#define SIZEOF_LOOKUP3filename(b) (sizeof(uint32_t) + (((b)+3) & ~3))
+#define SIZEOF_LOOKUP3args(a,b)   (SIZEOF_file_handle(a) + SIZEOF_LOOKUP3filename(b))
+
+struct LOOKUP3resok
+{
+  struct file_handle fhandle;
+  uint32_t           obj_attributes_follow;
+  struct nfs_fattr   obj_attributes;
+  uint32_t           dir_attributes_follow;
+  struct nfs_fattr   dir_attributes;
 };
 
 struct READ3args
 {
-  nfstype            file;
+  struct file_handle fhandle;      /* Variable length */
   uint64_t           offset;
   uint32_t           count;
+};
+
+struct nfs_rdhdr_s
+{
+  uint32_t           attributes_follow;
+  struct nfs_fattr   attributes;   /* Will not be present if attributes_follow == 0 */
+  uint32_t           count;        /* Number of bytes read */
+  uint32_t           eof;          /* Non-zero if at the end of file */
+  uint32_t           length;       /* Length of data (same as count?) */
 };
 
 struct READ3resok
 {
-  struct nfs_fattr   file_attributes;
-  uint32_t           count;
-  bool               eof;
-  const char        *data;
+  struct nfs_rdhdr_s hdr;
+  uint8_t            data[1];      /* Actual data size depends on count */
 };
+#define SIZEOF_READ3resok(n) (sizeof(struct nfs_rdhdr_s) + (n))
 
-enum stable_how
+struct nfs_wrhdr_s
 {
-  UNSTABLE  = 0,
-  DATA_SYNC = 1,
-  FILE_SYNC = 2
+  struct file_handle fhandle;     /* Variable length */
+  uint64_t           offset;
+  uint32_t           count;
+  uint32_t           stable;
 };
 
 struct WRITE3args
 {
-  nfstype            file;
-  uint64_t           offset;
-  uint32_t           count;
-  enum stable_how    stable;
-  const char        *data;
+  struct nfs_wrhdr_s hdr;
+  uint8_t            data[1]; /* Actual data size depends on count */
 };
+#define SIZEOF_WRITE3args(n) (sizeof(struct nfs_wrhdr_s) + (n))
 
 struct WRITE3resok
 {
   struct wcc_data    file_wcc;
   uint32_t           count;
-  enum stable_how    committed;
-  unsigned char     *verf;
+  uint32_t           committed;
+  uint8_t            verf[NFSX_V3WRITEVERF];
 };
 
 struct REMOVE3args
@@ -583,13 +507,15 @@ struct RENAME3resok
 struct MKDIR3args
 {
   struct diropargs3  where;
-  struct nfsv3_sattr attributes;
+  struct nfsv3_sattr how;
 };
 
 struct MKDIR3resok
 {
-  nfsfh_t            handle;
-  struct nfs_fattr   obj_attributes;
+  uint32_t           handle_follows;           /* True, handle follows */
+  struct file_handle fhandle;                  /* Variable length */
+  uint32_t           attributes_follows;       /* True, attributes follows */
+  struct nfs_fattr   attributes;               /* Directory attributes */
   struct wcc_data    dir_wcc;
 };
 
@@ -603,37 +529,43 @@ struct RMDIR3resok
   struct wcc_data    dir_wcc;
 };
 
+/* The actual size of the lookup argument is variable.  This structures is, therefore,
+ * only useful in setting aside maximum memory usage for the LOOKUP arguments.
+ */
+
 struct READDIR3args 
 {
-  nfsfh_t            dir;
+  struct file_handle dir;                      /* Variable length */
   nfsuint64          cookie;
-  nfsuint64          cookieverf;
+  uint8_t            cookieverf[NFSX_V3COOKIEVERF];
   uint32_t           count;
 };
- 
-struct entry3 
-{
-  uint64_t           fileid;
-  unsigned char      name;
-  nfsuint64          cookie;
-  struct entry3     *nextentry;
- };
 
-struct dirlist3 
-{
-  struct entry3     *entries;
-  bool eof;
-};
+/* The READDIR reply is variable length and consists of multiple entries, each
+ * of form:
+ *
+ *  EOF - OR -
+ *
+ *  File ID (8 bytes)
+ *  Name length (4 bytes)
+ *  Name string (varaiable size but in multiples of 4 bytes)
+ *  Cookie (8 bytes)
+ *  next entry (4 bytes)
+ */
  
 struct READDIR3resok 
 {
+  uint32_t           attributes_follow;
   struct nfs_fattr   dir_attributes;
-  nfsuint64          cookieverf;
-  struct dirlist3    reply;
+  uint8_t            cookieverf[NFSX_V3COOKIEVERF];
+  uint32_t           value_follows;
+  uint32_t           reply[1]; /* Variable length reply begins here */
 };
 
 struct FS3args
 {
-  nfsfh_t            fsroot;
+  struct file_handle fsroot;
 };
-#endif
+
+#endif /* __FS_NFS_NFS_PROTO_H */
+

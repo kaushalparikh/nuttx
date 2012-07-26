@@ -169,7 +169,7 @@ struct extmem_save_s
  *
  ************************************************************************************/
 
-extern void weak_function stm32_spiinitialize(void);
+void weak_function stm32_spiinitialize(void);
 
 /************************************************************************************
  * Name: stm32_usbinitialize
@@ -179,7 +179,7 @@ extern void weak_function stm32_spiinitialize(void);
  *
  ************************************************************************************/
 
-extern void weak_function stm32_usbinitialize(void);
+void weak_function stm32_usbinitialize(void);
 
 #ifdef CONFIG_STM32_FSMC
 
@@ -191,7 +191,7 @@ extern void weak_function stm32_usbinitialize(void);
  *
  ************************************************************************************/
 
-extern void stm32_extcontextsave(struct extmem_save_s *save);
+void stm32_extcontextsave(struct extmem_save_s *save);
 
 /************************************************************************************
  * Name: stm32_extcontextrestore
@@ -201,7 +201,7 @@ extern void stm32_extcontextsave(struct extmem_save_s *save);
  *
  ************************************************************************************/
 
-extern void stm32_extcontextrestore(struct extmem_save_s *restore);
+void stm32_extcontextrestore(struct extmem_save_s *restore);
 
 /************************************************************************************
  * Name: stm32_initfsmc
@@ -221,7 +221,7 @@ extern void stm32_initfsmc(void);
  *
  ************************************************************************************/
 
-extern void stm32_enablefsmc(void);
+void stm32_enablefsmc(void);
 
 /************************************************************************************
  * Name: stm32_disablefsmc
@@ -231,7 +231,7 @@ extern void stm32_enablefsmc(void);
  *
  ************************************************************************************/
 
-extern void stm32_disablefsmc(void);
+void stm32_disablefsmc(void);
 
 /************************************************************************************
  * Name: stm32_selectusb
@@ -241,7 +241,7 @@ extern void stm32_disablefsmc(void);
  *
  ************************************************************************************/
 
-extern void stm32_selectusb(void);
+void stm32_selectnor(void);
 
 /************************************************************************************
  * Name: stm32_deselectusb
@@ -251,7 +251,7 @@ extern void stm32_selectusb(void);
  *
  ************************************************************************************/
 
-extern void stm32_deselectusb(void);
+void stm32_deselectnor(void);
 
 /************************************************************************************
  * Name: stm32_selectsram
@@ -261,7 +261,7 @@ extern void stm32_deselectusb(void);
  *
  ************************************************************************************/
 
-extern void stm32_selectsram(void);
+void stm32_selectsram(void);
 
 /************************************************************************************
  * Name: stm32_deselectsram
@@ -271,7 +271,7 @@ extern void stm32_selectsram(void);
  *
  ************************************************************************************/
 
-extern void stm32_deselectsram(void);
+void stm32_deselectsram(void);
 
 /************************************************************************************
  * Name: stm32_selectlcd
@@ -281,7 +281,7 @@ extern void stm32_deselectsram(void);
  *
  ************************************************************************************/
 
-extern void stm32_selectlcd(void);
+void stm32_selectlcd(void);
 
 /************************************************************************************
  * Name: stm32_deselectlcd
@@ -291,7 +291,7 @@ extern void stm32_selectlcd(void);
  *
  ************************************************************************************/
 
-extern void stm32_deselectlcd(void);
+void stm32_deselectlcd(void);
 
 #endif /* CONFIG_STM32_FSMC */
 

@@ -144,16 +144,19 @@ struct nxcon_state_s
 #ifdef CONFIG_DEBUG
   pid_t holder;                             /* Deadlock avoidance */
 #endif
-  struct nxgl_point_s fpos;                 /* Next display position */
-
-  uint16_t maxchars;                        /* Size of the bm[] array */
-  uint16_t nchars;                          /* Number of chars in the bm[] array */
-
   uint8_t minor;                            /* Device minor number */
+
+  /* Text output support */
+
   uint8_t fheight;                          /* Max height of a font in pixels */
   uint8_t fwidth;                           /* Max width of a font in pixels */
   uint8_t spwidth;                          /* The width of a space */
   uint8_t maxglyphs;                        /* Size of the glyph[] array */
+
+  uint16_t maxchars;                        /* Size of the bm[] array */
+  uint16_t nchars;                          /* Number of chars in the bm[] array */
+
+  struct nxgl_point_s fpos;                 /* Next display position */
 
   /* VT100 escape sequence processing */
 
@@ -168,6 +171,26 @@ struct nxcon_state_s
   /* Glyph cache data storage */
 
   struct nxcon_glyph_s  glyph[CONFIG_NXCONSOLE_CACHESIZE];
+
+  /* Keyboard input support */
+
+#ifdef CONFIG_NXCONSOLE_NXKBDIN
+  sem_t waitsem;                            /* Supports waiting for input data */
+  uint8_t nwaiters;                         /* Number of threads waiting for data */
+  uint8_t head;                             /* rxbuffer head/input index */
+  uint8_t tail;                             /* rxbuffer tail/output index */
+
+  uint8_t rxbuffer[CONFIG_NXCONSOLE_KBDBUFSIZE];
+
+  /* The following is a list if poll structures of threads waiting for
+   * driver events. The 'struct pollfd' reference for each open is also
+   * retained in the f_priv field of the 'struct file'.
+   */
+
+#ifndef CONFIG_DISABLE_POLL
+  struct pollfd *fds[CONFIG_RAMLOG_NPOLLWAITERS];
+#endif
+#endif /* CONFIG_NXCONSOLE_NXKBDIN */
 };
 
 /****************************************************************************
@@ -187,8 +210,8 @@ extern const struct file_operations g_nxcon_drvrops;
 int nxcon_semwait(FAR struct nxcon_state_s *priv);
 int nxcon_sempost(FAR struct nxcon_state_s *priv);
 #else
-#  define nxcon_semwait(p) sem_wait(&p->exclsem);
-#  define nxcon_sempost(p) sem_post(&p->exclsem);
+#  define nxcon_semwait(p) sem_wait(&p->exclsem)
+#  define nxcon_sempost(p) sem_post(&p->exclsem)
 #endif
 
 /* Common device registration */
@@ -196,6 +219,13 @@ int nxcon_sempost(FAR struct nxcon_state_s *priv);
 FAR struct nxcon_state_s *nxcon_register(NXCONSOLE handle,
     FAR struct nxcon_window_s *wndo, FAR const struct nxcon_operations_s *ops,
     int minor);
+
+#ifdef CONFIG_NXCONSOLE_NXKBDIN
+ssize_t nxcon_read(FAR struct file *filep, FAR char *buffer, size_t len);
+#ifndef CONFIG_DISABLE_POLL
+int nxcon_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup);
+#endif
+#endif
 
 /* VT100 Terminal emulation */
 

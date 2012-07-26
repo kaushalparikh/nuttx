@@ -53,86 +53,35 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
- /* NFS mount option flags */
+/* NFS mount option flags */
 
-#define NFSMNT_SOFT             0x00000001    /* soft mount (hard is default) */
-#define NFSMNT_WSIZE            0x00000002    /* set write size */
-#define NFSMNT_RSIZE            0x00000004    /* set read size */
-#define NFSMNT_TIMEO            0x00000008    /* set initial timeout */
-#define NFSMNT_RETRANS          0x00000010    /* set number of request retries */
-#define NFSMNT_MAXGRPS          0x00000020    /* set maximum grouplist size */
-#define NFSMNT_INT              0x00000040    /* allow interrupts on hard mount */
-#define NFSMNT_NOCONN           0x00000080    /* Don't Connect the socket */
+#define NFSMNT_SOFT              (1 << 0)      /* Soft mount (hard is default) */
+#define NFSMNT_WSIZE             (1 << 1)      /* Set write size */
+#define NFSMNT_RSIZE             (1 << 2)      /* Set read size */
+#define NFSMNT_TIMEO             (1 << 3)      /* Set initial timeout */
+#define NFSMNT_RETRANS           (1 << 4)      /* Set number of request retries */
+#define NFSMNT_READDIRSIZE       (1 << 5)      /* Set readdir size */
 
-/* 0x100 free, was NFSMNT_NQNFS */
+/* Default PMAP port number to provide */
 
-#define NFSMNT_NFSV3            0x00000200    /* Use NFS Version 3 protocol */
-
-/* 0x400 free, was NFSMNT_KERB */
-
-#define NFSMNT_DUMBTIMR         0x00000800    /* Don't estimate rtt dynamically */
-
-/* 0x1000 free, was NFSMNT_LEASETERM */
-
-#define NFSMNT_READAHEAD        0x00002000    /* set read ahead */
-#define NFSMNT_DEADTHRESH       0x00004000    /* set dead server retry thresh */
-#define NFSMNT_RESVPORT         0x00008000    /* Allocate a reserved port */
-#define NFSMNT_RDIRPLUS         0x00010000    /* Use Readdirplus for V3 */
-#define NFSMNT_READDIRSIZE      0x00020000    /* Set readdir size */
-#define NFSMNT_ACREGMIN         0x00040000
-#define NFSMNT_ACREGMAX         0x00080000
-#define NFSMNT_ACDIRMIN         0x00100000
-#define NFSMNT_ACDIRMAX         0x00200000
-#define NFSMNT_NOLOCKD          0x00400000    /* Locks are local */
-#define NFSMNT_NFSV4            0x00800000    /* Use NFS Version 4 protocol */
-#define NFSMNT_HASWRITEVERF     0x01000000    /* NFSv4 Write verifier */
-#define NFSMNT_GOTFSINFO        0x00000004    /* Got the V3 fsinfo */
-#define NFSMNT_INTERNAL         0xfffc0000    /* Bits set internally */
-#define NFSMNT_NOAC             0x00080000    /* Turn off attribute cache */
-
-#define NFS_ARGSVERSION         3             /* change when nfs_args changes */
-#define NFS_MAXFHSIZE           64
-#define NFS_PORT                2049
-#define NFS_PMAPPORT            111
+#define NFS_PMAPPORT             111
  
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
- /* File Handle (32 bytes for version 2), variable up to 64 for version 3. */
-
-union nfsfh
-{
-  unsigned char fh_bytes[NFS_MAXFHSIZE];
-};
-typedef union nfsfh nfsfh_t;
- 
-/* Arguments to mount NFS */
-
 struct nfs_args
 {
-  uint8_t version;          /* args structure version number */
-  struct  sockaddr addr;    /* file server address */
-  uint8_t addrlen;          /* length of address */
-  uint8_t sotype;           /* Socket type */
-  uint8_t proto;            /* and Protocol */
-  nfsfh_t fh;               /* File handle to be mounted */
-  int     fhsize;           /* Size, in bytes, of fh */
-  int     flags;            /* flags */
-  int     wsize;            /* write size in bytes */
-  int     rsize;            /* read size in bytes */
-  int     readdirsize;      /* readdir size in bytes */
-  int     timeo;            /* initial timeout in .1 secs */
-  int     retrans;          /* times to retry send */
-//int     maxgrouplist;     /* Max. size of group list */
-//int     readahead;        /* # of blocks to readahead */
-//int     leaseterm;        /* Term (sec) of lease */
-//int     deadthresh;       /* Retrans threshold */
-  char   *path;             /* server's path of the directory being mount */
-  int     acregmin;         /* cache attrs for reg files min time */
-  int     acregmax;         /* cache attrs for reg files max time */
-  int     acdirmin;         /* cache attrs for dirs min time */
-  int     acdirmax;         /* cache attrs for dirs max time */
+  uint8_t  addrlen;               /* Length of address */
+  uint8_t  sotype;                /* Socket type */
+  uint8_t  flags;                 /* Flags, determines if following are valid: */
+  uint8_t  timeo;                 /* Time value in deciseconds (with NFSMNT_TIMEO) */
+  uint8_t  retrans;               /* Times to retry send (with NFSMNT_RETRANS) */
+  uint16_t wsize;                 /* Write size in bytes (with NFSMNT_WSIZE) */
+  uint16_t rsize;                 /* Read size in bytes (with NFSMNT_RSIZE) */
+  uint16_t readdirsize;           /* readdir size in bytes (with NFSMNT_READDIRSIZE) */
+  char    *path;                  /* Server's path of the directory being mount */
+  struct   sockaddr_storage addr; /* File server address (requires 32-bit alignment) */
 };
 
 /****************************************************************************
@@ -142,6 +91,7 @@ struct nfs_args
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
+
 #undef EXTERN
 #if defined(__cplusplus)
 #define EXTERN extern "C"

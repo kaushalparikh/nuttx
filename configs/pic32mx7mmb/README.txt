@@ -32,8 +32,8 @@ PIN CONFIGURATIONS                     SIGNAL NAME                ON-BOARD CONNE
   7 RC2/AC2TX/T3CK                     EE_CS#                     M25P80 CS
   8 RC3/AC2RX/T4CK                     ACL_CS#                    ADXL345 CS and VCC
   9 RC4/SDI1/T5CK                      SDI1                       SPI1 data IN
- 10 PMA5/CN8/ECOL/RG6/SCK2/U3RTS/U6TX  RG6                        ?
- 11 PMA4/CN9/ECRS/RG7/SDA4/SDI2/U3RX   SD_CD#                     SD Connector
+ 10 PMA5/CN8/ECOL/RG6/SCK2/U3RTS/U6TX  SD_WP                      SD card, write protect
+ 11 PMA4/CN9/ECRS/RG7/SDA4/SDI2/U3RX   SD_CD#                     SD card, card detect (not)
  12 PMA3/AECRSDV/AERXDV/CN10/ECRSDV/   AECRSDV                    LAN8720A SRS_DIV
     ERXDV/RG8/SCL4/SDO2/U3TX
  13 MCLR                               MCLR                       Debug connector
@@ -75,7 +75,7 @@ PIN CONFIGURATIONS                     SIGNAL NAME                ON-BOARD CONNE
  41 PMA11/AECRS/AN12/ERXD0/RB12        LCD-YU                     TFT display
  42 PMA10/AECOL/AN13/ERXD1/RB13        LCD-XL                     TFT display
  43 PMA1/AETXD3/AN14/ERXD2/PMALH/RB14  LCD-CS#                    TFT display, HDR2 pin 3
- 44 PMA0/AETXD2/AN15/CN12/ERXD3/OCFB/  PMPA0/AN15/OCFB/CN12       
+ 44 PMA0/AETXD2/AN15/CN12/ERXD3/OCFB/  LCD-RS                     TFT display       
     PMALL/RB15
  45 VSS                                (grounded)                 ---
  46 VDD                                P32_VDD                    ---
@@ -572,22 +572,56 @@ Where <subdir> is one of the following:
     The OS test produces all of its test output on the serial console.
     This configuration has UART1 enabled as a serial console.
 
-    USB Configuations.
-    -----------------
-    Several USB device configurations can be enabled and included
-    as NSH built-in built in functions.  
+    SD Card Support
+    ---------------
+    SD card support is built into this example by default:
+  
+       CONFIG_PIC32MX_SPI1=y
+       CONFIG_NSH_ARCHINIT=y
 
-    To use USB device, connect the starter kit to the host using a cable
-    with a Type-B micro-plug to the starter kit’s micro-A/B port J5, located
-    on the bottom side of the starter kit. The other end of the cable
-    must have a Type-A plug. Connect it to a USB host. Jumper JP2 should be
-    removed.
+    The SD card can be mounted from the NSH command line as follows:
 
-    All USB device configurations require the following basic setup in
-    your NuttX configuration file to enable USB device support:
+       nsh> mount -t vfat /dev/mmcsd0 /mnt/sdcard
+       nsh> ls -l /mnt/sdcard
+       /mnt/sdcard:
+        -rw-rw-rw-      16 ATEST.TXT
+        -rw-rw-rw-   21170 TODO
+        -rw-rw-rw-      22 ANOTHER.TXT
+        -rw-rw-rw-      22 HI2148.TXT
+        -rw-rw-rw-      16 HiFromNotePad.txt
+
+    USB Configurations.
+    ------------------
+    USB device support is enabled by default in this configuration.
+    The following settings are defined by default (and can be set
+    to 'n' to disabled USB device support).
  
       CONFIG_USBDEV=y         : Enable basic USB device support
       CONFIG_PIC32MX_USBDEV=y : Enable PIC32 USB device support
+      CONFIG_USBMSC=y         : USB supports a mass storage device.
+
+    In this configuration, NSH will support the following commands:
+
+      msconn  : Connect the mass storage device, exportint the SD
+                card as the USB mass storage logical unit.
+      msdis   : Disconnect the USB mass storage device
+ 
+    NOTE: The SD card should *not* be mounted under NSH *and* exported
+    by the mass storage device!!! That can result in corruption of the
+    SD card format.  This is the sequence of commands that you should
+    used to work the the SD card safely:
+
+      mount -t vfat /dev/mmcsd0 /mnt/sdcard : Mount the SD card initially
+      ...
+      umount /mnt/sdcard   : Unmount the SD card before connecting
+      msconn               : Connect the USB MSC
+      ...
+      msdis                : Disconnect the USB MSC
+      mount -t vfat /dev/mmcsd0 /mnt/sdcard : Re-mount the SD card
+      ...
+      
+    Other USB other device configurations can be enabled and
+    included as NSH built-in built in functions.
 
     examples/usbterm - This option can be enabled by uncommenting
     the following line in the appconfig file:
@@ -596,6 +630,7 @@ Where <subdir> is one of the following:
 
     And by enabling one of the USB serial devices:
 
+      CONFIG_USBMSC=n         : Disable USB mass storage device.
       CONFIG_PL2303=y         : Enable the Prolifics PL2303 emulation
       CONFIG_CDCACM=y         : or the CDC/ACM serial driver (not both)
 
@@ -606,22 +641,25 @@ Where <subdir> is one of the following:
 
     and defining the following in your .config file:
 
+      CONFIG_USBMSC=n         : Disable USB mass storage device.
       CONFIG_CDCACM=y         : Enable the CDCACM device
 
-    examples/usbstorage - There are some hooks in the appconfig file
-    to enable the USB mass storage device.  However, this device cannot
-    work until support for the SD card is also incorporated.
-
-    Networking Configuations.
-    -------------------------
-    Several Networking configurations can be enabled and included
-    as NSH built-in built in functions.  The following additional
-    configuration settings are required:
+    Networking Configurations.
+    --------------------------
+    Networking is enabled by default in this configuration:
 
       CONFIG_NET=y              : Enable networking support
       CONFIG_PIC32MX_ETHERNET=y : Enable the PIC32 Ethernet driver
       CONFIG_NSH_TELNET=y       : Enable the Telnet NSH console (optional)
 
+    The default configuration has:
+
+      CONFIG_NSH_DHCPC=n                        : DHCP is disabled
+      CONFIG_NSH_IPADDR=(10<<24|0<<16|0<<8|2)   : Target IP address 10.0.0.2
+      CONFIG_NSH_DRIPADDR=(10<<24|0<<16|0<<8|1) : Host IP address 10.0.0.1
+
+    This will probably need to be customized for your network.
+ 
     NOTES:
     1. This logic will assume that a network is connected.  During its
        initialization, it will try to negotiate the link speed.  If you have
@@ -648,11 +686,10 @@ Where <subdir> is one of the following:
 
        CONFIG_DISABLE_POLL=n
 
-  Using a RAM disk and the USB MSC device with nsh and nsh2
-  ---------------------------------------------------------
-  Here is an experimental change to either examples/nsh or examples/nsh2
-  that will create a RAM disk and attempt to export that RAM disk as a
-  USB mass storage device.
+  Using a RAM disk and the USB MSC device to the nsh configuration
+  ----------------------------------------------------------------
+  Here is an experimental change to examples/nsh that will create a RAM
+  disk and attempt to export that RAM disk as a USB mass storage device.
 
   1. Changes to nuttx/.config
 
@@ -702,31 +739,37 @@ Where <subdir> is one of the following:
     NOTE:  This modification should be considered experimental.  IN the
     little testing I have done with it, it appears functional.  But the
     logic has not been stressed and there could still be lurking issues.
+    (There is a bug associated with this configuration listed in the
+    top-level TODO list).
+
+  Adding LCD and graphics support to the nsh configuration:
+  --------------------------------------------------------
+
+    LCD support is already enabled in defconfig (nuttx/.config):
+
+      CONFIG_NX=y                          : Enable graphics suppport
+      CONFIG_PIC32MX_PMP=y                 : Enable parallel port support
+      CONFIG_LCD_MIO283QT2=y               : MIO283QT2 LCD support
+
+    But you will have to enable a specific graphics example application
+    in order to see anything.
  
-    Update. The following was added to the top-level TODO list:
+    appconfig (apps/.config):  Enable the application configurations that you
+    want to use.  Asexamples:
 
-    Title:       PIC32 USB DRIVER DOES NOT WORK WITH MASS STORAGE CLASS
-    Description: The PIC32 USB driver either crashes or hangs when used with
-                 the mass storage class when trying to write files to the target
-                 storage device.  This usually works with debug on, but does not
-                 work with debug OFF (implying some race condition?)
+      CONFIGURED_APPS += examples/nx       : Pick one or more
+      CONFIGURED_APPS += examples/nxhello  :
+      CONFIGURED_APPS += examples/nximage  :
+      CONFIGURED_APPS += examples/nxlines  :
 
-                 Here are some details of what I see in debugging:
+  Enabling touch screen support in the nsh configuaration
+  -------------------------------------------------------
 
-                 1. The USB MSC device completes processing of a read request
-                    and returns the read request to the driver.
-                 2. Before the MSC device can even begin the wait for the next
-                    driver, many packets come in at interrupt level.  The MSC
-                    device goes to sleep (on pthread_cond_wait) with all of the
-                    read buffers ready (16 in my test case).
-                 3. The pthread_cond_wait() does not wake up.  This implies
-                    a problem with pthread_con_wait(?).  But in other cases,
-                    the MSC device does wake up, but then immediately crashes
-                    because its stack is bad.
-                 4. If I force the pthread_cond_wait to wake up (by using
-                    pthread_cond_timedwait instead), then the thread wakes
-                    up and crashes with a bad stack.
+    In defconfig (or nuttx/.config), set:
 
-                 So far, I have no clue why this is failing.
-    Status:      Open
-    Priority:    High
+      CONFIG_INPUT=y                       : Enable input device support
+      CONFIG_SCHED_WORKQUEUE=y             : Work queue support needed
+
+    In appconfig (or apps/.config), uncomment:
+
+      CONFIGURED_APPS += examples/touchscreen

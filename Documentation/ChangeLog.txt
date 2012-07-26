@@ -2708,7 +2708,7 @@
 	  position, not an offset.
 	* graphics/nxtk/nxtk_drawframe.c:  Framed windows are now drawn in three
 	  colors (instead of just two).
-	* drivers/input/stmpe11_*:  Added a driver to support the STMicro STMPE11
+	* drivers/input/stmpe811_*:  Added a driver to support the STMicro STMPE811
 	  IO Expander and touchscreen driver.
 	* configs/stm3240g-eval/nxwm:  Added to configuration for testing the NxWM
 	  window manager on the STM3240G-EVAL board.
@@ -2720,8 +2720,8 @@
 	  Then add CONFIG_NX_WRITEONLY which is the more generic way of saying that
 	  no NX component should try to read from the underlying graphic device (LCD
 	  or other).
-	* configs/stm3240g-eval/src/up_stmpe11.c:  Add board-specific support for the
-	  the STMPE11 I/O expander on the STM3240G-EVAL board.  Verfied that the
+	* configs/stm3240g-eval/src/up_stmpe811.c:  Add board-specific support for the
+	  the STMPE811 I/O expander on the STM3240G-EVAL board.  Verfied that the
 	  STM3240G-EVAL touchscreen is now fully functional.
 	* include/cxx/cfcntl:  Added std:: header file.
 	* graphics/nxbe/nxbe_filltrapezoid.c and graphics/nxglib/fb/nxglib_filltrapezoid.c:
@@ -2730,14 +2730,14 @@
 	* configs/sam3u-ek, configs/sim, arch/sim/src/up_touchscreen.c, and
 	  apps/examples/touchscreen: Standardize the board-specific, touchscreen
 	  initialization interfaces.
-	* drivers/input/stmpe11_base.c and configs/stm3240g-eval:  The STMPE11-based
+	* drivers/input/stmpe811_base.c and configs/stm3240g-eval:  The STMPE811-based
 	  touchscreen seems to work better with edge (vs. level) interrupts
-	* drivers/input/stmpe11_tsc.c:  Fix some status checks so that the touchscreen
+	* drivers/input/stmpe811_tsc.c:  Fix some status checks so that the touchscreen
 	  interrupt handling logic does not read data if the fifo is not at the
 	  threshold level.
 	* include/nuttx/wqueue.h: Add macro work_available() to determine if the
 	  previously scheduled work has completed.
-	* drivers/stmpe11_tsc.c:  Correct errors: (1) Since all interrupt logic is done on
+	* drivers/stmpe811_tsc.c:  Correct errors: (1) Since all interrupt logic is done on
 	  the worker thread, disabling interrupts does not provide protected; Need to
 	  disable pre-emption.  (2) Fix handling of touch ID and (2) add some logic to
 	  prevent certain kinds of data overrun.
@@ -2746,7 +2746,7 @@
 	  other logic can use the defaults.
 	* graphics/nxtk/nxtk_events.c:  Fixed an important but in the logic that
 	  translates the mouse/touchscreen position data for framed windows and toolbars.
-	* drivers/input/stmpe11_tsc.c, tsc2007.c, and ads7843e.c:  Need to keep track of
+	* drivers/input/stmpe811_tsc.c, tsc2007.c, and ads7843e.c:  Need to keep track of
 	  when if positional data is valid.  When the touch is released, the X/Y position
 	  of the release must be the same as the X/Y position of the last touch (se that
 	  the release occurs in the same window as the last touch).
@@ -2760,7 +2760,7 @@
 	  window to revert to the previous window.  Not good behavior.
 	* sched/sched_mergepending.c:  Add task switching instrumentation.  There is a case
 	  here where instrumentation was missing.  Contributed by Petri Tanskanen.
-	* CONFIG_STMPE11_THRESHX, CONFIG_STMPE11_THRESHX, and drivers/stmpe11_tsc.c:  Add some
+	* CONFIG_STMPE811_THRESHX, CONFIG_STMPE811_THRESHX, and drivers/stmpe811_tsc.c:  Add some
 	  thresholding controls to all slow down processing of touchscreen samples.
 	  This is a problem with NX in multi-user mode:  touchscreen data gets sent
 	  via a message and when the message queue gets full the sender blocks and
@@ -2769,7 +2769,7 @@
 	* include/sched.h:  Fix a typo (missing semicolon) in prototype of on_exit();
 	* sched/on_exit.c and include/nuttx/sched.h:  Fix some old typos that caused
 	  compilation errors when CONFIG_SCHED_ONEXIT is defined.
-	* configs/stm3240g-eval/nxwm/defconfig:  The default NxWM now uses the STMPE11
+	* configs/stm3240g-eval/nxwm/defconfig:  The default NxWM now uses the STMPE811
 	  touchscreen.
 	* include/cxx/csched: Added
 	* graphic/nxmu/nxmu_sendserver.c, nxmu_sendwindow.c, and nxmu_sendclient.c:
@@ -2780,4 +2780,127 @@
 	  stale, queue window messages at the time that a window is destroyed, very bad
 	  things happen.
 
-6.19 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.19 2012-06-15 Gregory Nutt <gnutt@nuttx.org>
+
+	* graphics/nxconsole/nxcon_kbdin.c:  If selected, the NxConsole will take
+	  input from the NX keyboard input callback.  If this option is set, then
+	  the interface nxcon_kdbin() is enabled.  That interface may be driven by
+	  window callback functions so that keyboard input *only* goes to the top
+	  window. If CONFIG_NXCONSOLE_NXKBDIN is not selected, then the NxConsole
+	  will receive its input from stdin (/dev/console).  This works great but
+	  cannot be shared between different windows.  Chaos will ensue if you
+	  try to support multiple NxConsole windows without CONFIG_NXCONSOLE_NXKBDIN
+	* graphics/nxmu/nx_kbdin.c:  Fix pointer argument.  This is a error
+	  introduced in changes leading up to the 6.18 release.  This error will
+	  cause crashes or perhaps simply not work when you try to handle window
+	  keyboard data in multi-user mode.
+	* graphics/nxconsole/nxcon_kdbind.c:  Fixed unmatched sem_wait and sem_post.
+	  Fix some conditional compilation that included a few too many lines of code.
+	* drivers/input/stmpe811_tsc.c and stmpe811.h:  Add a timeout to catch missed
+	  pen up events.  Now the STM3240G-EVAL touchscreen works very smoothly.
+	* configs/stm3240g-eval/nxwm/defconfig: Enable support for NxConsole keyboard
+	  input. Increasing spacing of icons.
+	* configs/stm3240g-eval/nxwm/defconfig: Use a larger font for the calculator.
+	* include/nuttx/lcd/ssd1289.h, drivers/lcd/ssd1289.c and .h:  Generic LCD
+	  driver for LCDs based on the Solomon Systech SSD1289 LCD driver.  This
+	  of this as a template for an LCD driver that will have to be cusomized
+	  for your particular LCD hardware.
+	* configs/stm32f4discovery/src/up_extmem.c and up_ssd1289.c:  Add support to
+	  STM32F4Discovery for than an external, SSD1289-based LCD.
+	* configs/stm32f4discovery/nxlines:  Add an STM32F4Discovery configuration
+	  to thest the SSD1289-based LCD.
+	* configs/stm3240g-eval/src: Add USB GPIO initialization logic needed
+	  in board-specific boot logic.
+	* configs/stm32f4discovery/src: Add USB GPIO initialization logic needed
+	  in board-specific boot logic.
+	* drivers/usbdev/pl2303.c and cdcacm.c:  Fix the request size used for sending
+	  packets.  It was not using the maximum request size, but instead the previous
+	  request size.  As a result, packets get smaller, and smaller, and ...  This
+	  is an important USB serial fix.
+	* arch/arc/src/stm32_otgfsdev.c: Bug fix: Don't process TXFE if we have
+	  already processed an XFRC interrupt.  We have already done what needs
+	  to done in that case.
+	* arch/arc/src/stm32_otgfsdev.c:  Fixed some status settings in queuing of write
+	  messages. Added a "hack" to work around missing TxFIFO empty interrupts.  The
+	  hack is basically to poll for space in the TxFIFO instead of of setting up
+	  the interrupt.
+	* arch/arm/src/stm32/stm32f2* and chip/stm32f2*:  Update all STM32 F2 file so
+	  that they are equivalent to F4 files.  This is kind of a maintenance nightmare.
+	* configs/stm3220g-eval/: Update existing configurations to the same level
+	  as the corresponding STM3240G-EVAL configurations.  This adds FSMC SRAM,
+	  touchscreen, and LCD support.
+	* configs/stm3220g-eval/: Add a NxWM configuration for the STM3220G-EVAL.
+	* stmpe11*: Fix a massive naming problem.  All references to STMPE11 should be
+	  STMPE812.
+	* arch/arm/src/stm32/stm32_otgfsdev.c: Need to enabled USB reset interrupt
+	  (contributed by Erik Van Der Zalm).
+	* sched/sleep.c:  Fix the return value from sleep().  The correct behavior is
+	  to return the number of unwaited seconds; the implementation was always
+	  returning zero.
+	* sched/usleep.c and include/unistd.h:  Was a void function, but should return
+	  0 on success.  usleep() needs to check the return value from sigtimedwait().
+	  sigtimewait() returns the signal number that awakened it and an error (EAGAIN)
+	  if the timeout expired (normal case).
+	* sched/sig_timedwait.c:  Fix sigtimedwait() return value.  On a timeout, it was
+	  setting the 8-bit si_signo field to -1 and eded up reported successfully awakened
+	  by signal 255!  Now detects the timeout and errors -1 with errno == EGAIN.  If
+	  sigtimedwait() is awakened by an unblocked signal, but it is not one of the
+	  signals in the waited-for set, it will return -1 with errno == EINTR.
+	* arch/arm/src/stm32_i2c.c:  Fix STM32 F2 I2C.  It is apparently bug-for-bug
+	  compatible with the F4 and needs the same work-around for the missing BTF
+	  signal that was needed for the F4.
+	* drivers/lcd/ssd1289.*:  Fix some of the initial register settings.
+	* configs/stm32f4discovery/src/up_ssd1289.c: FSMC address bit 16 is used to
+	  distinguish command and data.  But FSMC address bits 0-24 correspond to ARM
+	  address bits 1-25, se we need to set bit 17 in order generate output on
+	  FSMC_A16.
+	* arch/arm/src/lm3s/lm3s_epi.h and lm3s_timer.h:  LM3S header files
+	  (contributed by Max Neklyudov).
+	* arch/arm/src/stm32/stm32_irq.c:  Some of the interrupt priorities were
+	  not be initialized (F2 and F4 only).  Thus, the very high numbered
+	  interrupts (like UART6) and cause nested interrupts.  This leads to
+	  some very difficult to debug crashes.  Fix contributed by Mike Smith.
+	* arch/mips/src/pic32/pic32_head.S and pic32_config.h and
+	  configs/pic32mx7mmb/include/board.h:  Extended PIC32 device configuration
+	  capabilities and change board.h to support unique clocking requirements
+	  of the Mikroelektronika PIC32MX7 MMB.  That board now works!
+	* configs/pic32mx7mmb/nsh:  Added and verify a NuttShell configuration
+	  for the Mikroelektronika PIC32MX7 MMB board.
+	* arch/mips/pic32/pic32mx-ethernet.c:  Fix logic that guesses PHY address;
+	  the search loop missed the PHY address needed by the Mikroelektronika
+	  PIC32MX7 MMB board.
+	* configs/pic32mx7mmb/nsh:  Configuration now supports a network by default.
+	* configs/pic32mx7mmb/src:  Add support for the MMC/SD slot on board
+	  the Mikroelektronika PIC32MX7 MMB board (not working on initial check-in).
+	* arch/mips/src/pic32/pic32mx-spi.c:  Add support for very low-level,
+	  register access debug output.
+	* configs//pic32mx7mmb/include/board.h:  Reduced peripheral clock to
+	  4MHz to match other PIC32 configurations.
+	* configs/pic32mx7mmb/src/up_nsh.c:  SD card needs to operate in SPI
+	  mode 2.
+	* configs/pic32mx7mmb/nsh/defconfig:  MMC/SD card support is now
+	  enabled by default in the PIC32MX7 MMB board configuration.
+	* configs/pic32mx7mmb/nsh/defconfig:  Verified the USB Mass Storage
+	  Class (MSC) using MMC/SD card as the logical unit.  Updated the default
+	  PIC32MX7 MMB board configuration so that USB and the mass storage class
+	  are enabled by default.
+	* drivers/lcd/mio283qt2.c and include/nuttx/lcd/mio283qt2.h:  Add generic
+	  support for the MIO283QT2 LCD.
+	* configs/pic32mx7mmb/src/up_mio283qt2.c:  Add support for the MIO283QT2
+	  LCD on the PIC32MX7 MMB board.
+	* configs/pic32mx7mmb/src/up_touchscreen.c:  Add an ADC-based touchscreen
+	  driver for the PIC32MX7 MMB board.  Kind of works, but needs more
+	  verification and tuning.
+	* arch/mips/src/common/up_idle.c:  Strange but important fix.  For some still-
+	  unknown reason, interrupts are left in an unhealthy state in the IDLE
+	  when the work queue is enabled.  This is partially because some interrupt
+	  related logic is not built in that case.  Simply disabling then re-
+	  enabling interrupts restores the proper state.
+	* graphics/nxglib/lcd/nxglib_filltrapezoid.c and fb/nxglib_filltrapezoid.c:
+	  Fix an error when the trapezoid is only 1 line high.  In this case, a
+	  divide by zero error would occur.  The fix is to draw the 1 line high
+	  trapezoid as a run.
+	* drivers/usbdev/pl2303.c:  Fixe a cut'n'paste error that snuck into
+	  the PL2303 emulation driver several months back.
+
+6.20 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>

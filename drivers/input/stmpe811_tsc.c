@@ -1,5 +1,5 @@
 /****************************************************************************
- * drivers/input/stmpe11_tsc.c
+ * drivers/input/stmpe811_tsc.c
  *
  *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -65,11 +65,11 @@
 
 #include <nuttx/arch.h>
 #include <nuttx/input/touchscreen.h>
-#include <nuttx/input/stmpe11.h>
+#include <nuttx/input/stmpe811.h>
 
-#include "stmpe11.h"
+#include "stmpe811.h"
 
-#if defined(CONFIG_INPUT) && defined(CONFIG_INPUT_STMPE11) && !defined(CONFIG_STMPE11_TSC_DISABLE)
+#if defined(CONFIG_INPUT) && defined(CONFIG_INPUT_STMPE811) && !defined(CONFIG_STMPE811_TSC_DISABLE)
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -110,28 +110,28 @@
  ****************************************************************************/
 /* Internal logic */
 
-static void     stmpe11_notify(FAR struct stmpe11_dev_s *priv);
-static int      stmpe11_sample(FAR struct stmpe11_dev_s *priv,
-                  FAR struct stmpe11_sample_s *sample);
-static inline int stmpe11_waitsample(FAR struct stmpe11_dev_s *priv,
-                  FAR struct stmpe11_sample_s *sample);
+static void     stmpe811_notify(FAR struct stmpe811_dev_s *priv);
+static int      stmpe811_sample(FAR struct stmpe811_dev_s *priv,
+                  FAR struct stmpe811_sample_s *sample);
+static inline int stmpe811_waitsample(FAR struct stmpe811_dev_s *priv,
+                  FAR struct stmpe811_sample_s *sample);
 
 /* Character driver methods */
 
-static int      stmpe11_open(FAR struct file *filep);
-static int      stmpe11_close(FAR struct file *filep);
-static ssize_t  stmpe11_read(FAR struct file *filep, FAR char *buffer,
+static int      stmpe811_open(FAR struct file *filep);
+static int      stmpe811_close(FAR struct file *filep);
+static ssize_t  stmpe811_read(FAR struct file *filep, FAR char *buffer,
                   size_t len);
-static int      stmpe11_ioctl(FAR struct file *filep, int cmd,
+static int      stmpe811_ioctl(FAR struct file *filep, int cmd,
                   unsigned long arg);
 #ifndef CONFIG_DISABLE_POLL
-static int      stmpe11_poll(FAR struct file *filep, struct pollfd *fds,
+static int      stmpe811_poll(FAR struct file *filep, struct pollfd *fds,
                   bool setup);
 #endif
 
 /* Initialization logic */
 
-static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv);
+static inline void stmpe811_tscinitialize(FAR struct stmpe811_dev_s *priv);
 
 /****************************************************************************
  * Private Data
@@ -139,16 +139,16 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv);
 
 /* This the the vtable that supports the character driver interface */
 
-static const struct file_operations g_stmpe11fops =
+static const struct file_operations g_stmpe811fops =
 {
-  stmpe11_open,    /* open */
-  stmpe11_close,   /* close */
-  stmpe11_read,    /* read */
+  stmpe811_open,    /* open */
+  stmpe811_close,   /* close */
+  stmpe811_read,    /* read */
   0,               /* write */
   0,               /* seek */
-  stmpe11_ioctl    /* ioctl */
+  stmpe811_ioctl    /* ioctl */
 #ifndef CONFIG_DISABLE_POLL
-  , stmpe11_poll   /* poll */
+  , stmpe811_poll   /* poll */
 #endif
 };
 
@@ -156,7 +156,7 @@ static const struct file_operations g_stmpe11fops =
  * Private Functions
  ****************************************************************************/
 /****************************************************************************
- * Name: stmpe11_notify
+ * Name: stmpe811_notify
  *
  * Description:
  *   Notify any threads waiting on touchscreen data that data is now
@@ -164,7 +164,7 @@ static const struct file_operations g_stmpe11fops =
  *
  ****************************************************************************/
 
-static void stmpe11_notify(FAR struct stmpe11_dev_s *priv)
+static void stmpe811_notify(FAR struct stmpe811_dev_s *priv)
 {
 #ifndef CONFIG_DISABLE_POLL
   int i;
@@ -176,21 +176,21 @@ static void stmpe11_notify(FAR struct stmpe11_dev_s *priv)
 
   if (priv->nwaiters > 0)
     {
-      /* After posting this semaphore, we need to exit because the STMPE11
+      /* After posting this semaphore, we need to exit because the STMPE811
        * is no longer available.
        */
 
       sem_post(&priv->waitsem); 
     }
 
-  /* If there are threads waiting on poll() for STMPE11 data to become available,
+  /* If there are threads waiting on poll() for STMPE811 data to become available,
    * then wake them up now.  NOTE: we wake up all waiting threads because we
    * do not know that they are going to do.  If they all try to read the data,
    * then some make end up blocking after all.
    */
 
 #ifndef CONFIG_DISABLE_POLL
-  for (i = 0; i < CONFIG_STMPE11_NPOLLWAITERS; i++)
+  for (i = 0; i < CONFIG_STMPE811_NPOLLWAITERS; i++)
     {
       struct pollfd *fds = priv->fds[i];
       if (fds)
@@ -204,11 +204,11 @@ static void stmpe11_notify(FAR struct stmpe11_dev_s *priv)
 }
 
 /****************************************************************************
- * Name: stmpe11_sample
+ * Name: stmpe811_sample
  *
  * Description:
  *   Check if touchscreen sample data is available now and, if so, return
- *   the sample data.  This is part of the stmpe11_read logic.
+ *   the sample data.  This is part of the stmpe811_read logic.
  *
  * Assumption:
  *   Pre-emption is disable to prevent the worker thread from running.
@@ -216,12 +216,12 @@ static void stmpe11_notify(FAR struct stmpe11_dev_s *priv)
  *
  ****************************************************************************/
 
-static int stmpe11_sample(FAR struct stmpe11_dev_s *priv,
-                          FAR struct stmpe11_sample_s *sample)
+static int stmpe811_sample(FAR struct stmpe811_dev_s *priv,
+                           FAR struct stmpe811_sample_s *sample)
 {
   int ret = -EAGAIN;
 
-  /* Is there new STMPE11 sample data available? */
+  /* Is there new STMPE811 sample data available? */
 
   if (priv->penchange)
     {
@@ -229,7 +229,7 @@ static int stmpe11_sample(FAR struct stmpe11_dev_s *priv,
        * sampled data.
        */
 
-      memcpy(sample, &priv->sample, sizeof(struct stmpe11_sample_s));
+      memcpy(sample, &priv->sample, sizeof(struct stmpe811_sample_s));
 
       /* Now manage state transitions */
 
@@ -264,16 +264,16 @@ static int stmpe11_sample(FAR struct stmpe11_dev_s *priv,
 }
 
 /****************************************************************************
- * Name: stmpe11_waitsample
+ * Name: stmpe811_waitsample
  *
  * Description:
  *   Wait for a sample to become available (this is really part of the
- *   stmpe11_read logic).
+ *   stmpe811_read logic).
  *
  ****************************************************************************/
 
-static inline int stmpe11_waitsample(FAR struct stmpe11_dev_s *priv,
-                                     FAR struct stmpe11_sample_s *sample)
+static inline int stmpe811_waitsample(FAR struct stmpe811_dev_s *priv,
+                                      FAR struct stmpe811_sample_s *sample)
 {
   int ret;
 
@@ -294,9 +294,9 @@ static inline int stmpe11_waitsample(FAR struct stmpe11_dev_s *priv,
    * that is posted when new sample data is availble.
    */
 
-  while (stmpe11_sample(priv, sample) < 0)
+  while (stmpe811_sample(priv, sample) < 0)
     {
-      /* Wait for a change in the STMPE11 state */
+      /* Wait for a change in the STMPE811 state */
  
       priv->nwaiters++;
       ret = sem_wait(&priv->waitsem);
@@ -315,7 +315,7 @@ static inline int stmpe11_waitsample(FAR struct stmpe11_dev_s *priv,
            * the failure now.
            */
 
-          idbg("sem_wait failed: %d\n", errval);
+          idbg("ERROR: sem_wait failed: %d\n", errval);
           DEBUGASSERT(errval == EINTR);
 #endif
           ret = -EINTR;
@@ -333,7 +333,7 @@ static inline int stmpe11_waitsample(FAR struct stmpe11_dev_s *priv,
 errout:
   /* Restore pre-emption.  We might get suspended here but that is okay
    * because we already have our sample.  Note:  this means that if there
-   * were two threads reading from the STMPE11 for some reason, the data
+   * were two threads reading from the STMPE811 for some reason, the data
    * might be read out of order.
    */
 
@@ -342,18 +342,18 @@ errout:
 }
 
 /****************************************************************************
- * Name: stmpe11_open
+ * Name: stmpe811_open
  *
  * Description:
  *   Standard character driver open method.
  *
  ****************************************************************************/
 
-static int stmpe11_open(FAR struct file *filep)
+static int stmpe811_open(FAR struct file *filep)
 {
-#ifdef CONFIG_STMPE11_REFCNT
+#ifdef CONFIG_STMPE811_REFCNT
   FAR struct inode         *inode;
-  FAR struct stmpe11_dev_s *priv;
+  FAR struct stmpe811_dev_s *priv;
   uint8_t                   tmp;
   int                       ret;
 
@@ -361,7 +361,7 @@ static int stmpe11_open(FAR struct file *filep)
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct stmpe11_dev_s *)inode->i_private;
+  priv  = (FAR struct stmpe811_dev_s *)inode->i_private;
 
   /* Get exclusive access to the driver data structure */
 
@@ -402,25 +402,25 @@ errout_with_sem:
 }
 
 /****************************************************************************
- * Name: stmpe11_close
+ * Name: stmpe811_close
  *
  * Description:
  *   Standard character driver close method.
  *
  ****************************************************************************/
 
-static int stmpe11_close(FAR struct file *filep)
+static int stmpe811_close(FAR struct file *filep)
 {
-#ifdef CONFIG_STMPE11_REFCNT
+#ifdef CONFIG_STMPE811_REFCNT
   FAR struct inode         *inode;
-  FAR struct stmpe11_dev_s *priv;
+  FAR struct stmpe811_dev_s *priv;
   int                       ret;
 
   DEBUGASSERT(filep);
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct stmpe11_dev_s *)inode->i_private;
+  priv  = (FAR struct stmpe811_dev_s *)inode->i_private;
 
   /* Get exclusive access to the driver data structure */
 
@@ -449,19 +449,19 @@ static int stmpe11_close(FAR struct file *filep)
 }
 
 /****************************************************************************
- * Name: stmpe11_read
+ * Name: stmpe811_read
  *
  * Description:
  *   Standard character driver read method.
  *
  ****************************************************************************/
 
-static ssize_t stmpe11_read(FAR struct file *filep, FAR char *buffer, size_t len)
+static ssize_t stmpe811_read(FAR struct file *filep, FAR char *buffer, size_t len)
 {
   FAR struct inode          *inode;
-  FAR struct stmpe11_dev_s  *priv;
+  FAR struct stmpe811_dev_s  *priv;
   FAR struct touch_sample_s *report;
-  struct stmpe11_sample_s    sample;
+  struct stmpe811_sample_s   sample;
   int                        ret;
 
   ivdbg("len=%d\n", len);
@@ -469,7 +469,7 @@ static ssize_t stmpe11_read(FAR struct file *filep, FAR char *buffer, size_t len
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct stmpe11_dev_s *)inode->i_private;
+  priv  = (FAR struct stmpe811_dev_s *)inode->i_private;
 
   /* Verify that the caller has provided a buffer large enough to receive
    * the touch data.
@@ -497,7 +497,7 @@ static ssize_t stmpe11_read(FAR struct file *filep, FAR char *buffer, size_t len
 
   /* Try to read sample data. */
 
-  ret = stmpe11_sample(priv, &sample);
+  ret = stmpe811_sample(priv, &sample);
   if (ret < 0)
     {
       /* Sample data is not available now.  We would ave to wait to get
@@ -513,7 +513,7 @@ static ssize_t stmpe11_read(FAR struct file *filep, FAR char *buffer, size_t len
 
       /* Wait for sample data */
 
-      ret = stmpe11_waitsample(priv, &sample);
+      ret = stmpe811_waitsample(priv, &sample);
       if (ret < 0)
         {
           /* We might have been awakened by a signal */
@@ -522,7 +522,7 @@ static ssize_t stmpe11_read(FAR struct file *filep, FAR char *buffer, size_t len
         }
     }
 
-  /* In any event, we now have sampled STMPE11 data that we can report
+  /* In any event, we now have sampled STMPE811 data that we can report
    * to the caller.
    */
 
@@ -576,25 +576,25 @@ errout:
 }
 
 /****************************************************************************
- * Name: stmpe11_ioctl
+ * Name: stmpe811_ioctl
   *
  * Description:
  *   Standard character driver ioctl method.
  *
 ****************************************************************************/
 
-static int stmpe11_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
+static int stmpe811_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
-  FAR struct inode         *inode;
-  FAR struct stmpe11_dev_s *priv;
-  int                       ret;
+  FAR struct inode          *inode;
+  FAR struct stmpe811_dev_s *priv;
+  int                        ret;
 
   ivdbg("cmd: %d arg: %ld\n", cmd, arg);
   DEBUGASSERT(filep);
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct stmpe11_dev_s *)inode->i_private;
+  priv  = (FAR struct stmpe811_dev_s *)inode->i_private;
 
   /* Get exclusive access to the driver data structure */
 
@@ -637,7 +637,7 @@ static int stmpe11_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 }
 
 /****************************************************************************
- * Name: stmpe11_poll
+ * Name: stmpe811_poll
  *
  * Description:
  *   Standard character driver poll method.
@@ -645,20 +645,20 @@ static int stmpe11_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
  ****************************************************************************/
 
 #ifndef CONFIG_DISABLE_POLL
-static int stmpe11_poll(FAR struct file *filep, FAR struct pollfd *fds,
-                        bool setup)
+static int stmpe811_poll(FAR struct file *filep, FAR struct pollfd *fds,
+                         bool setup)
 {
-  FAR struct inode         *inode;
-  FAR struct stmpe11_dev_s *priv;
-  int                       ret;
-  int                       i;
+  FAR struct inode          *inode;
+  FAR struct stmpe811_dev_s *priv;
+  int                        ret;
+  int                        i;
 
   ivdbg("setup: %d\n", (int)setup);
   DEBUGASSERT(filep && fds);
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct stmpe11_dev_s *)inode->i_private;
+  priv  = (FAR struct stmpe811_dev_s *)inode->i_private;
 
   /* Are we setting up the poll?  Or tearing it down? */
 
@@ -677,7 +677,7 @@ static int stmpe11_poll(FAR struct file *filep, FAR struct pollfd *fds,
 
       if ((fds->events & POLLIN) == 0)
         {
-          idbg("Missing POLLIN: revents: %08x\n", fds->revents);
+          idbg("ERROR: Missing POLLIN: revents: %08x\n", fds->revents);
           ret = -EDEADLK;
           goto errout;
         }
@@ -686,7 +686,7 @@ static int stmpe11_poll(FAR struct file *filep, FAR struct pollfd *fds,
        * slot for the poll structure reference
        */
 
-      for (i = 0; i < CONFIG_STMPE11_NPOLLWAITERS; i++)
+      for (i = 0; i < CONFIG_STMPE811_NPOLLWAITERS; i++)
         {
           /* Find an available slot */
 
@@ -700,9 +700,9 @@ static int stmpe11_poll(FAR struct file *filep, FAR struct pollfd *fds,
             }
         }
 
-      if (i >= CONFIG_STMPE11_NPOLLWAITERS)
+      if (i >= CONFIG_STMPE811_NPOLLWAITERS)
         {
-          idbg("No availabled slot found: %d\n", i);
+          idbg("ERROR: No availabled slot found: %d\n", i);
           fds->priv    = NULL;
           ret          = -EBUSY;
           goto errout;
@@ -712,7 +712,7 @@ static int stmpe11_poll(FAR struct file *filep, FAR struct pollfd *fds,
 
       if (priv->penchange)
         {
-          stmpe11_notify(priv);
+          stmpe811_notify(priv);
         }
     }
   else if (fds->priv)
@@ -735,15 +735,73 @@ errout:
 #endif
 
 /****************************************************************************
- * Name: stmpe11_tscinitialize
+ * Name: stmpe811_timeoutworker
  *
  * Description:
- *   Initialize the touchscreen controller.  This is really a part of the
- *   stmpe11_register logic,
+ *   A timer has expired without receiving a pen up event.  Check again.
  *
  ****************************************************************************/
 
-static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
+static void stmpe811_timeoutworker(FAR void *arg)
+{
+  FAR struct stmpe811_dev_s *priv = (FAR struct stmpe811_dev_s *)arg;
+
+  DEBUGASSERT(priv);
+
+  /* Treat the timeout just like an interrupt occurred */
+
+  stmpe811_tscworker(priv, stmpe811_getreg8(priv, STMPE811_INT_STA));
+}
+
+/****************************************************************************
+ * Name: stmpe811_timeout
+ *
+ * Description:
+ *   A timer has expired without receiving a pen up event.  Schedule work
+ *   to check again.
+ *
+ ****************************************************************************/
+
+static void stmpe811_timeout(int argc, uint32_t arg1, ...)
+{
+  FAR struct stmpe811_dev_s *priv = (FAR struct stmpe811_dev_s *)((uintptr_t)arg1);
+  int ret;
+
+  /* Are we still stuck in the pen down state? */
+
+  if (priv->sample.contact == CONTACT_MOVE ||
+      priv->sample.contact == CONTACT_MOVE)
+    {
+      /* Yes... is the worker thread available?   If not, then apparently
+       * we have work already pending?
+       */
+
+      if (work_available(&priv->timeout))
+        {
+          /* Yes.. Transfer processing to the worker thread.  Since STMPE811
+           * interrupts are disabled while the work is pending, no special
+           * action should be required to protect the work queue.
+           */
+
+          ret = work_queue(&priv->timeout, stmpe811_timeoutworker, priv, 0);
+          if (ret != 0)
+            {
+              illdbg("Failed to queue work: %d\n", ret);
+            }
+        }
+    }
+}
+
+/****************************************************************************
+ * Name: stmpe811_tscinitialize
+ *
+ * Description:
+ *   Initialize the touchscreen controller.  This is really a part of the
+ *   stmpe811_register logic,
+ *
+ ****************************************************************************/
+
+static inline void stmpe811_tscinitialize(FAR struct stmpe811_dev_s *priv)
 {
   uint8_t regval;
 
@@ -751,19 +809,19 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
 
   /* Enable TSC and ADC functions */
 
-  regval = stmpe11_getreg8(priv, STMPE11_SYS_CTRL2);
+  regval = stmpe811_getreg8(priv, STMPE811_SYS_CTRL2);
   regval &= ~(SYS_CTRL2_TSC_OFF | SYS_CTRL2_ADC_OFF);
-  stmpe11_putreg8(priv, STMPE11_SYS_CTRL2, regval);
+  stmpe811_putreg8(priv, STMPE811_SYS_CTRL2, regval);
 
   /* Enable the TSC global interrupts */
 
-  regval  = stmpe11_getreg8(priv, STMPE11_INT_EN);
+  regval  = stmpe811_getreg8(priv, STMPE811_INT_EN);
   regval |= (uint32_t)(INT_TOUCH_DET | INT_FIFO_TH | INT_FIFO_OFLOW);
-  stmpe11_putreg8(priv, STMPE11_INT_EN, regval);
+  stmpe811_putreg8(priv, STMPE811_INT_EN, regval);
 
   /* Select Sample Time, bit number and ADC Reference */
 
-  stmpe11_putreg8(priv, STMPE11_ADC_CTRL1, priv->config->ctrl1);
+  stmpe811_putreg8(priv, STMPE811_ADC_CTRL1, priv->config->ctrl1);
 
   /* Wait for 20 ms */
 
@@ -771,45 +829,45 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
 
   /* Select the ADC clock speed */
 
-  stmpe11_putreg8(priv, STMPE11_ADC_CTRL2, priv->config->ctrl2);
+  stmpe811_putreg8(priv, STMPE811_ADC_CTRL2, priv->config->ctrl2);
 
   /* Select TSC pins in non-GPIO mode (AF=0) */
 
-  regval  = stmpe11_getreg8(priv, STMPE11_GPIO_AF);
+  regval  = stmpe811_getreg8(priv, STMPE811_GPIO_AF);
   regval &= ~(uint8_t)TSC_PIN_SET;
-  stmpe11_putreg8(priv, STMPE11_GPIO_AF, regval);
+  stmpe811_putreg8(priv, STMPE811_GPIO_AF, regval);
 
   /* Select 2 nF filter capacitor */
 
-  stmpe11_putreg8(priv, STMPE11_TSC_CFG,
+  stmpe811_putreg8(priv, STMPE811_TSC_CFG,
                  (TSC_CFG_AVE_CTRL_4SAMPLES | TSC_CFG_TOUCH_DELAY_500US | TSC_CFG_SETTLING_500US));
 
   /* Select single point reading */
 
-  stmpe11_putreg8(priv, STMPE11_FIFO_TH, 1);
+  stmpe811_putreg8(priv, STMPE811_FIFO_TH, 1);
 
   /* Reset and clear the FIFO. */
 
-  stmpe11_putreg8(priv, STMPE11_FIFO_STA, FIFO_STA_FIFO_RESET);
-  stmpe11_putreg8(priv, STMPE11_FIFO_STA, 0);
+  stmpe811_putreg8(priv, STMPE811_FIFO_STA, FIFO_STA_FIFO_RESET);
+  stmpe811_putreg8(priv, STMPE811_FIFO_STA, 0);
 
   /* set the data format for Z value: 7 fractional part and 1 whole part */
 
-  stmpe11_putreg8(priv, STMPE11_TSC_FRACTIONZ, 0x01);
+  stmpe811_putreg8(priv, STMPE811_TSC_FRACTIONZ, 0x01);
 
   /* Set the driving capability of the device for TSC pins: 50mA */
 
-  stmpe11_putreg8(priv, STMPE11_TSC_IDRIVE, TSC_IDRIVE_50MA);
+  stmpe811_putreg8(priv, STMPE811_TSC_IDRIVE, TSC_IDRIVE_50MA);
 
   /* Enable the TSC.  Use no tracking index, touch-screen controller
   * operation mode (XYZ).
    */
 
-  stmpe11_putreg8(priv, STMPE11_TSC_CTRL, TSC_CTRL_EN);
+  stmpe811_putreg8(priv, STMPE811_TSC_CTRL, TSC_CTRL_EN);
 
   /* Clear all the status pending bits */
 
-  stmpe11_putreg8(priv, STMPE11_INT_STA, INT_ALL);
+  stmpe811_putreg8(priv, STMPE811_INT_STA, INT_ALL);
 }
 
 /****************************************************************************
@@ -817,7 +875,7 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: stmpe11_register
+ * Name: stmpe811_register
  *
  * Description:
  *  Enable TSC functionality.  GPIO4-7 must be available.  This function
@@ -825,7 +883,7 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
  *  device number
  *
  * Input Parameters:
- *   handle    - The handle previously returned by stmpe11_register
+ *   handle    - The handle previously returned by stmpe811_register
  *   minor     - The input device minor number
  *
  * Returned Value:
@@ -834,9 +892,9 @@ static inline void stmpe11_tscinitialize(FAR struct stmpe11_dev_s *priv)
  *
  ****************************************************************************/
 
-int stmpe11_register(STMPE11_HANDLE handle, int minor)
+int stmpe811_register(STMPE811_HANDLE handle, int minor)
 {
-  FAR struct stmpe11_dev_s *priv = (FAR struct stmpe11_dev_s *)handle;
+  FAR struct stmpe811_dev_s *priv = (FAR struct stmpe811_dev_s *)handle;
   char devname[DEV_NAMELEN];
   int ret;
 
@@ -849,7 +907,7 @@ int stmpe11_register(STMPE11_HANDLE handle, int minor)
   if (ret < 0)
     {
       int errval = errno;
-      idbg("sem_wait failed: %d\n", errval);
+      idbg("ERROR: sem_wait failed: %d\n", errval);
       return -errval;
     }
 
@@ -857,61 +915,75 @@ int stmpe11_register(STMPE11_HANDLE handle, int minor)
 
   if ((priv->inuse & TSC_PIN_SET) != 0)
     {
-      idbg("TSC pins is already in-use: %02x\n", priv->inuse);
+      idbg("ERROR: TSC pins is already in-use: %02x\n", priv->inuse);
       sem_post(&priv->exclsem);
       return -EBUSY;
     }
 
-  /* Initialize the TS structure to their default values */
+  /* Initialize the TS structure fields to their default values */
 
   priv->minor     = minor;
   priv->penchange = false;
   priv->threshx   = 0;
   priv->threshy   = 0;
 
+  /* Create a timer for catching missed pen up conditions */
+
+  priv->wdog      = wd_create();
+  if (!priv->wdog)
+    {
+      idbg("ERROR: Failed to create a watchdog\n", errno);
+      sem_post(&priv->exclsem);
+      return -ENOSPC;
+    }
+
   /* Register the character driver */
 
   snprintf(devname, DEV_NAMELEN, DEV_FORMAT, minor);
-  ret = register_driver(devname, &g_stmpe11fops, 0666, priv);
+  ret = register_driver(devname, &g_stmpe811fops, 0666, priv);
   if (ret < 0)
     {
-      idbg("Failed to register driver %s: %d\n", devname, ret);
+      idbg("ERROR: Failed to register driver %s: %d\n", devname, ret);
       sem_post(&priv->exclsem);
       return ret;
     }
 
   /* Initialize the touchscreen controller */
 
-  stmpe11_tscinitialize(priv);
+  stmpe811_tscinitialize(priv);
 
   /* Inidicate that the touchscreen controller was successfully initialized */
 
   priv->inuse |= TSC_PIN_SET;                    /* Pins 4-7 are now in-use */
-  priv->flags |= STMPE11_FLAGS_TSC_INITIALIZED;  /* TSC function is initialized */
+  priv->flags |= STMPE811_FLAGS_TSC_INITIALIZED;  /* TSC function is initialized */
   sem_post(&priv->exclsem);
   return ret;
 }
 
 /****************************************************************************
- * Name: stmpe11_tscworker
+ * Name: stmpe811_tscworker
  *
  * Description:
  *   This function is called to handle a TSC interrupt.  It is not really
- *   an interrupt handle because it is called from the STMPE11 "bottom half"
+ *   an interrupt handle because it is called from the STMPE811 "bottom half"
  *   logic that runs on the worker thread.
  *
  ****************************************************************************/
 
-void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
+void stmpe811_tscworker(FAR struct stmpe811_dev_s *priv, uint8_t intsta)
 {
-  FAR struct stmpe11_config_s *config;   /* Convenience pointer */
-  bool                         pendown;  /* true: pend is down */
-  uint16_t                     xdiff;    /* X difference used in thresholding */
-  uint16_t                     ydiff;    /* Y difference used in thresholding */
-  uint16_t                     x;        /* X position */
-  uint16_t                     y;        /* Y position */
+  FAR struct stmpe811_config_s *config;   /* Convenience pointer */
+  bool                          pendown;  /* true: pend is down */
+  uint16_t                      xdiff;    /* X difference used in thresholding */
+  uint16_t                      ydiff;    /* Y difference used in thresholding */
+  uint16_t                      x;        /* X position */
+  uint16_t                      y;        /* Y position */
 
   ASSERT(priv != NULL);
+
+  /* Cancel the missing pen up timer */
+
+  (void)wd_cancel(priv->wdog);
 
   /* Get a pointer the callbacks for convenience (and so the code is not so
    * ugly).
@@ -920,9 +992,9 @@ void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
   config = priv->config;
   DEBUGASSERT(config != NULL);
 
-  /* Check for pen up or down from the TSC_STA ibit n the STMPE11_TSC_CTRL register. */
+  /* Check for pen up or down from the TSC_STA ibit n the STMPE811_TSC_CTRL register. */
 
-  pendown = (stmpe11_getreg8(priv, STMPE11_TSC_CTRL) & TSC_CTRL_TSC_STA) != 0;
+  pendown = (stmpe811_getreg8(priv, STMPE811_TSC_CTRL) & TSC_CTRL_TSC_STA) != 0;
 
   /* Handle the change from pen down to pen up */
 
@@ -959,12 +1031,12 @@ void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
     {
       /* Read the next x and y positions from the FIFO. */
 
-#ifdef CONFIG_STMPE11_SWAPXY
-      x = stmpe11_getreg16(priv, STMPE11_TSC_DATAX);
-      y = stmpe11_getreg16(priv, STMPE11_TSC_DATAY);
+#ifdef CONFIG_STMPE811_SWAPXY
+      x = stmpe811_getreg16(priv, STMPE811_TSC_DATAX);
+      y = stmpe811_getreg16(priv, STMPE811_TSC_DATAY);
 #else
-      x = stmpe11_getreg16(priv, STMPE11_TSC_DATAY);
-      y = stmpe11_getreg16(priv, STMPE11_TSC_DATAX);
+      x = stmpe811_getreg16(priv, STMPE811_TSC_DATAY);
+      y = stmpe811_getreg16(priv, STMPE811_TSC_DATAX);
 #endif
 
       /* If we have not yet processed the last pen up event, then we
@@ -994,7 +1066,7 @@ void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
       xdiff = x > priv->threshx ? (x - priv->threshx) : (priv->threshx - x);
       ydiff = y > priv->threshy ? (y - priv->threshy) : (priv->threshy - y);
 
-      if (xdiff < CONFIG_STMPE11_THRESHX && ydiff < CONFIG_STMPE11_THRESHY)
+      if (xdiff < CONFIG_STMPE811_THRESHX && ydiff < CONFIG_STMPE811_THRESHY)
         {
           /* Little or no change in either direction ... don't report anything. */
 
@@ -1013,7 +1085,7 @@ void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
 
       /* Update the Z pressure index */
 
-      priv->sample.z      = stmpe11_getreg8(priv, STMPE11_TSC_DATAZ);
+      priv->sample.z      = stmpe811_getreg8(priv, STMPE811_TSC_DATAZ);
       priv->sample.valid  = true;
 
       /* If this is the first (acknowledged) pen down report, then report
@@ -1046,16 +1118,27 @@ void stmpe11_tscworker(FAR struct stmpe11_dev_s *priv, uint8_t intsta)
   priv->sample.id = priv->id;
   priv->penchange = true;
 
-  /* Notify any waiters that new STMPE11 data is available */
+  /* Notify any waiters that new STMPE811 data is available */
 
-  stmpe11_notify(priv);
+  stmpe811_notify(priv);
 
-  /*  Reset and clear all data in the FIFO */
+  /* If we think that the pend is still down, the start/re-start the pen up
+   * timer.
+   */
 
 ignored:
-  stmpe11_putreg8(priv, STMPE11_FIFO_STA, FIFO_STA_FIFO_RESET);
-  stmpe11_putreg8(priv, STMPE11_FIFO_STA, 0);
+  if (priv->sample.contact == CONTACT_MOVE ||
+      priv->sample.contact == CONTACT_MOVE)
+    {
+      (void)wd_start(priv->wdog, STMPE811_PENUP_TICKS, stmpe811_timeout,
+                     1, (uint32_t)((uintptr_t)priv));
+    }
+  
+  /*  Reset and clear all data in the FIFO */
+
+  stmpe811_putreg8(priv, STMPE811_FIFO_STA, FIFO_STA_FIFO_RESET);
+  stmpe811_putreg8(priv, STMPE811_FIFO_STA, 0);
 }
 
-#endif /* CONFIG_INPUT && CONFIG_INPUT_STMPE11 && !CONFIG_STMPE11_TSC_DISABLE */
+#endif /* CONFIG_INPUT && CONFIG_INPUT_STMPE811 && !CONFIG_STMPE811_TSC_DISABLE */
 

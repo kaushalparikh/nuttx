@@ -4,6 +4,7 @@
  *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Copyright (C) 2012 Jose Pablo Rojas Vargas. All rights reserved.
  *   Author: Jose Pablo Rojas Vargas <jrojas@nx-engineering.com>
+ *           Gregory Nutt <gnutt@nuttx.org>
  *
  * Leveraged from OpenBSD:
  *
@@ -57,21 +58,24 @@
 #include <queue.h>
 #include <string.h>
 #include <fcntl.h>
+#include <time.h>
+#include <semaphore.h>
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
-#include <time.h>
+
 #include <nuttx/kmalloc.h>
 #include <nuttx/fs/dirent.h>
 #include <nuttx/fs/fs.h>
 #include <nuttx/fs/nfs.h>
-#include <semaphore.h>
+#include <nuttx/net/uip/uip.h>
+#include <nuttx/net/uip/uip-udp.h>
+#include <nuttx/net/uip/uipopt.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
 
 #include "nfs.h"
-#include "rpc_v2.h"
 #include "rpc.h"
 #include "nfs_proto.h"
 #include "nfs_node.h"
@@ -83,51 +87,60 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define NFS_DIRHDSIZ         (sizeof (struct nfs_dirent) - (MAXNAMLEN + 1))
-#define NFS_DIRENT_OVERHEAD  offsetof(struct nfs_dirent, dirent)
+/* The V3 EXCLUSIVE file creation logic is not fully supported. */
+
+#define USE_GUARDED_CREATE    1
+
+/* include/nuttx/fs/dirent.h has its own version of these lengths.  They must
+ * match the NFS versions.
+ */
+
+#if NFSX_V3FHMAX != DIRENT_NFS_MAXHANDLE
+#  error "Length of file handle in fs_dirent_s is incorrect"
+#endif
+
+#if NFSX_V3COOKIEVERF != DIRENT_NFS_VERFLEN
+#  error "Length of cookie verify in fs_dirent_s is incorrect"
+#endif
 
 /****************************************************************************
  * Private Type Definitions
  ****************************************************************************/
 
-struct nfs_dirent
-{
-  uint32_t cookie[2];
-  struct dirent dirent;
-};
-
 /****************************************************************************
  * Private Function Prototypes
  ****************************************************************************/
 
+static int     nfs_filecreate(FAR struct nfsmount *nmp, struct nfsnode *np,
+                   FAR const char *relpath, mode_t mode);
+static int     nfs_filetruncate(FAR struct nfsmount *nmp, struct nfsnode *np);
+static int     nfs_fileopen(FAR struct nfsmount *nmp, struct nfsnode *np,
+                   FAR const char *relpath, int oflags, mode_t mode);
 static int     nfs_open(FAR struct file *filep, const char *relpath,
-                        int oflags, mode_t mode);
+                   int oflags, mode_t mode);
+static int     nfs_close(FAR struct file *filep);
 static ssize_t nfs_read(FAR struct file *filep, char *buffer, size_t buflen);
 static ssize_t nfs_write(FAR struct file *filep, const char *buffer,
-                         size_t buflen);
+                   size_t buflen);
+static int     nfs_opendir(struct inode *mountpt, const char *relpath,
+                   struct fs_dirent_s *dir);
 static int     nfs_readdir(struct inode *mountpt, struct fs_dirent_s *dir);
+static int     nfs_rewinddir(FAR struct inode *mountpt,
+                   FAR struct fs_dirent_s *dir);
+static void    nfs_decode_args(FAR struct nfs_mount_parameters *nprmt,
+                   FAR struct nfs_args *argp);
 static int     nfs_bind(FAR struct inode *blkdriver, const void *data,
-                         void **handle);
+                   void **handle);
 static int     nfs_unbind(void *handle, FAR struct inode **blkdriver);
 static int     nfs_statfs(struct inode *mountpt, struct statfs *buf);
 static int     nfs_remove(struct inode *mountpt, const char *relpath);
 static int     nfs_mkdir(struct inode *mountpt, const char *relpath,
-                         mode_t mode);
+                   mode_t mode);
 static int     nfs_rmdir(struct inode *mountpt, const char *relpath);
 static int     nfs_rename(struct inode *mountpt, const char *oldrelpath,
-                          const char *newrelpath);
-static int     nfs_fsinfo(struct inode *mountpt, const char *relpath,
-                          struct stat *buf);
-
-/****************************************************************************
- *  External Public Data  (this belong in a header file)
- ****************************************************************************/
-
-extern uint32_t nfs_true;
-extern uint32_t nfs_false;
-extern uint32_t nfs_xdrneg1;
-extern struct nfsstats nfsstats;
-extern int nfs_ticks;
+                   const char *newrelpath);
+static int     nfs_stat(struct inode *mountpt, const char *relpath,
+                   struct stat *buf);
 
 /****************************************************************************
  * Public Data
@@ -137,17 +150,17 @@ extern int nfs_ticks;
 const struct mountpt_operations nfs_operations =
 {
   nfs_open,                     /* open */
-  NULL,                         /* close */
+  nfs_close,                    /* close */
   nfs_read,                     /* read */
   nfs_write,                    /* write */
   NULL,                         /* seek */
   NULL,                         /* ioctl */
   NULL,                         /* sync */
 
-  NULL,                         /* opendir */
+  nfs_opendir,                  /* opendir */
   NULL,                         /* closedir */
   nfs_readdir,                  /* readdir */
-  NULL,                         /* rewinddir */
+  nfs_rewinddir,                /* rewinddir */
 
   nfs_bind,                     /* bind */
   nfs_unbind,                   /* unbind */
@@ -157,7 +170,7 @@ const struct mountpt_operations nfs_operations =
   nfs_mkdir,                    /* mkdir */
   nfs_rmdir,                    /* rmdir */
   nfs_rename,                   /* rename */
-  nfs_fsinfo                    /* stat */
+  nfs_stat                      /* stat */
 };
 
 /****************************************************************************
@@ -168,26 +181,368 @@ const struct mountpt_operations nfs_operations =
  * Public Functions
  ****************************************************************************/
 
- /****************************************************************************
- * Name: nfs_open
+/****************************************************************************
+ * Name: nfs_filecreate
  *
- * Description: if oflags == O_CREAT it creates a file, if not it
- * check to see if the type is ok and that deletion is not in progress.
+ * Description:
+ *   Create a file.  This is part of the file open logic that is executed if
+ *   the user asks to create a file.
+ *
+ * Returned Value:
+ *   0 on success; a positive errno value on failure.
+ *
  ****************************************************************************/
 
-static int
-nfs_open(FAR struct file *filep, FAR const char *relpath,
-         int oflags, mode_t mode)
+static int nfs_filecreate(FAR struct nfsmount *nmp, struct nfsnode *np,
+                          FAR const char *relpath, mode_t mode)
 {
-  struct inode *in;
-  struct nfs_fattr vap;
-  struct nfsv3_sattr sp;
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  struct CREATE3args create;
-  struct CREATE3resok *resok;
-  void *datareply;
-  int error = 0;
+  struct file_handle      fhandle;
+  struct nfs_fattr        fattr;
+  char                    filename[NAME_MAX + 1];
+  FAR uint32_t           *ptr;
+  uint32_t                tmp;
+  int                     namelen;
+  int                     reqlen;
+  int                     error;
+
+  /* Find the NFS node of the directory containing the file to be created */
+
+  error = nfs_finddir(nmp, relpath, &fhandle, &fattr, filename);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      return error;
+    }
+
+  /* Create the CREATE RPC call arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.create.create;
+  reqlen = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned(fhandle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &fhandle.handle, fhandle.length);
+  reqlen += (int)fhandle.length;
+  ptr    += uint32_increment(fhandle.length);
+
+  /* Copy the variable-length file name */
+
+  namelen = strlen(filename);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, filename, namelen);
+  ptr    += uint32_increment(namelen);
+  reqlen += uint32_alignup(namelen);
+
+  /* Set the creation mode */
+
+  if ((mode & O_CREAT) != 0)
+    {
+#ifdef USE_GUARDED_CREATE
+      *ptr++  = HTONL(NFSV3CREATE_GUARDED);
+#else
+      *ptr++  = HTONL(NFSV3CREATE_EXCLUSIVE);
+#endif
+    }
+  else
+    {
+      *ptr++  = HTONL(NFSV3CREATE_UNCHECKED);
+    }
+  reqlen += sizeof(uint32_t);
+
+  /* Mode information is not provided if EXCLUSIVE creation is used.
+   * in this case, we must call SETATTR after successfully creating
+   * the file.
+   */
+
+#ifndef USE_GUARDED_CREATE
+  if ((mode & O_CREAT) == 0)
+#endif
+    {
+      /* Set the mode.  NOTE: Here we depend on the fact that the NuttX and NFS
+       * bit settings are the same (at least for the bits of interest).
+       */
+
+      *ptr++  = nfs_true; /* True: mode value follows */
+      reqlen += sizeof(uint32_t);
+
+      tmp = mode & (NFSMODE_IWOTH | NFSMODE_IROTH | NFSMODE_IWGRP |
+                    NFSMODE_IRGRP | NFSMODE_IWUSR | NFSMODE_IRUSR);
+      *ptr++  = txdr_unsigned(tmp);
+      reqlen += sizeof(uint32_t);
+
+      /* Set the user ID to zero */
+
+      *ptr++  = nfs_true;             /* True: Uid value follows */
+      *ptr++  = 0;                    /* UID = 0 (nobody) */
+      reqlen += 2*sizeof(uint32_t);
+
+      /* Set the group ID to one */
+
+      *ptr++  = nfs_true;            /* True: Gid value follows */
+      *ptr++  = HTONL(1);            /* GID = 1 (nogroup) */
+      reqlen += 2*sizeof(uint32_t);
+
+      /* Set the size to zero */
+
+      *ptr++  = nfs_true;            /* True: Size value follows */
+      *ptr++  = 0;                   /* Size = 0 */
+      *ptr++  = 0;
+      reqlen += 3*sizeof(uint32_t);
+
+      /* Don't change times */
+
+      *ptr++  = HTONL(NFSV3SATTRTIME_DONTCHANGE); /* Don't change atime */
+      *ptr++  = HTONL(NFSV3SATTRTIME_DONTCHANGE); /* Don't change mtime */
+      reqlen += 2*sizeof(uint32_t);
+    }
+
+  /* Send the NFS request.  Note there is special logic here to handle version 3
+   * exclusive open semantics.
+   */
+
+  do
+    {
+      nfs_statistics(NFSPROC_CREATE);
+      error = nfs_request(nmp, NFSPROC_CREATE,
+                          (FAR void *)&nmp->nm_msgbuffer.create, reqlen,
+                          (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+    }
+#ifdef USE_GUARDED_CREATE
+  while (0);
+#else
+  while (((mode & O_CREAT) != 0) && error == EOPNOTSUPP);
+#endif
+
+  /* Check for success */
+
+  if (error == OK)
+    {
+      /* Parse the returned data */
+
+      ptr = (FAR uint32_t *)&((FAR struct rpc_reply_create *)nmp->nm_iobuffer)->create;
+
+      /* Save the file handle in the file data structure */
+
+      tmp = *ptr++;  /* handle_follows */
+      if (!tmp)
+        {
+          fdbg("ERROR: no file handle follows\n");
+          return EINVAL;
+        }
+
+      tmp = *ptr++;
+      tmp = fxdr_unsigned(uint32_t, tmp);
+      DEBUGASSERT(tmp <= NFSX_V3FHMAX);
+
+      np->n_fhsize      = (uint8_t)tmp;
+      memcpy(&np->n_fhandle, ptr, tmp);
+      ptr += uint32_increment(tmp);
+
+      /* Save the attributes in the file data structure */
+
+      tmp = *ptr++;  /* handle_follows */
+      if (!tmp)
+        {
+          fdbg("WARNING: no file attributes\n");
+        }
+      else
+        {
+          /* Initialize the file attributes */
+
+          nfs_attrupdate(np, (FAR struct nfs_fattr *)ptr);
+          ptr += uint32_increment(sizeof(struct nfs_fattr));
+        }
+
+      /* Any following dir_wcc data is ignored for now */
+    }
+
+  return error;
+}
+
+/****************************************************************************
+ * Name: nfs_fileopen
+ *
+ * Description:
+ *   Truncate an open file to zero length.  This is part of the file open
+ *   logic.
+ *
+ * Returned Value:
+ *   0 on success; a positive errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_filetruncate(FAR struct nfsmount *nmp, struct nfsnode *np)
+{
+  FAR uint32_t *ptr;
+  int           reqlen;
+  int           error;
+
+  fvdbg("Truncating file\n");
+
+  /* Create the SETATTR RPC call arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.setattr.setattr;
+  reqlen = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned(np->n_fhsize);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &np->n_fhandle, np->n_fhsize);
+  reqlen += (int)np->n_fhsize;
+  ptr    += uint32_increment(np->n_fhsize);
+
+  /* Copy the variable-length attribtes */
+
+  *ptr++  = nfs_false;                        /* Don't change mode */
+  *ptr++  = nfs_false;                        /* Don't change uid */
+  *ptr++  = nfs_false;                        /* Don't change gid */
+  *ptr++  = nfs_true;                         /* Use the following size */
+  *ptr++  = 0;                                /* Truncate to zero length */
+  *ptr++  = 0;
+  *ptr++  = HTONL(NFSV3SATTRTIME_TOSERVER);   /* Use the server's time */
+  *ptr++  = HTONL(NFSV3SATTRTIME_TOSERVER);   /* Use the server's time */
+  *ptr++  = nfs_false;                        /* No guard value */
+  reqlen += 9*sizeof(uint32_t)
+
+  /* Perform the SETATTR RPC */
+
+  nfs_statistics(NFSPROC_SETATTR);
+  error = nfs_request(nmp, NFSPROC_SETATTR,
+                      (FAR void *)&nmp->nm_msgbuffer.setattr, reqlen,
+                      (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_request failed: %d\n", error);
+      return error;
+    }
+
+  /* Indicate that the file now has zero length */
+
+  np->n_size = 0;
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nfs_fileopen
+ *
+ * Description:
+ *   Open a file.  This is part of the file open logic that attempts to open
+ *   an existing file.
+ *
+ * Returned Value:
+ *   0 on success; a positive errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_fileopen(FAR struct nfsmount *nmp, struct nfsnode *np,
+                        FAR const char *relpath, int oflags, mode_t mode)
+{
+  struct file_handle fhandle;
+  struct nfs_fattr   fattr;
+  uint32_t           tmp;
+  int                error = 0;
+
+  /* Find the NFS node associate with the path */
+
+  error = nfs_findnode(nmp, relpath, &fhandle, &fattr, NULL);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_findnode returned: %d\n", error);
+      return error;
+    }
+
+  /* Check if the object is a directory */
+
+  tmp = fxdr_unsigned(uint32_t, fattr.fa_type);
+  if (tmp == NFDIR)
+    {
+      /* Exit with EISDIR if we attempt to open a directory */
+
+      fdbg("ERROR: Path is a directory\n");
+      return EISDIR;
+    }
+
+  /* Check if the caller has sufficient privileges to open the file */
+
+  if ((oflags & O_WRONLY) != 0)
+    {
+      /* Check if anyone has priveleges to write to the file -- owner,
+       * group, or other (we are probably "other" and may still not be
+       * able to write).
+       */
+
+      tmp = fxdr_unsigned(uint32_t, fattr.fa_mode);
+      if ((tmp & (NFSMODE_IWOTH|NFSMODE_IWGRP|NFSMODE_IWUSR)) == 0)
+        {
+          fdbg("ERROR: File is read-only: %08x\n", tmp);
+          return EACCES;
+        }
+    }
+
+  /* It would be an error if we are asked to create the file exclusively */
+
+  if ((oflags & (O_CREAT|O_EXCL)) == (O_CREAT|O_EXCL))
+    {
+      /* Already exists -- can't create it exclusively */
+
+      fdbg("ERROR: File exists\n");
+      return EEXIST;
+    }
+
+  /* Initialize the file private data */
+  /* Copy the file handle */
+
+  np->n_fhsize      = (uint8_t)fhandle.length;
+  memcpy(&np->n_fhandle, &fhandle.handle, fhandle.length);
+
+  /* Save the file attributes */
+
+  nfs_attrupdate(np, &fattr);
+
+  /* If O_TRUNC is specified and the file is opened for writing,
+   * then truncate the file.  This operation requires that the file is
+   * writable, but we have already checked that. O_TRUNC without write
+   * access is ignored.
+   */
+
+  if ((oflags & (O_TRUNC|O_WRONLY)) == (O_TRUNC|O_WRONLY))
+    {
+      /* Truncate the file to zero length.  I think we can do this with
+       * the SETATTR call by setting the length to zero.
+       */
+
+      return nfs_filetruncate(nmp, np);
+    }
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: nfs_open
+ *
+ * Description:
+ *   If oflags == O_CREAT it creates a file, if not it check to see if the
+ *   type is ok and that deletion is not in progress.
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_open(FAR struct file *filep, FAR const char *relpath,
+                    int oflags, mode_t mode)
+{
+  struct nfsmount   *nmp;
+  struct nfsnode    *np = NULL;
+  int                error;
 
   /* Sanity checks */
 
@@ -197,138 +552,118 @@ nfs_open(FAR struct file *filep, FAR const char *relpath,
    * mountpoint private data from the inode structure
    */
 
-  in = filep->f_inode;
-  nmp = (struct nfsmount*)in->i_private;
-  np = (struct nfsnode*)filep->f_priv;
-
+  nmp = (struct nfsmount*)filep->f_inode->i_private;
   DEBUGASSERT(nmp != NULL);
+
+  /* Pre-allocate the file private data to describe the opened file. */
+
+  np = (struct nfsnode *)kzalloc(sizeof(struct nfsnode));
+  if (!np)
+    {
+      fdbg("ERROR: Failed to allocate private data\n");
+      return -ENOMEM;
+    }
 
   /* Check if the mount is still healthy */
 
   nfs_semtake(nmp);
   error = nfs_checkmount(nmp);
-  if (error != 0)
+  if (error != OK)
     {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
       goto errout_with_semaphore;
     }
 
-  if (oflags == O_CREAT)
+  /* Try to open an existing file at that path */
+
+  error = nfs_fileopen(nmp, np, relpath, oflags, mode);
+  if (error != OK)
     {
-      /* Sanity checks */
+      /* An error occurred while trying to open the existing file. Check if
+       * the open failed because the file does not exist.  That is not
+       * necessarily an error; that may only mean that we have to create the
+       * file.
+       */
 
-      DEBUGASSERT(filep->f_priv == NULL);
-again:
-      nfsstats.rpccnt[NFSPROC_CREATE]++;
-      memset(&sp, 0, sizeof(struct nfsv3_sattr));
-      memset(&vap, 0, sizeof(struct nfs_fattr));
-      vap = nmp->nm_head->n_fattr;
-      sp.sa_modetrue  = true;
-      sp.sa_mode      = txdr_unsigned(mode);
-      sp.sa_uidfalse  = nfs_xdrneg1;
-      sp.sa_gidfalse  = nfs_xdrneg1;
-      sp.sa_sizefalse = nfs_xdrneg1;
-      sp.sa_atimetype = txdr_unsigned(NFSV3SATTRTIME_TOCLIENT);
-      sp.sa_mtimetype = txdr_unsigned(NFSV3SATTRTIME_TOCLIENT);
-      sp.sa_atime     = vap.fa3_atime;
-      sp.sa_mtime     = vap.fa3_mtime;
-
-      memset(&create, 0, sizeof(struct CREATE3args));
-      create.how = sp;
-      create.where.dir = np->n_fhp;
-      create.where.name = relpath;
-
-      error = nfs_request(nmp, NFSPROC_CREATE, &create, &datareply);
-      if (!error)
+      if (error != ENOENT)
         {
-          /* Create an instance of the file private data to describe the opened
-           * file.
-           */
-
-          np = (struct nfsnode *)kzalloc(sizeof(struct nfsnode));
-          if (!np)
-            {
-              fdbg("Failed to allocate private data\n", error);
-              error = -ENOMEM;
-              goto errout_with_semaphore;
-            }
-
-          /* Initialize the file private data (only need to initialize
-           * non-zero elements)
-           */
-
-          resok             = (struct CREATE3resok *) datareply;
-          np->n_open        = true;
-          np->nfsv3_type    = NFREG;
-          np->n_fhp         = resok->handle;
-          np->n_size        = fxdr_hyper(&resok->attributes.fa3_size);
-          np->n_fattr       = resok->attributes;
-          fxdr_nfsv3time(&resok->attributes.fa3_mtime, &np->n_mtime)
-          np->n_ctime       = fxdr_hyper(&resok->attributes.fa3_ctime);
-
-          /* Attach the private date to the struct file instance */
-
-          filep->f_priv = np;
-
-          /* Then insert the new instance into the mountpoint structure.
-           * It needs to be there (1) to handle error conditions that effect
-           * all files, and (2) to inform the umount logic that we are busy
-           * (but a simple reference count could have done that).
-           */
-
-          np->n_next   = nmp->nm_head;
-          nmp->nm_head = np->n_next;
-          error = 0;
-        }
-      else
-        {
-          if (error == NFSERR_NOTSUPP)
-            {
-              goto again;
-            }
+          fdbg("ERROR: nfs_findnode failed: %d\n", error);
+          goto errout_with_semaphore;
         }
 
-      np->n_flag |= NMODIFIED;
-    }
-  else
-    {
-      if (np->nfsv3_type != NFREG && np->nfsv3_type != NFDIR)
+      /* The file does not exist. Check if we were asked to create the file.  If
+       * the O_CREAT bit is set in the oflags then we should create the file if it
+       * does not exist.
+       */
+
+      if ((oflags & O_CREAT) == 0)
         {
-          fdbg("open eacces typ=%d\n", np->nfsv3_type);
-          return EACCES;
+          /* Return ENOENT if the file does not exist and we were not asked
+           * to create it.
+           */
+
+          fdbg("ERROR: File does not exist\n");
+           error = ENOENT;
+          goto errout_with_semaphore;
         }
 
-      if (np->n_flag & NMODIFIED)
+      /* Create the file */
+
+      error = nfs_filecreate(nmp, np, relpath, mode);
+      if (error != OK)
         {
-          if (np->nfsv3_type == NFDIR)
-            {
-              np->n_direofoffset = 0;
-            }
+          fdbg("ERROR: nfs_filecreate failed: %d\n", error);
+          goto errout_with_semaphore;
         }
     }
 
-  /* For open/close consistency. */
+  /* Initialize the file private data (only need to initialize
+   * non-zero elements)
+   */
 
-  NFS_INVALIDATE_ATTRCACHE(np);
+  /* Attach the private data to the struct file instance */
+
+  filep->f_priv = np;
+
+  /* Then insert the new instance at the head of the list in the mountpoint
+   * tructure. It needs to be there (1) to handle error conditions that effect
+   * all files, and (2) to inform the umount logic that we are busy.  We
+   * cannot unmount the file system if this list is not empty!
+   */
+
+  np->n_next   = nmp->nm_head;
+  nmp->nm_head = np;
+
+  np->n_flags |= (NFSNODE_OPEN | NFSNODE_MODIFIED);
+  nfs_semgive(nmp);
+  return OK;
 
 errout_with_semaphore:
-  kfree(np);
+  if (np)
+    {
+      kfree(np);
+    }
   nfs_semgive(nmp);
-  return error;
+  return -error;
 }
 
-#undef COMP
-#ifdef COMP
 /****************************************************************************
  * Name: nfs_close
+ *
+ * Description:
+ *   Close a file.
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
  ****************************************************************************/
 
-static int nfs_close(FAR struct file *filep) done
+static int nfs_close(FAR struct file *filep)
 {
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  int error = 0;
-
-  fvdbg("Closing\n");
+  FAR struct nfsmount *nmp;
+  FAR struct nfsnode  *np;
+  FAR struct nfsnode  *prev;
+  FAR struct nfsnode  *curr;
 
   /* Sanity checks */
 
@@ -336,40 +671,72 @@ static int nfs_close(FAR struct file *filep) done
 
   /* Recover our private data from the struct file instance */
 
-  np = filep->f_priv;
-  nmp = filep->f_inode->i_private;
+  nmp = (struct nfsmount*) filep->f_inode->i_private;
+  np  = (struct nfsnode*) filep->f_priv;
 
   DEBUGASSERT(nmp != NULL);
 
-  if (np->nfsv3_type == NFREG)
-    {
-      error = nfs_sync(filep);
-      kfree(np);
-      filep->f_priv = NULL;
-    }
+  /* Get exclusive access to the mount structure. */
 
-  return error;
+  nfs_semtake(nmp);
+
+  /* Find our file structure in the list of file structures containted in the
+   * mount structure.
+   */
+
+ for (prev = NULL, curr = nmp->nm_head; curr; prev = curr, curr = curr->n_next)
+   {
+     /* Check if this node is ours */
+
+     if (np == curr)
+       {
+         /* Yes.. remove it from the list of file structures */
+
+         if (prev)
+           {
+             /* Remove from mid-list */
+
+             prev->n_next = np->n_next;
+           }
+         else
+           {
+             /* Remove from the head of the list */
+
+             nmp->nm_head = np->n_next;
+           }
+
+         /* Then deallocate the file structure and return success */
+
+         kfree(np);
+         nfs_semgive(nmp);
+         return OK;
+       }
+   }
+
+  fdbg("ERROR: file structure not found in list: %p\n", np);
+  nfs_semgive(nmp);
+  return EINVAL;
 }
-#endif
 
 /****************************************************************************
  * Name: nfs_read
+ *
+ * Returned Value:
+ *   The (non-negative) number of bytes read on success; a negated errno
+ *   value on failure.
+ *
  ****************************************************************************/
 
 static ssize_t nfs_read(FAR struct file *filep, char *buffer, size_t buflen)
 {
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  unsigned int readsize;
-  int bytesleft;
-  uint64_t offset;
-  void *datareply;
-  struct READ3args read;
-  struct READ3resok *resok;
-  uint8_t *userbuffer = (uint8_t*)buffer;
-  int error = 0;
-  int len;
-  bool eof;
+  FAR struct nfsmount       *nmp;
+  FAR struct nfsnode        *np;
+  ssize_t                    readsize;
+  ssize_t                    tmp;
+  ssize_t                    bytesread;
+  size_t                     reqlen;
+  FAR uint32_t              *ptr;
+  int                        error = 0;
 
   fvdbg("Read %d bytes from offset %d\n", buflen, filep->f_pos);
 
@@ -379,10 +746,8 @@ static ssize_t nfs_read(FAR struct file *filep, char *buffer, size_t buflen)
 
   /* Recover our private data from the struct file instance */
 
-  np = (struct nfsnode*) filep->f_priv;
   nmp = (struct nfsmount*) filep->f_inode->i_private;
-  eof = false;
-  offset = 0;
+  np  = (struct nfsnode*) filep->f_priv;
 
   DEBUGASSERT(nmp != NULL);
 
@@ -390,100 +755,166 @@ static ssize_t nfs_read(FAR struct file *filep, char *buffer, size_t buflen)
 
   nfs_semtake(nmp);
   error = nfs_checkmount(nmp);
-  if (error != 0)
+  if (error != OK)
     {
       fdbg("nfs_checkmount failed: %d\n", error);
       goto errout_with_semaphore;
     }
 
-  if (np->nfsv3_type != NFREG)
-    {
-      fdbg("read eacces typ=%d\n", np->nfsv3_type);
-      return EACCES;
-    }
-
-  if ((nmp->nm_flag & (NFSMNT_NFSV3 | NFSMNT_GOTFSINFO)) == NFSMNT_NFSV3)
-    {
-      (void)nfs_fsinfo(filep->f_inode, NULL, NULL);
-    }
-
-  /* Get the number of bytes left in the file */
-
-  bytesleft = np->n_size - filep->f_pos;
-  readsize = 0;
-
-  /* Truncate read count so that it does not exceed the number
-   * of bytes left in the file.
+  /* Get the number of bytes left in the file and truncate read count so that
+   * it does not exceed the number of bytes left in the file.
    */
 
-  if (buflen > bytesleft)
+  tmp = np->n_size - filep->f_pos;
+  if (buflen > tmp)
     {
-      buflen = bytesleft;
+      buflen = tmp;
+      fvdbg("Read size truncated to %d\n", buflen);
     }
 
-  len = nmp->nm_rsize;
-  if (len < buflen)
+  /* Now loop until we fill the user buffer (or hit the end of the file) */
+
+  for (bytesread = 0; bytesread < buflen; )
     {
-      error = EFBIG;
-      goto errout_with_semaphore;
+      /* Make sure that the attempted read size does not exceed the RPC maximum */
+
+      readsize = buflen;
+      if (readsize > nmp->nm_rsize)
+        {
+          readsize = nmp->nm_rsize;
+        }
+
+      /* Make sure that the attempted read size does not exceed the IO buffer size */
+
+      tmp = SIZEOF_rpc_reply_read(readsize);
+      if (tmp > nmp->nm_buflen)
+        {
+          readsize -= (tmp - nmp->nm_buflen);
+        }
+
+      /* Initialize the request */
+
+      ptr     = (FAR uint32_t*)&nmp->nm_msgbuffer.read.read;
+      reqlen  = 0;
+
+      /* Copy the variable length, file handle */
+
+      *ptr++  = txdr_unsigned((uint32_t)np->n_fhsize);
+      reqlen += sizeof(uint32_t);
+
+      memcpy(ptr, &np->n_fhandle, np->n_fhsize);
+      reqlen += (int)np->n_fhsize;
+      ptr    += uint32_increment((int)np->n_fhsize);
+
+      /* Copy the file offset */
+
+      txdr_hyper((uint64_t)filep->f_pos, ptr);
+      ptr += 2;
+      reqlen += 2*sizeof(uint32_t);
+
+      /* Set the readsize */
+
+      *ptr = txdr_unsigned(readsize);
+      reqlen += sizeof(uint32_t);
+
+      /* Perform the read */
+
+      fvdbg("Reading %d bytes\n", readsize);
+      nfs_statistics(NFSPROC_READ);
+      error = nfs_request(nmp, NFSPROC_READ,
+                          (FAR void *)&nmp->nm_msgbuffer.read, reqlen,
+                          (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+      if (error)
+        {
+          fdbg("ERROR: nfs_request failed: %d\n", error);
+          goto errout_with_semaphore;
+        }
+
+      /* The read was successful.  Get a pointer to the beginning of the NFS
+       * response data.
+       */
+
+      ptr = (FAR uint32_t *)&((FAR struct rpc_reply_read *)nmp->nm_iobuffer)->read;
+
+      /* Check if attributes are included in the responses */
+
+      tmp = *ptr++;
+      if (*ptr != 0)
+        {
+          /* Yes... just skip over the attributes for now */
+
+          ptr += uint32_increment(sizeof(struct nfs_fattr));
+        }
+
+      /* This is followed by the count of data read.  Isn't this
+       * the same as the length that is included in the read data?
+       *
+       * Just skip over if for now.
+       */
+
+      ptr++;
+
+      /* Next comes an EOF indication.  Save that in tmp for now. */
+
+      tmp = *ptr++;
+
+      /* Then the length of the read data followed by the read data itself */
+
+      readsize = fxdr_unsigned(uint32_t, *ptr);
+      ptr++;
+
+      /* Copy the read data into the user buffer */
+
+      memcpy(buffer, ptr, readsize);
+
+      /* Update the read state data */
+
+      filep->f_pos += readsize;
+      bytesread    += readsize;
+      buffer       += readsize;
+
+      /* Check if we hit the end of file */
+
+      if (tmp != 0)
+        {
+          break;
+        }
     }
 
-  nfsstats.rpccnt[NFSPROC_READ]++;
-
-again:
-  memset(&read, 0, sizeof(struct READ3args));
-  read.file = np->nfsv3_type;
-  read.count = buflen;
-  read.offset = offset;
-
-  error = nfs_request(nmp, NFSPROC_READ, &read, &datareply);
-  if (error)
-    {
-      goto errout_with_semaphore;
-    }
-
-  //bcopy (datareply, &resok, sizeof(struct READ3resok));
-  resok = (struct READ3resok *) datareply;
-  eof = resok->eof;
-  if (eof == true)
-    {
-      readsize = resok->count;
-      np->n_fattr = resok->file_attributes;
-      memcpy(userbuffer, resok->data, readsize);
-    }
-  else
-    {
-      goto again;
-    }
-
-nfs_semgive(nmp);
-  return readsize;
+  fvdbg("Read %d bytes\n", bytesread);
+  nfs_semgive(nmp);
+  return bytesread;
 
 errout_with_semaphore:
   nfs_semgive(nmp);
-  return error;
+  return -error;
 }
 
 /****************************************************************************
  * Name: nfs_write
+ *
+ * Returned Value:
+ *   The (non-negative) number of bytes written on success; a negated errno
+ *   value on failure.
+ *
  ****************************************************************************/
 
-static ssize_t
-nfs_write(FAR struct file *filep, const char *buffer, size_t buflen)
+static ssize_t nfs_write(FAR struct file *filep, const char *buffer,
+                         size_t buflen)
 {
-  struct inode *inode;
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  unsigned int  writesize;
-  void *datareply;
-  struct WRITE3args write;
-  struct WRITE3resok *resok;
-  uint8_t  *userbuffer = (uint8_t*)buffer;
-  int error = 0;
-  uint64_t  offset;
-  int len;
-  enum stable_how commit;
-  int committed = NFSV3WRITE_FILESYNC;
+  struct nfsmount       *nmp;
+  struct nfsnode        *np;
+  ssize_t                writesize;
+  ssize_t                bufsize;
+  ssize_t                byteswritten;
+  size_t                 reqlen;
+  FAR uint32_t          *ptr;
+  uint32_t               tmp;
+  int                    commit = 0;
+  int                    committed = NFSV3WRITE_FILESYNC;
+  int                    error;
+
+  fvdbg("Write %d bytes to offset %d\n", buflen, filep->f_pos);
 
   /* Sanity checks */
 
@@ -491,10 +922,8 @@ nfs_write(FAR struct file *filep, const char *buffer, size_t buflen)
 
   /* Recover our private data from the struct file instance */
 
-  np     = (struct nfsnode *)filep->f_priv;
-  inode  = filep->f_inode;
-  nmp    = (struct nfsmount *)inode->i_private;
-  offset = 0;
+  nmp = (struct nfsmount*)filep->f_inode->i_private;
+  np  = (struct nfsnode*)filep->f_priv;
 
   DEBUGASSERT(nmp != NULL);
 
@@ -502,8 +931,9 @@ nfs_write(FAR struct file *filep, const char *buffer, size_t buflen)
 
   nfs_semtake(nmp);
   error = nfs_checkmount(nmp);
-  if (error != 0)
+  if (error != OK)
     {
+      fdbg("nfs_checkmount failed: %d\n", error);
       goto errout_with_semaphore;
     }
 
@@ -511,180 +941,220 @@ nfs_write(FAR struct file *filep, const char *buffer, size_t buflen)
 
   if (np->n_size + buflen < np->n_size)
     {
-      error = -EFBIG;
+      error = EFBIG;
       goto errout_with_semaphore;
     }
 
-  len = nmp->nm_wsize;
-  if (len < buflen)
+  /* Now loop until we send the entire user buffer */
+
+  for (byteswritten = 0; byteswritten < buflen; )
     {
-      error = -EFBIG;
-      goto errout_with_semaphore;
+      /* Make sure that the attempted write size does not exceed the RPC maximum */
+
+      writesize = buflen;
+      if (writesize > nmp->nm_wsize)
+        {
+          writesize = nmp->nm_wsize;
+        }
+
+      /* Make sure that the attempted read size does not exceed the IO buffer size */
+
+      bufsize = SIZEOF_rpc_call_write(writesize);
+      if (bufsize > nmp->nm_buflen)
+        {
+          writesize -= (bufsize - nmp->nm_buflen);
+        }
+
+      /* Initialize the request.  Here we need an offset pointer to the write
+       * arguments, skipping over the RPC header.  Write is unique among the
+       * RPC calls in that the entry RPC calls messasge lies in the I/O buffer
+       */
+
+      ptr     = (FAR uint32_t *)&((FAR struct rpc_call_write *)nmp->nm_iobuffer)->write;
+      reqlen  = 0;
+
+      /* Copy the variable length, file handle */
+
+      *ptr++  = txdr_unsigned((uint32_t)np->n_fhsize);
+      reqlen += sizeof(uint32_t);
+
+      memcpy(ptr, &np->n_fhandle, np->n_fhsize);
+      reqlen += (int)np->n_fhsize;
+      ptr    += uint32_increment((int)np->n_fhsize);
+
+      /* Copy the file offset */
+
+      txdr_hyper((uint64_t)filep->f_pos, ptr);
+      ptr    += 2;
+      reqlen += 2*sizeof(uint32_t);
+
+      /* Copy the count and stable values */
+
+      *ptr++  = txdr_unsigned(buflen);
+      *ptr++  = txdr_unsigned(committed);
+      reqlen += 2*sizeof(uint32_t);
+
+      /* Copy a chunk of the user data into the I/O buffer */
+
+      *ptr++  = txdr_unsigned(buflen);
+      reqlen += sizeof(uint32_t);
+      memcpy(ptr, buffer, writesize);
+      reqlen += uint32_alignup(writesize);
+
+      /* Perform the write */
+
+      nfs_statistics(NFSPROC_WRITE);
+      error = nfs_request(nmp, NFSPROC_WRITE,
+                          (FAR void *)nmp->nm_iobuffer, reqlen,
+                          (FAR void *)&nmp->nm_msgbuffer.write, sizeof(struct rpc_reply_write));
+      if (error)
+        {
+          fdbg("ERROR: nfs_request failed: %d\n", error);
+          goto errout_with_semaphore;
+        }
+
+      /* Get a pointer to the WRITE reply data */
+
+      ptr = (FAR uint32_t *)&nmp->nm_msgbuffer.write.write;
+
+      /* Parse file_wcc.  First, check if WCC attributes follow. */
+
+      tmp = *ptr++;
+      if (tmp != 0)
+        {
+          /* Yes.. WCC attributes follow.  But we just skip over them. */
+
+          ptr += uint32_increment(sizeof(struct wcc_attr));
+        }
+
+      /* Check if normal file attributes follow */
+
+      tmp = *ptr++;
+      if (tmp != 0)
+        {
+          /* Yes.. Update the cached file status in the file structure. */
+
+          nfs_attrupdate(np, (FAR struct nfs_fattr *)ptr);
+          ptr += uint32_increment(sizeof(struct nfs_fattr));
+        }
+
+      /* Get the count of bytes actually written */
+
+      tmp = fxdr_unsigned(uint32_t, *ptr);
+      ptr++;
+
+      if (tmp < 1 || tmp > writesize)
+        {
+           error = EIO;
+           goto errout_with_semaphore;
+        }
+
+      writesize = tmp;
+
+      /* Determine the lowest committment level obtained by any of the RPCs. */
+
+      commit = *ptr++;
+      if (committed == NFSV3WRITE_FILESYNC)
+        {
+          committed = commit;
+        }
+      else if (committed == NFSV3WRITE_DATASYNC &&
+               commit == NFSV3WRITE_UNSTABLE)
+        {
+          committed = commit;
+        }
+
+      /* Update the read state data */
+
+      filep->f_pos += writesize;
+      byteswritten += writesize;
+      buffer       += writesize;
     }
-  writesize = 0;
-
-  nfsstats.rpccnt[NFSPROC_WRITE]++;
-  memset(&write, 0, sizeof(struct WRITE3args));
-  write.file = np->nfsv3_type;
-  write.offset = offset;
-  write.count = buflen;
-  write.stable = committed;
-  memcpy((void *)write.data, userbuffer, buflen);
-
-  error = nfs_request(nmp, NFSPROC_WRITE, &write, &datareply);
-  if (error)
-    {
-      goto errout_with_semaphore;
-    }
-
-  //bcopy (datareply, &resok, sizeof(struct WRITE3resok));
-  resok = (struct WRITE3resok *) datareply;
-  writesize = resok->count;
-  if (writesize == 0)
-    {
-       error = NFSERR_IO;
-       goto errout_with_semaphore;
-    }
-
-  commit = resok->committed;
-  np->n_fattr = resok->file_wcc.after;
-
-  /* Return the lowest committment level obtained by any of the RPCs. */
-
-  if (committed == NFSV3WRITE_FILESYNC)
-    {
-      committed = commit;
-    }
-  else if (committed == NFSV3WRITE_DATASYNC &&
-           commit == NFSV3WRITE_UNSTABLE)
-    {
-       committed = commit;
-    }
-
-  if ((nmp->nm_flag & NFSMNT_HASWRITEVERF) == 0)
-    {
-      bcopy((void*) resok->verf, (void*) nmp->nm_verf, NFSX_V3WRITEVERF);
-      nmp->nm_flag |= NFSMNT_HASWRITEVERF;
-    }
-  else if (strncmp((char*) resok->verf, (char*) nmp->nm_verf, NFSX_V3WRITEVERF))
-    {
-      bcopy((void*) resok->verf, (void*) nmp->nm_verf, NFSX_V3WRITEVERF);
-    }
-
-  fxdr_nfsv3time(&np->n_fattr.fa3_mtime, &np->n_mtime)
 
   nfs_semgive(nmp);
   return writesize;
 
 errout_with_semaphore:
   nfs_semgive(nmp);
-  return error;
+  return -error;
 }
 
 /****************************************************************************
- * Name: nfs_readdirrpc
+ * Name: nfs_opendir
  *
- * Description: The function below stuff the cookies in after the name.
+ * Description:
+ *   Open a directory for read access
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
  ****************************************************************************/
 
-int nfs_readdirrpc(struct nfsmount *nmp, struct nfsnode *np,
-                   bool end_of_directory, struct fs_dirent_s *dir)
+static int nfs_opendir(struct inode *mountpt, const char *relpath,
+                       struct fs_dirent_s *dir)
 {
-  int error = 0;
-  void *datareply;
-  struct READDIR3args readir;
-  struct READDIR3resok *resok = NULL;
+  struct nfsmount *nmp;
+  struct file_handle fhandle;
+  struct nfs_fattr obj_attributes;
+  uint32_t objtype;
+  int error;
 
-  /* Loop around doing readdir rpc's of size nm_readdirsize
-   * truncated to a multiple of NFS_READDIRBLKSIZ.
-   * The stopping criteria is EOF.
+  fvdbg("relpath: \"%s\"\n", relpath ? relpath : "NULL");
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt != NULL && mountpt->i_private != NULL && dir);
+
+  /* Recover our private data from the inode instance */
+
+  nmp = mountpt->i_private;
+
+  /* Initialize the NFS-specific portions of dirent structure to zero */
+
+  memset(&dir->u.nfs, 0, sizeof(struct nfsdir_s));
+
+  /* Make sure that the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Find the NFS node associate with the path */
+
+  error = nfs_findnode(nmp, relpath, &fhandle, &obj_attributes, NULL);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_findnode failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* The entry is a directory */
+
+  objtype = fxdr_unsigned(uint32_t, obj_attributes.fa_type);
+  if (objtype != NFDIR)
+    {
+      fdbg("ERROR:  Not a directory, type=%d\n", objtype);
+      error = ENOTDIR;
+      goto errout_with_semaphore;
+    }
+
+  /* Save the directory information in struct fs_dirent_s so that it can be
+   * used later when readdir() is called.
    */
 
-  while (end_of_directory == false)
-    {
-      nfsstats.rpccnt[NFSPROC_READDIR]++;
-      memset(&readir, 0, sizeof(struct READDIR3args));
-      readir.dir = np->n_fhp;
-      readir.count = nmp->nm_readdirsize;
-      if (nfsstats.rpccnt[NFSPROC_READDIR] == 1)
-        {
-          readir.cookie.nfsuquad[0] = 0;
-          readir.cookie.nfsuquad[1] = 0;
-          readir.cookieverf.nfsuquad[0] = 0;
-          readir.cookieverf.nfsuquad[1] = 0;
-        }
-      else
-        {
-          readir.cookie.nfsuquad[0] = dir->u.nfs.cookie[0];
-          readir.cookie.nfsuquad[1] = dir->u.nfs.cookie[1];
-          readir.cookieverf.nfsuquad[0] = np->n_cookieverf.nfsuquad[0];
-          readir.cookieverf.nfsuquad[1] = np->n_cookieverf.nfsuquad[1];
-        }
+  dir->u.nfs.nfs_fhsize = (uint8_t)fhandle.length;
+  DEBUGASSERT(fhandle.length <= DIRENT_NFS_MAXHANDLE);
 
-      error = nfs_request(nmp, NFSPROC_READDIR, &readir, &datareply);
+  memcpy(dir->u.nfs.nfs_fhandle, &fhandle.handle, DIRENT_NFS_MAXHANDLE);
+  error = OK;
 
-      if (error)
-        {
-          goto nfsmout;
-        }
-
-      //bcopy (datareply, &resok, sizeof(struct READDIR3resok));
-      resok = (struct READDIR3resok *) datareply;
-      np->n_fattr = resok->dir_attributes;
-      np->n_cookieverf.nfsuquad[0] = resok->cookieverf.nfsuquad[0];
-      np->n_cookieverf.nfsuquad[1] = resok->cookieverf.nfsuquad[1];
-      dir->fd_dir.d_type = resok->reply.entries->fileid;
-      memcpy(&dir->fd_dir.d_name[NAME_MAX], &resok->reply.entries->name, NAME_MAX);
-      //dir->fd_dir.d_name = resok->reply.entries->name;//
-      dir->u.nfs.cookie[0] = resok->reply.entries->cookie.nfsuquad[0];
-      dir->u.nfs.cookie[1] = resok->reply.entries->cookie.nfsuquad[1];
-
-      if (resok->reply.eof == true)
-        {
-          end_of_directory = true;
-        }
-
-     //more_dirs = fxdr_unsigned(int, *dp);
-
-      /* loop thru the dir entries*/
-/*
-      while (more_dirs && bigenough)
-        {
-          if (bigenough)
-            {
-              if (info_v3)
-                {
-                  dir->u.nfs.cookie[0] = cookie.nfsuquad[0];
-                }
-              else
-                {
-                  dir->u.nfs.cookie[0] = ndp->cookie[0] = 0;
-                }
-
-              dir->u.nfs.cookie[1] = ndp->cookie[1] = cookie.nfsuquad[1];
-            }
-
-          more_dirs = fxdr_unsigned(int, *ndp);
-        }
-        */
-    }
-
-  /* We are now either at the end of the directory */
-
-  if (resok->reply.entries == NULL)
-    {
-      np->n_direofoffset = fxdr_hyper(&dir->u.nfs.cookie[0]);
-
-      /* We signal the end of the directory by returning the
-       * special error -ENOENT
-       */
-
-      fdbg("End of directory\n");
-      error = -ENOENT;
-    }
-
-nfsmout:
-  return error;
+errout_with_semaphore:
+  nfs_semgive(nmp);
+  return -error;
 }
 
 /****************************************************************************
@@ -692,15 +1162,22 @@ nfsmout:
  *
  * Description: Read from directory
  *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
  ****************************************************************************/
 
 static int nfs_readdir(struct inode *mountpt, struct fs_dirent_s *dir)
 {
-  int error = 0;
   struct nfsmount *nmp;
-  struct nfsnode *np;
-  bool eof = false;
-  //struct nfs_dirent *ndp;
+  struct file_handle fhandle;
+  struct nfs_fattr obj_attributes;
+  uint32_t tmp;
+  uint32_t *ptr;
+  uint8_t *name;
+  unsigned int length;
+  int reqlen;
+  int error = 0;
 
   fvdbg("Entry\n");
 
@@ -711,413 +1188,541 @@ static int nfs_readdir(struct inode *mountpt, struct fs_dirent_s *dir)
   /* Recover our private data from the inode instance */
 
   nmp = mountpt->i_private;
-  np  = nmp->nm_head;
-  dir->fd_root = mountpt;
 
   /* Make sure that the mount is still healthy */
 
   nfs_semtake(nmp);
   error = nfs_checkmount(nmp);
-  if (error != 0)
+  if (error != OK)
     {
-      fdbg("romfs_checkmount failed: %d\n", error);
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
       goto errout_with_semaphore;
     }
 
-  if (np->nfsv3_type != NFDIR)
+  /* Request a block directory entries, copying directory information from
+   * the dirent structure.
+   */
+
+  ptr     = (FAR uint32_t*)&nmp->nm_msgbuffer.readdir.readdir;
+  reqlen  = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned((uint32_t)dir->u.nfs.nfs_fhsize);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, dir->u.nfs.nfs_fhandle, dir->u.nfs.nfs_fhsize);
+  reqlen += (int)dir->u.nfs.nfs_fhsize;
+  ptr    += uint32_increment((int)dir->u.nfs.nfs_fhsize);
+
+  /* Cookie and cookie verifier */
+
+  ptr[0] = dir->u.nfs.nfs_cookie[0];
+  ptr[1] = dir->u.nfs.nfs_cookie[1];
+  ptr    += 2;
+  reqlen += 2*sizeof(uint32_t);
+
+  memcpy(ptr, dir->u.nfs.nfs_verifier, DIRENT_NFS_VERFLEN);
+  ptr    += uint32_increment(DIRENT_NFS_VERFLEN);
+  reqlen += DIRENT_NFS_VERFLEN;
+
+  /* Number of directory entries (We currently only process one entry at a time) */
+
+  *ptr    = txdr_unsigned(nmp->nm_readdirsize);
+  reqlen += sizeof(uint32_t);
+
+  /* And read the directory */
+
+  nfs_statistics(NFSPROC_READDIR);
+  error = nfs_request(nmp, NFSPROC_READDIR,
+                      (FAR void *)&nmp->nm_msgbuffer.readdir, reqlen,
+                      (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+  if (error != OK)
     {
-      error = EPERM;
+      fdbg("ERROR: nfs_request failed: %d\n", error);
       goto errout_with_semaphore;
     }
 
-  dir->u.nfs.nd_direoffset = np->n_direofoffset;
+  /* A new group of entries was successfully read.  Process the
+   * information contained in the response header.  This information
+   * includes:
+   *
+   * 1) Attributes follow indication - 4 bytes
+   * 2) Directory attributes         - sizeof(struct nfs_fattr)
+   * 3) Cookie verifier              - NFSX_V3COOKIEVERF bytes
+   * 4) Values follows indication    - 4 bytes
+   */
 
-  /* First, check for hit on the EOF offset */
+  ptr = (uint32_t *)&((FAR struct rpc_reply_readdir *)nmp->nm_iobuffer)->readdir;
 
-  if (dir->u.nfs.nd_direoffset != 0)
+  /* Check if attributes follow, if 0 so Skip over the attributes */
+
+  tmp = *ptr++;
+  if (tmp != 0)
     {
-      nfsstats.direofcache_hits++;
-      //np->n_open = true;
-      return 0;
+      /* Attributes are not currently used */
+
+      ptr += uint32_increment(sizeof(struct nfs_fattr));
     }
 
-  if ((nmp->nm_flag & (NFSMNT_NFSV3 | NFSMNT_GOTFSINFO)) == NFSMNT_NFSV3)
+  /* Save the verification cookie */
+
+  memcpy(dir->u.nfs.nfs_verifier, ptr, DIRENT_NFS_VERFLEN);
+  ptr += uint32_increment(DIRENT_NFS_VERFLEN);
+
+  /* Check if values follow.  If no values follow, then the EOF indication
+   * will appear next.
+   */
+
+  tmp = *ptr++;
+  if (tmp == 0)
     {
-      (void)nfs_fsinfo(mountpt, NULL, NULL);
+      /* No values follow, then the reply should consist only of a 4-byte
+       * end-of-directory indication.
+       */
+
+      tmp = *ptr++;
+      if (tmp != 0)
+        {
+          fvdbg("End of directory\n");
+          error = ENOENT;
+        }
+
+      /* What would it mean if there were not data and we not at the end of
+       * file?
+       */
+
+       else
+         {
+           fvdbg("No data but not end of directory???\n");
+           error = EAGAIN;
+        }
+
+      goto errout_with_semaphore;
     }
 
-  error = nfs_readdirrpc(nmp, np, eof, dir);
+  /* If we are not at the end of the directory listing, then a set of entries
+   * will follow the header.  Each entry is of the form:
+   *
+   *    File ID (8 bytes)
+   *    Name length (4 bytes)
+   *    Name string (varaiable size but in multiples of 4 bytes)
+   *    Cookie (8 bytes)
+   *    next entry (4 bytes)
+   */
 
-  if (error == NFSERR_BAD_COOKIE)
+  /* There is an entry. Skip over the file ID and point to the length */
+
+  ptr += 2;
+
+  /* Get the length and point to the name */
+
+  tmp    = *ptr++;
+  length = fxdr_unsigned(uint32_t, tmp);
+  name   = (uint8_t*)ptr;
+
+  /* Increment the pointer past the name (allowing for padding). ptr
+   * now points to the cookie.
+   */
+
+  ptr += uint32_increment(length);
+
+  /* Save the cookie and increment the pointer to the next entry */
+
+  dir->u.nfs.nfs_cookie[0] = *ptr++;
+  dir->u.nfs.nfs_cookie[1] = *ptr++;
+
+  ptr++; /* Just skip over the nextentry for now */
+
+  /* Return the name of the node to the caller */
+
+  if (length > NAME_MAX)
     {
-      error = EINVAL;
+      length = NAME_MAX;
     }
 
-  if (!error && eof)
+  memcpy(dir->fd_dir.d_name, name, length);
+  dir->fd_dir.d_name[length] = '\0';
+  fvdbg("name: \"%s\"\n", dir->fd_dir.d_name);
+
+  /* Get the file attributes associated with this name and return
+   * the file type.
+   */
+
+  fhandle.length = (uint32_t)dir->u.nfs.nfs_fhsize;
+  memcpy(&fhandle.handle, dir->u.nfs.nfs_fhandle, DIRENT_NFS_MAXHANDLE);
+
+  error = nfs_lookup(nmp, dir->fd_dir.d_name, &fhandle, &obj_attributes, NULL);
+  if (error != OK)
     {
-      nfsstats.direofcache_misses++;
-      nfs_semgive(nmp);
-      return 0;
+      fdbg("nfs_lookup failed: %d\n", error);
+      goto errout_with_semaphore;
     }
+
+  /* Set the dirent file type */
+
+  tmp = fxdr_unsigned(uint32_t, obj_attributes.fa_type);
+  switch (tmp)
+    {
+    default:
+    case NFNON:        /* Unknown type */
+    case NFSOCK:       /* Socket */
+    case NFLNK:        /* Symbolic link */
+      break;
+
+    case NFREG:        /* Regular file */
+      dir->fd_dir.d_type = DTYPE_FILE;
+      break;
+
+    case NFDIR:        /* Directory */
+      dir->fd_dir.d_type = DTYPE_DIRECTORY;
+      break;
+
+    case NFBLK:        /* Block special device file */
+      dir->fd_dir.d_type = DTYPE_BLK;
+      break;
+
+    case NFFIFO:       /* Named FIFO */
+    case NFCHR:        /* Character special device file */
+      dir->fd_dir.d_type = DTYPE_CHR;
+      break;
+    }
+  fvdbg("type: %d->%d\n", (int)tmp, dir->fd_dir.d_type);
 
 errout_with_semaphore:
   nfs_semgive(nmp);
-  return error;
+  return -error;
+}
+
+/****************************************************************************
+ * Name: nfs_rewinddir
+ *
+ * Description:
+ *  Reset the directory traveral logic to the first entry in the open
+ *  directory.
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_rewinddir(FAR struct inode *mountpt, FAR struct fs_dirent_s *dir)
+{
+  fvdbg("Entry\n");
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt != NULL && dir != NULL);
+
+  /* Reset the NFS-specific portions of dirent structure, retaining only the
+   * file handle.
+   */
+
+  memset(&dir->u.nfs.nfs_verifier, 0, DIRENT_NFS_VERFLEN);
+  dir->u.nfs.nfs_cookie[0] = 0;
+  dir->u.nfs.nfs_cookie[1] = 0;
+  return OK;
 }
 
 /****************************************************************************
  * Name: nfs_decode_args
+ *
+ * Returned Value:
+ *   None
+ *
  ****************************************************************************/
 
-void nfs_decode_args(struct nfsmount *nmp, struct nfs_args *argp)
+static void nfs_decode_args(FAR struct nfs_mount_parameters *nprmt,
+                            FAR struct nfs_args *argp)
 {
-  int adjsock = 0;
   int maxio;
 
-#ifdef CONFIG_NFS_TCPIP
-  /* Re-bind if rsrvd port requested and wasn't on one */
+  /* Get the selected timeout value */
 
-  adjsock = !(nmp->nm_flag & NFSMNT_RESVPORT)
-    && (argp->flags & NFSMNT_RESVPORT);
-#endif
-
-  /* Also re-bind if we're switching to/from a connected UDP socket */
-
-  adjsock |= ((nmp->nm_flag & NFSMNT_NOCONN) != (argp->flags & NFSMNT_NOCONN));
-
-  /* Update flags atomically.  Don't change the lock bits. */
-
-  nmp->nm_flag =
-    (argp->flags & ~NFSMNT_INTERNAL) | (nmp->nm_flag & NFSMNT_INTERNAL);
-
-  if ((argp->flags & NFSMNT_TIMEO) && argp->timeo > 0)
+  if ((argp->flags & NFSMNT_TIMEO) != 0 && argp->timeo > 0)
     {
-      nmp->nm_timeo = (argp->timeo * NFS_HZ + 5) / 10;
-      if (nmp->nm_timeo < NFS_MINTIMEO)
+      uint32_t tmp = ((uint32_t)argp->timeo * NFS_HZ + 5) / 10;
+      if (tmp < NFS_MINTIMEO)
         {
-          nmp->nm_timeo = NFS_MINTIMEO;
+          tmp = NFS_MINTIMEO;
         }
-      else if (nmp->nm_timeo > NFS_MAXTIMEO)
+      else if (tmp > NFS_MAXTIMEO)
         {
-          nmp->nm_timeo = NFS_MAXTIMEO;
+          tmp = NFS_MAXTIMEO;
         }
+      nprmt->timeo = tmp;
     }
 
-  if ((argp->flags & NFSMNT_RETRANS) && argp->retrans > 1)
-    {
-      nmp->nm_retry = (argp->retrans < NFS_MAXREXMIT)? argp->retrans : NFS_MAXREXMIT;
-    }
+  /* Get the selected retransmission count */
 
-  if (!(nmp->nm_flag & NFSMNT_SOFT))
+  if ((argp->flags & NFSMNT_RETRANS) != 0 && argp->retrans > 1)
     {
-      nmp->nm_retry = NFS_MAXREXMIT + 1;  /* past clip limit */
-    }
-
-  if (argp->flags & NFSMNT_NFSV3)
-    {
-      if (argp->sotype == SOCK_DGRAM)
+      if  (argp->retrans < NFS_MAXREXMIT)
         {
-          maxio = NFS_MAXDGRAMDATA;
+          nprmt->retry = argp->retrans;
         }
       else
         {
-          maxio = NFS_MAXDATA;
+          nprmt->retry = NFS_MAXREXMIT;
         }
+    }
+
+  if ((argp->flags & NFSMNT_SOFT) == 0)
+    {
+      nprmt->retry = NFS_MAXREXMIT + 1;  /* Past clip limit */
+    }
+
+  /* Get the maximum amount of data that can be transferred in one packet */
+
+  if ((argp->sotype == SOCK_DGRAM) != 0)
+    {
+      maxio = NFS_MAXDGRAMDATA;
     }
   else
     {
-      maxio = NFS_V2MAXDATA;
+      fdbg("ERROR: Only SOCK_DRAM is supported\n");
+      maxio = NFS_MAXDATA;
     }
 
-  if ((argp->flags & NFSMNT_WSIZE) && argp->wsize > 0)
+  /* Get the maximum amount of data that can be transferred in one write transfer */
+
+  if ((argp->flags & NFSMNT_WSIZE) != 0 && argp->wsize > 0)
     {
-      int osize = nmp->nm_wsize;
-      nmp->nm_wsize = argp->wsize;
+      nprmt->wsize = argp->wsize;
 
       /* Round down to multiple of blocksize */
 
-      nmp->nm_wsize &= ~(NFS_FABLKSIZE - 1);
-      if (nmp->nm_wsize <= 0)
+      nprmt->wsize &= ~(NFS_FABLKSIZE - 1);
+      if (nprmt->wsize <= 0)
         {
-          nmp->nm_wsize = NFS_FABLKSIZE;
+          nprmt->wsize = NFS_FABLKSIZE;
         }
-
-      adjsock |= (nmp->nm_wsize != osize);
     }
 
-  if (nmp->nm_wsize > maxio)
+  if (nprmt->wsize > maxio)
     {
-      nmp->nm_wsize = maxio;
+      nprmt->wsize = maxio;
     }
 
-  if (nmp->nm_wsize > MAXBSIZE)
+  if (nprmt->wsize > MAXBSIZE)
     {
-      nmp->nm_wsize = MAXBSIZE;
+      nprmt->wsize = MAXBSIZE;
     }
 
-  if ((argp->flags & NFSMNT_RSIZE) && argp->rsize > 0)
+  /* Get the maximum amount of data that can be transferred in one read transfer */
+
+  if ((argp->flags & NFSMNT_RSIZE) != 0 && argp->rsize > 0)
     {
-      int osize = nmp->nm_rsize;
-      nmp->nm_rsize = argp->rsize;
+      nprmt->rsize = argp->rsize;
 
       /* Round down to multiple of blocksize */
 
-      nmp->nm_rsize &= ~(NFS_FABLKSIZE - 1);
-      if (nmp->nm_rsize <= 0)
+      nprmt->rsize &= ~(NFS_FABLKSIZE - 1);
+      if (nprmt->rsize <= 0)
         {
-          nmp->nm_rsize = NFS_FABLKSIZE;
+          nprmt->rsize = NFS_FABLKSIZE;
         }
-
-      adjsock |= (nmp->nm_rsize != osize);
     }
 
-  if (nmp->nm_rsize > maxio)
+  if (nprmt->rsize > maxio)
     {
-      nmp->nm_rsize = maxio;
+      nprmt->rsize = maxio;
     }
 
-  if (nmp->nm_rsize > MAXBSIZE)
+  if (nprmt->rsize > MAXBSIZE)
     {
-      nmp->nm_rsize = MAXBSIZE;
+      nprmt->rsize = MAXBSIZE;
     }
 
-  if ((argp->flags & NFSMNT_READDIRSIZE) && argp->readdirsize > 0)
+  /* Get the maximum amount of data that can be transferred in directory transfer */
+
+  if ((argp->flags & NFSMNT_READDIRSIZE) != 0 && argp->readdirsize > 0)
     {
-      nmp->nm_readdirsize = argp->readdirsize;
+      nprmt->readdirsize = argp->readdirsize;
 
       /* Round down to multiple of blocksize */
 
-      nmp->nm_readdirsize &= ~(NFS_DIRBLKSIZ - 1);
-      if (nmp->nm_readdirsize < NFS_DIRBLKSIZ)
+      nprmt->readdirsize &= ~(NFS_DIRBLKSIZ - 1);
+      if (nprmt->readdirsize < NFS_DIRBLKSIZ)
         {
-          nmp->nm_readdirsize = NFS_DIRBLKSIZ;
+          nprmt->readdirsize = NFS_DIRBLKSIZ;
         }
     }
   else if (argp->flags & NFSMNT_RSIZE)
     {
-      nmp->nm_readdirsize = nmp->nm_rsize;
+      nprmt->readdirsize = nprmt->rsize;
     }
 
-  if (nmp->nm_readdirsize > maxio)
+  if (nprmt->readdirsize > maxio)
     {
-      nmp->nm_readdirsize = maxio;
+      nprmt->readdirsize = maxio;
     }
-
-/*
-  if ((argp->flags & NFSMNT_MAXGRPS) && argp->maxgrouplist >= 0 &&
-      argp->maxgrouplist <= NFS_MAXGRPS)
-    {
-      nmp->nm_numgrps = argp->maxgrouplist;
-    }
-
-  if ((argp->flags & NFSMNT_READAHEAD) && argp->readahead >= 0 &&
-      argp->readahead <= NFS_MAXRAHEAD)
-    {
-      nmp->nm_readahead = argp->readahead;
-    }
-*/
-
-  if (argp->flags & NFSMNT_ACREGMIN && argp->acregmin >= 0)
-    {
-      if (argp->acregmin > 0xffff)
-        {
-          nmp->nm_acregmin = 0xffff;
-        }
-      else
-        {
-          nmp->nm_acregmin = argp->acregmin;
-        }
-    }
-
-  if (argp->flags & NFSMNT_ACREGMAX && argp->acregmax >= 0)
-    {
-      if (argp->acregmax > 0xffff)
-        {
-          nmp->nm_acregmax = 0xffff;
-        }
-      else
-        {
-          nmp->nm_acregmax = argp->acregmax;
-        }
-    }
-
-  if (nmp->nm_acregmin > nmp->nm_acregmax)
-    {
-      nmp->nm_acregmin = nmp->nm_acregmax;
-    }
-
-  if (argp->flags & NFSMNT_ACDIRMIN && argp->acdirmin >= 0)
-    {
-      if (argp->acdirmin > 0xffff)
-        {
-          nmp->nm_acdirmin = 0xffff;
-        }
-      else
-        {
-          nmp->nm_acdirmin = argp->acdirmin;
-        }
-    }
-
-  if (argp->flags & NFSMNT_ACDIRMAX && argp->acdirmax >= 0)
-    {
-      if (argp->acdirmax > 0xffff)
-        {
-          nmp->nm_acdirmax = 0xffff;
-        }
-      else
-        {
-          nmp->nm_acdirmax = argp->acdirmax;
-        }
-    }
-
-  if (nmp->nm_acdirmin > nmp->nm_acdirmax)
-    {
-      nmp->nm_acdirmin = nmp->nm_acdirmax;
-    }
-
-  if (nmp->nm_so && adjsock)
-    {
-      nfs_disconnect(nmp);
-      if (nmp->nm_sotype == SOCK_DGRAM)
-        while (nfs_connect(nmp))
-          {
-            nvdbg("nfs_args: retrying connect\n");
-          }
-    }
-}
-
-/****************************************************************************
- * Name: mountnfs
- *
- * Description: Common code for nfs_mount.
- *
- ****************************************************************************/
-
-int mountnfs(struct nfs_args *argp, void **handle)
-{
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  int error = 0;
-
-  /* Create an instance of the mountpt state structure */
-
-  nmp = (struct nfsmount *)kzalloc(sizeof(struct nfsmount));
-  if (!nmp)
-    {
-      fdbg("Failed to allocate mountpoint structure\n");
-      return -ENOMEM;
-    }
-
-  /* Initialize the allocated mountpt state structure.  The filesystem is
-   * responsible for one reference ont the blkdriver inode and does not
-   * have to addref() here (but does have to release in ubind().
-   */
-
-  sem_init(&nmp->nm_sem, 0, 0);     /* Initialize the semaphore that controls access */
-
-  nfs_init();
-  nmp->nm_flag = argp->flags;
-  nmp->nm_timeo = NFS_TIMEO;
-  nmp->nm_retry = NFS_RETRANS;
-  nmp->nm_wsize = NFS_WSIZE;
-  nmp->nm_rsize = NFS_RSIZE;
-  nmp->nm_readdirsize = NFS_READDIRSIZE;
-  nmp->nm_numgrps = NFS_MAXGRPS;
-  nmp->nm_readahead = NFS_DEFRAHEAD;
-  nmp->nm_fhsize = NFSX_V3FHMAX;
-  nmp->nm_acregmin = NFS_MINATTRTIMO;
-  nmp->nm_acregmax = NFS_MAXATTRTIMO;
-  nmp->nm_acdirmin = NFS_MINATTRTIMO;
-  nmp->nm_acdirmax = NFS_MAXATTRTIMO;
-  nmp->nm_fh = argp->fh;
-  strncpy(nmp->nm_path, argp->path,90);
-  nmp->nm_nam = argp->addr;
-  nfs_decode_args(nmp, argp);
-
-  /* Create an instance of the file private data to describe the opened
-   * file.
-   */
-
-  np = (struct nfsnode *)kzalloc(sizeof(struct nfsnode));
-  if (!np)
-    {
-      fdbg("Failed to allocate private data\n", error);
-      return -ENOMEM;
-     }
-
-  nmp->nm_head = np;
-
-  /* Set up the sockets and per-host congestion */
-
-  nmp->nm_sotype = argp->sotype;
-  nmp->nm_soproto = argp->proto;
-
-  /* For Connection based sockets (TCP,...) defer the connect until
-   * the first request, in case the server is not responding.
-   */
-
-  if (nmp->nm_sotype == SOCK_DGRAM && (error = nfs_connect(nmp)))
-    {
-      goto bad;
-    }
-
-  /* Mounted! */
-
-  nmp->nm_mounted = true;
-  nmp->nm_fh = nmp->nm_rpcclnt->rc_fh;
-  nmp->nm_so = nmp->nm_rpcclnt->rc_so;
-  *handle = (void*)nmp;
-  nfs_semgive(nmp);
-
-  return 0;
-
-bad:
-  nfs_disconnect(nmp);
-  sem_destroy(&nmp->nm_sem);
-  kfree(nmp->nm_head);
-  kfree(nmp->nm_so);
-  kfree(nmp->nm_rpcclnt);
-  kfree(nmp);
-  return error;
 }
 
 /****************************************************************************
  * Name: nfs_bind
  *
- * Description: This implements a portion of the mount operation. This
- *  function allocates and initializes the mountpoint private data and
- *  binds the blockdriver inode to the filesystem private data.  The final
- *  binding of the private data (containing the blockdriver) to the
- *  mountpoint is performed by mount().
+ * Description:
+ *  This implements a portion of the mount operation. This function allocates
+ *  and initializes the mountpoint private data and gets mount information
+ *  from the NFS server.  The final binding of the private data (containing
+ *  NFS server mount information) to the  mountpoint is performed by mount().
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
  *
  ****************************************************************************/
 
-static int nfs_bind(struct inode *blkdriver, const void *data, void **handle)
+static int nfs_bind(FAR struct inode *blkdriver, FAR const void *data,
+                    FAR void **handle)
 {
-  int error;
-  struct nfs_args args;
+  FAR struct nfs_args        *argp = (FAR struct nfs_args *)data;
+  FAR struct nfsmount        *nmp;
+  struct rpc_call_fs          getattr;
+  struct rpc_reply_getattr    resok;
+  struct nfs_mount_parameters nprmt;
+  uint32_t                    buflen;
+  uint32_t                    tmp;
+  int                         error = 0;
 
-  bcopy(data, &args, sizeof(struct nfs_args));
-  if (args.version == NFS_ARGSVERSION)
+  DEBUGASSERT(data && handle);
+
+  /* Set default values of the parameters.  These may be overridden by
+   * settings in the argp->flags.
+   */
+
+  nprmt.timeo       = NFS_TIMEO;
+  nprmt.retry       = NFS_RETRANS;
+  nprmt.wsize       = NFS_WSIZE;
+  nprmt.rsize       = NFS_RSIZE;
+  nprmt.readdirsize = NFS_READDIRSIZE;
+
+  nfs_decode_args(&nprmt, argp);
+
+   /* Determine the size of a buffer that will hold one RPC data transfer.
+    * First, get the maximum size of a read and a write transfer */
+
+  buflen = SIZEOF_rpc_call_write(nprmt.wsize);
+  tmp    = SIZEOF_rpc_reply_read(nprmt.rsize);
+
+  /* The buffer size will be the maximum of those two sizes */
+
+  if (tmp > buflen)
     {
-      args.flags &= ~(NFSMNT_INTERNAL | NFSMNT_NOAC);
-    }
-   else
-    {
-      return -EINVAL;
+      buflen = tmp;
     }
 
-  if ((args.flags & (NFSMNT_NFSV3 | NFSMNT_RDIRPLUS)) == NFSMNT_RDIRPLUS)
+  /* But don't let the buffer size exceed the MSS of the socket type */
+
+  if (buflen > UIP_UDP_MSS)
     {
-      return -EINVAL;
+      buflen = UIP_UDP_MSS;
     }
 
-  if (args.fhsize < 0 || args.fhsize > NFSX_V3FHMAX)
+  /* Create an instance of the mountpt state structure */
+
+  nmp = (FAR struct nfsmount *)kzalloc(SIZEOF_nfsmount(buflen));
+  if (!nmp)
     {
-      return -EINVAL;
+      fdbg("ERROR: Failed to allocate mountpoint structure\n");
+      return ENOMEM;
     }
 
-  error = mountnfs(&args, handle);
+  /* Save the allocated I/O buffer size */
+
+  nmp->nm_buflen = (uint16_t)buflen;
+
+  /* Initialize the allocated mountpt state structure. */
+
+  /* Initialize the semaphore that controls access.  The initial count
+   * is zero, but nfs_semgive() is called at the completion of initialization,
+   * incrementing the count to one.
+   */
+
+  sem_init(&nmp->nm_sem, 0, 0);     /* Initialize the semaphore that controls access */
+
+  /* Initialize NFS */
+
+  nfs_init();
+
+  /* Set initial values of other fields */
+
+  nmp->nm_timeo       = nprmt.timeo;
+  nmp->nm_retry       = nprmt.retry;
+  nmp->nm_wsize       = nprmt.wsize;
+  nmp->nm_rsize       = nprmt.rsize;
+  nmp->nm_readdirsize = nprmt.readdirsize;
+  nmp->nm_fhsize      = NFSX_V3FHMAX;
+
+  strncpy(nmp->nm_path, argp->path, 90);
+  memcpy(&nmp->nm_nam, &argp->addr, argp->addrlen);
+
+  /* Set up the sockets and per-host congestion */
+
+  nmp->nm_sotype  = argp->sotype;
+
+  if (nmp->nm_sotype == SOCK_DGRAM)
+    {
+      /* Connection-less... connect now */
+
+      error = nfs_connect(nmp);
+      if (error != OK)
+        {
+          fdbg("ERROR: nfs_connect failed: %d\n", error);
+          goto bad;
+        }
+    }
+
+  nmp->nm_mounted        = true;
+  nmp->nm_so             = nmp->nm_rpcclnt->rc_so;
+  memcpy(&nmp->nm_fh, &nmp->nm_rpcclnt->rc_fh, sizeof(nfsfh_t));
+
+  /* Get the file attributes */
+
+  getattr.fs.fsroot.length = txdr_unsigned(nmp->nm_fhsize);
+  memcpy(&getattr.fs.fsroot.handle, &nmp->nm_fh, sizeof(nfsfh_t));
+
+  error = nfs_request(nmp, NFSPROC_GETATTR,
+                      (FAR void *)&getattr, sizeof(struct FS3args),
+                      (FAR void*)&resok, sizeof(struct rpc_reply_getattr));
+  if (error)
+    {
+      fdbg("ERROR: nfs_request failed: %d\n", error);
+      goto bad;
+    }
+
+  /* Save the file attributes */
+
+  memcpy(&nmp->nm_fattr, &resok.attr, sizeof(struct nfs_fattr));
+
+  /* Mounted! */
+
+  *handle = (void*)nmp;
+  nfs_semgive(nmp);
+
+  fvdbg("Successfully mounted\n");
+  return OK;
+
+bad:
+  if (nmp)
+    {
+      /* Disconnect from the server */
+
+      nfs_disconnect(nmp);
+
+      /* Free connection-related resources */
+
+      sem_destroy(&nmp->nm_sem);
+      if (nmp->nm_so)
+        {
+          kfree(nmp->nm_so);
+        }
+      if (nmp->nm_rpcclnt)
+        {
+          kfree(nmp->nm_rpcclnt);
+        }
+      kfree(nmp);
+    }
   return error;
 }
 
@@ -1127,476 +1732,125 @@ static int nfs_bind(struct inode *blkdriver, const void *data, void **handle)
  * Description: This implements the filesystem portion of the umount
  *   operation.
  *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
  ****************************************************************************/
 
-int nfs_unbind(void *handle, struct inode **blkdriver)
+int nfs_unbind(FAR void *handle, FAR struct inode **blkdriver)
 {
-  struct nfsmount *nmp = (struct nfsmount *)handle;
+  FAR struct nfsmount *nmp = (FAR struct nfsmount *)handle;
   int error;
 
   fvdbg("Entry\n");
+  DEBUGASSERT(nmp);
 
-  if (!nmp)
-    {
-      return -EINVAL;
-    }
+  /* Get exclusive access to the mount structure */
 
   nfs_semtake(nmp);
+
+  /* Are there any open files?  We can tell if there are open files by looking
+   * at the list of file structures in the mount structure.  If this list
+   * not empty, then there are open files and we cannot unmount now (or a
+   * crash is sure to follow).
+   */
+
+  if (nmp->nm_head != NULL)
+    {
+      fdbg("ERROR;  There are open files: %p\n", nmp->nm_head);
+      error = EBUSY;
+      goto errout_with_semaphore;
+    }
+
+  /* No open file... Umount the file system. */
 
   error = rpcclnt_umount(nmp->nm_rpcclnt);
   if (error)
     {
-      dbg("Umounting fails %d\n", error);
-      goto bad;
+      fdbg("ERROR: rpcclnt_umount failed: %d\n", error);
     }
 
+  /* Disconnect from the server */
+
   nfs_disconnect(nmp);
+
+  /* And free any allocated resources */
+
   sem_destroy(&nmp->nm_sem);
-  kfree(nmp->nm_head);
   kfree(nmp->nm_so);
   kfree(nmp->nm_rpcclnt);
   kfree(nmp);
 
-  return 0;
-
-bad:
-  nfs_disconnect(nmp);
-  return(error);
-}
-
-/****************************************************************************
- * Name: nfs_statfs
- *
- * Description: Return filesystem statistics
- *
- ****************************************************************************/
-
-static int nfs_statfs(struct inode *mountpt, struct statfs *sbp)
-{
-  struct nfs_statfs *sfp;
-  struct nfsmount *nmp;
-  int error = 0;
-  uint64_t tquad;
-  void *datareply;
-  struct FS3args fsstat;
-
-  /* Sanity checks */
-
-  DEBUGASSERT(mountpt && mountpt->i_private);
-
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount*)mountpt->i_private;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error < 0)
-    {
-      fdbg("romfs_checkmount failed: %d\n", error);
-      goto errout_with_semaphore;
-    }
-
-  /* Fill in the statfs info */
-
-  memset(sbp, 0, sizeof(struct statfs));
-  sbp->f_type = NFS_SUPER_MAGIC;
-
-  if ((nmp->nm_flag & NFSMNT_GOTFSINFO) == 0)
-    {
-      (void)nfs_fsinfo(mountpt, NULL, NULL);
-    }
-
-  nfsstats.rpccnt[NFSPROC_FSSTAT]++;
-  memset(&fsstat, 0, sizeof(struct FS3args));
-  fsstat.fsroot = nmp->nm_fh;
-  error = nfs_request(nmp, NFSPROC_FSSTAT, &fsstat, &datareply);
-  if (error)
-    {
-      goto errout_with_semaphore;
-    }
-
-  sfp = (struct nfs_statfs *) datareply;
-  nmp->nm_head->n_fattr = sfp->obj_attributes;
-  sbp->f_bsize = NFS_FABLKSIZE;
-  tquad = fxdr_hyper(&sfp->sf_tbytes);
-  sbp->f_blocks = tquad / (uint64_t) NFS_FABLKSIZE;
-  tquad = fxdr_hyper(&sfp->sf_fbytes);
-  sbp->f_bfree = tquad / (uint64_t) NFS_FABLKSIZE;
-  tquad = fxdr_hyper(&sfp->sf_abytes);
-  sbp->f_bavail = tquad / (uint64_t) NFS_FABLKSIZE;
-  tquad = fxdr_hyper(&sfp->sf_tfiles);
-  sbp->f_files = tquad;
-  tquad = fxdr_hyper(&sfp->sf_ffiles);
-  sbp->f_ffree = tquad;
-  sbp->f_namelen = NAME_MAX;
+  return -error;
 
 errout_with_semaphore:
   nfs_semgive(nmp);
-  return error;
-}
-
-/****************************************************************************
- * Name: nfs_remove
- *
- * Description: Remove a file
- *
- ****************************************************************************/
-
-static int nfs_remove(struct inode *mountpt, const char *relpath)
-{
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  void *datareply;
-  struct REMOVE3args remove;
-  struct REMOVE3resok *resok;
-  int error = 0;
-
-  /* Sanity checks */
-
-  DEBUGASSERT(mountpt && mountpt->i_private);
-
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount*)mountpt->i_private;
-  np = nmp->nm_head;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error == 0)
-    {
-      /* If the file is open, the correct behavior is to remove the file
-       * name, but to keep the file cluster chain in place until the last
-       * open reference to the file is closed.
-       */
-
-      /* Remove the file */
-
-      if (np->nfsv3_type != NFREG)
-        {
-          error = EPERM;
-          goto errout_with_semaphore;
-        }
-
-      /* Do the rpc */
-
-      nfsstats.rpccnt[NFSPROC_REMOVE]++;
-      memset(&remove, 0, sizeof(struct REMOVE3args));
-      remove.object.dir = np->n_fhp;
-      remove.object.name = relpath;
-
-      error = nfs_request(nmp, NFSPROC_REMOVE, &remove, &datareply);
-
-      /* Kludge City: If the first reply to the remove rpc is lost..
-       *   the reply to the retransmitted request will be ENOENT
-       *   since the file was in fact removed
-       *   Therefore, we cheat and return success.
-       */
-
-      if (error == ENOENT)
-        {
-          error = 0;
-        }
-
-      if (error)
-        {
-          goto errout_with_semaphore;
-        }
-
-      resok = (struct REMOVE3resok *) datareply;
-      np->n_fattr = resok->dir_wcc.after;
-      np->n_flag |= NMODIFIED;
-    }
-   NFS_INVALIDATE_ATTRCACHE(np);
-
-errout_with_semaphore:
-   nfs_semgive(nmp);
-   return error;
-}
-
-/****************************************************************************
- * Name: nfs_mkdir
- *
- * Description: Create a directory
- *
- ****************************************************************************/
-
-static int nfs_mkdir(struct inode *mountpt, const char *relpath, mode_t mode)
-{
-  struct nfsv3_sattr sp;
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  struct MKDIR3args mkir;
-  struct MKDIR3resok *resok;
-  void *datareply;
-  int error = 0;
-
-  /* Sanity checks */
-
-  DEBUGASSERT(mountpt && mountpt->i_private);
-
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount*) mountpt->i_private;
-  np = nmp->nm_head;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error != 0)
-    {
-      goto errout_with_semaphore;
-    }
-
-  nfsstats.rpccnt[NFSPROC_MKDIR]++;
-  memset(&mkir, 0, sizeof(struct MKDIR3args));
-  mkir.where.dir = np->n_fhp;
-  mkir.where.name = relpath;
-
-  sp.sa_modetrue = nfs_true;
-  sp.sa_mode = txdr_unsigned(mode);
-  sp.sa_uidfalse = nfs_xdrneg1;
-  sp.sa_gidfalse = nfs_xdrneg1;
-  sp.sa_sizefalse = nfs_xdrneg1;
-  sp.sa_atimetype = txdr_unsigned(NFSV3SATTRTIME_TOCLIENT);
-  sp.sa_mtimetype = txdr_unsigned(NFSV3SATTRTIME_TOCLIENT);
-
-  memset(&sp.sa_atime, 0, sizeof(nfstime3));
-  memset(&sp.sa_mtime, 0, sizeof(nfstime3));
-
-  mkir.attributes = sp;
-
-  error = nfs_request(nmp, NFSPROC_MKDIR, &mkir, &datareply);
-  if (error)
-    {
-      goto errout_with_semaphore;
-    }
-
-  resok = (struct MKDIR3resok *) datareply;
-  np->nfsv3_type = NFDIR;
-  np->n_fhp = resok->handle;
-  np->n_fattr = resok->obj_attributes;
-  np->n_flag |= NMODIFIED;
-
-  NFS_INVALIDATE_ATTRCACHE(np);
-
-errout_with_semaphore:
-  nfs_semgive(nmp);
-  return error;
-}
-
-/****************************************************************************
- * Name: nfs_rmdir
- *
- * Description: Remove a directory
- *
- ****************************************************************************/
-
-static int nfs_rmdir(struct inode *mountpt, const char *relpath)
-{
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  struct RMDIR3args rmdir;
-  struct RMDIR3resok *resok;
-  void *datareply;
-  int error = 0;
-
-  /* Sanity checks */
-
-  DEBUGASSERT(mountpt && mountpt->i_private);
-
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount *)mountpt->i_private;
-  np = nmp->nm_head;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error == 0)
-    {
-      /* Remove the directory */
-
-      if (np->nfsv3_type != NFDIR)
-        {
-          error = EPERM;
-          goto errout_with_semaphore;
-        }
-
-      /* Do the rpc */
-
-      nfsstats.rpccnt[NFSPROC_RMDIR]++;
-      memset(&rmdir, 0, sizeof(struct RMDIR3args));
-      rmdir.object.dir = np->n_fhp;
-      rmdir.object.name = relpath;
-
-      error = nfs_request(nmp, NFSPROC_RMDIR, &rmdir, &datareply);
-      if (error == ENOENT)
-        {
-          error = 0;
-        }
-
-      if (error)
-        {
-          goto errout_with_semaphore;
-        }
-
-      resok = (struct RMDIR3resok *) datareply;
-      np->n_fattr = resok->dir_wcc.after;
-      np->n_flag |= NMODIFIED;
-    }
-
-  NFS_INVALIDATE_ATTRCACHE(np);
-
-errout_with_semaphore:
-  nfs_semgive(nmp);
-  return error;
-}
-
-/****************************************************************************
- * Name: nfs_rename
- *
- * Description: Rename a file or directory
- *
- ****************************************************************************/
-
-static int nfs_rename(struct inode *mountpt, const char *oldrelpath,
-                          const char *newrelpath)
-{
-  struct nfsmount *nmp;
-  struct nfsnode *np;
-  void *datareply;
-  struct RENAME3args rename;
-  struct RENAME3resok *resok;
-  int error = 0;
-
-  /* Sanity checks */
-
-  DEBUGASSERT(mountpt && mountpt->i_private);
-
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount *)mountpt->i_private;
-  np = nmp->nm_head;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error != 0)
-    {
-      goto errout_with_semaphore;
-    }
-
-  if (np->nfsv3_type != NFREG && np->nfsv3_type != NFDIR)
-    {
-      fdbg("open eacces typ=%d\n", np->nfsv3_type);
-      error= -EACCES;
-      goto errout_with_semaphore;
-    }
-
-  nfsstats.rpccnt[NFSPROC_RENAME]++;
-  memset(&rename, 0, sizeof(struct RENAME3args));
-  rename.from.dir = np->n_fhp;
-  rename.from.name = oldrelpath;
-  rename.to.dir = np->n_fhp;
-  rename.to.name = newrelpath;
-
-  error = nfs_request(nmp, NFSPROC_RENAME, &rename, &datareply);
-
-  /* ENOENT => 0 assuming that it is a reply to a retry. */
-
-  if (error == ENOENT)
-    {
-      error = 0;
-    }
-
-  if (error)
-    {
-      goto errout_with_semaphore;
-    }
-
-  resok = (struct RENAME3resok *) datareply;
-  np->n_fattr = resok->todir_wcc.after;
-  np->n_flag |= NMODIFIED;
-  NFS_INVALIDATE_ATTRCACHE(np);
-
-errout_with_semaphore:
-  nfs_semgive(nmp);
-  return error;
+  return -error;
 }
 
 /****************************************************************************
  * Name: nfs_fsinfo
  *
- * Description: Return information about a file or directory
+ * Description:
+ *   Return information about root directory.
+ *
+ * Returned Value:
+ *   0 on success; positive errno value on failure
+ *
+ * Assumptions:
+ *   The caller has exclusive access to the NFS mount structure
  *
  ****************************************************************************/
 
-static int nfs_fsinfo(struct inode *mountpt, const char *relpath, struct stat *buf)
+int nfs_fsinfo(FAR struct nfsmount *nmp)
 {
-  struct nfsv3_fsinfo *fsp;
-  struct FS3args fsinfo;
-  struct nfsmount *nmp;
-  uint32_t pref, max;
+  struct rpc_call_fs fsinfo;
+  struct rpc_reply_fsinfo fsp;
+  uint32_t pref;
+  uint32_t max;
   int error = 0;
-  void *datareply;
 
-  /* Sanity checks */
+  fsinfo.fs.fsroot.length = txdr_unsigned(nmp->nm_fhsize);
+  fsinfo.fs.fsroot.handle = nmp->nm_fh;
 
-  DEBUGASSERT(mountpt && mountpt->i_private);
+  /* Request FSINFO from the server */
 
-  /* Get the mountpoint private data from the inode structure */
-
-  nmp = (struct nfsmount*)mountpt->i_private;
-
-  /* Check if the mount is still healthy */
-
-  nfs_semtake(nmp);
-  error = nfs_checkmount(nmp);
-  if (error != 0)
-    {
-      goto errout_with_semaphore;
-    }
-
-  memset(buf, 0, sizeof(struct stat));
-  nfsstats.rpccnt[NFSPROC_FSINFO]++;
-  fsinfo.fsroot = nmp->nm_fh;
-
-  error = nfs_request(nmp, NFSPROC_FSINFO, &fsinfo, &datareply);
+  nfs_statistics(NFSPROC_FSINFO);
+  error = nfs_request(nmp, NFSPROC_FSINFO,
+                      (FAR void *)&fsinfo, sizeof(struct FS3args),
+                      (FAR void *)&fsp, sizeof(struct rpc_reply_fsinfo));
   if (error)
     {
-      goto errout_with_semaphore;
+      return error;
     }
 
-  fsp = (struct nfsv3_fsinfo *) datareply;
-  nmp->nm_head->n_fattr = fsp->obj_attributes;
-  pref = fxdr_unsigned(uint32_t, fsp->fs_wtpref);
+  /* Save the root file system attributes */
+
+//memcpy(&nmp->nm_fattr. &fsp.obj_attributes, sizeof(struct nfs_fattr));
+
+  pref = fxdr_unsigned(uint32_t, fsp.fsinfo.fs_wtpref);
   if (pref < nmp->nm_wsize)
     {
       nmp->nm_wsize = (pref + NFS_FABLKSIZE - 1) & ~(NFS_FABLKSIZE - 1);
     }
 
-  max = fxdr_unsigned(uint32_t, fsp->fs_wtmax);
+  max = fxdr_unsigned(uint32_t, fsp.fsinfo.fs_wtmax);
   if (max < nmp->nm_wsize)
     {
       nmp->nm_wsize = max & ~(NFS_FABLKSIZE - 1);
       if (nmp->nm_wsize == 0)
-        nmp->nm_wsize = max;
+        {
+          nmp->nm_wsize = max;
+        }
     }
 
-  pref = fxdr_unsigned(uint32_t, fsp->fs_rtpref);
+  pref = fxdr_unsigned(uint32_t, fsp.fsinfo.fs_rtpref);
   if (pref < nmp->nm_rsize)
     {
       nmp->nm_rsize = (pref + NFS_FABLKSIZE - 1) & ~(NFS_FABLKSIZE - 1);
     }
 
-  max = fxdr_unsigned(uint32_t, fsp->fs_rtmax);
+  max = fxdr_unsigned(uint32_t, fsp.fsinfo.fs_rtmax);
   if (max < nmp->nm_rsize)
     {
       nmp->nm_rsize = max & ~(NFS_FABLKSIZE - 1);
@@ -1606,7 +1860,7 @@ static int nfs_fsinfo(struct inode *mountpt, const char *relpath, struct stat *b
         }
     }
 
-  pref = fxdr_unsigned(uint32_t, fsp->fs_dtpref);
+  pref = fxdr_unsigned(uint32_t, fsp.fsinfo.fs_dtpref);
   if (pref < nmp->nm_readdirsize)
     {
       nmp->nm_readdirsize = (pref + NFS_DIRBLKSIZ - 1) & ~(NFS_DIRBLKSIZ - 1);
@@ -1621,69 +1875,620 @@ static int nfs_fsinfo(struct inode *mountpt, const char *relpath, struct stat *b
         }
     }
 
-  buf->st_mode    = fxdr_hyper(&fsp->obj_attributes.fa_mode);
-  buf->st_size    = fxdr_hyper(&fsp->obj_attributes.fa3_size);
-  buf->st_blksize = 0;
-  buf->st_blocks  = 0;
-  buf->st_mtime   = fxdr_hyper(&fsp->obj_attributes.fa3_mtime);
-  buf->st_atime   = fxdr_hyper(&fsp->obj_attributes.fa3_atime);
-  buf->st_ctime   = fxdr_hyper(&fsp->obj_attributes.fa3_ctime);
-  nmp->nm_flag   |= NFSMNT_GOTFSINFO;
-
-errout_with_semaphore:
-  nfs_semgive(nmp);
-  return error;
+  return OK;
 }
 
-#ifdef COMP
 /****************************************************************************
- * Name: nfs_sync
+ * Name: nfs_statfs
  *
- * Description: Flush out the buffer cache
+ * Description:
+ *   Return filesystem statistics
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
  *
  ****************************************************************************/
 
-int nfs_sync(struct file *filep)
+static int nfs_statfs(FAR struct inode *mountpt, FAR struct statfs *sbp)
 {
-  struct inode *inode;
-  struct nfsmount *nmp;
-  struct nfsnode *np;
+  FAR struct nfsmount *nmp;
+  FAR struct rpc_call_fs *fsstat;
+  FAR struct rpc_reply_fsstat *sfp;
   int error = 0;
+  uint64_t tquad;
 
   /* Sanity checks */
 
-  DEBUGASSERT(filep->f_priv != NULL && filep->f_inode != NULL);
+  DEBUGASSERT(mountpt && mountpt->i_private);
 
-  /* Recover our private data from the struct file instance */
+  /* Get the mountpoint private data from the inode structure */
 
-  np    = filep->f_priv;
-  inode = filep->f_inode;
-  nmp   = inode->i_private;
+  nmp = (struct nfsmount*)mountpt->i_private;
 
-  DEBUGASSERT(nmp != NULL);
-
-  /* Make sure that the mount is still healthy */
+  /* Check if the mount is still healthy */
 
   nfs_semtake(nmp);
   error = nfs_checkmount(nmp);
-  if (error != 0)
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Fill in the statfs info */
+
+  sbp->f_type = NFS_SUPER_MAGIC;
+
+  (void)nfs_fsinfo(nmp);
+
+  fsstat = &nmp->nm_msgbuffer.fsstat;
+  fsstat->fs.fsroot.length = txdr_unsigned(nmp->nm_fhsize);
+  memcpy(&fsstat->fs.fsroot.handle, &nmp->nm_fh, sizeof(nfsfh_t));
+
+  nfs_statistics(NFSPROC_FSSTAT);
+  error = nfs_request(nmp, NFSPROC_FSSTAT,
+                      (FAR void *)fsstat, sizeof(struct FS3args),
+                      (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+  if (error)
     {
       goto errout_with_semaphore;
     }
 
-  /* Force stale buffer cache information to be flushed. */
-
-  /* Check if the has been modified in any way */
-
-  if ((np->n_flag & NMODIFIED) != 0)
-    {
-      //error = VOP_FSYNC(vp, cred, waitfor, p);
-    }
-
-  return error;
+  sfp                   = (FAR struct rpc_reply_fsstat *)nmp->nm_iobuffer;
+  sbp->f_bsize          = NFS_FABLKSIZE;
+  tquad                 = fxdr_hyper(&sfp->fsstat.sf_tbytes);
+  sbp->f_blocks         = tquad / (uint64_t) NFS_FABLKSIZE;
+  tquad                 = fxdr_hyper(&sfp->fsstat.sf_fbytes);
+  sbp->f_bfree          = tquad / (uint64_t) NFS_FABLKSIZE;
+  tquad                 = fxdr_hyper(&sfp->fsstat.sf_abytes);
+  sbp->f_bavail         = tquad / (uint64_t) NFS_FABLKSIZE;
+  tquad                 = fxdr_hyper(&sfp->fsstat.sf_tfiles);
+  sbp->f_files          = tquad;
+  tquad                 = fxdr_hyper(&sfp->fsstat.sf_ffiles);
+  sbp->f_ffree          = tquad;
+  sbp->f_namelen        = NAME_MAX;
 
 errout_with_semaphore:
   nfs_semgive(nmp);
-  return error;
+  return -error;
 }
-#endif
+
+/****************************************************************************
+ * Name: nfs_remove
+ *
+ * Description:
+ *   Remove a file
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_remove(struct inode *mountpt, const char *relpath)
+{
+  FAR struct nfsmount    *nmp;
+  struct file_handle      fhandle;
+  struct nfs_fattr        fattr;
+  char                    filename[NAME_MAX + 1];
+  FAR uint32_t           *ptr;
+  int                     namelen;
+  int                     reqlen;
+  int                     error;
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt && mountpt->i_private);
+
+  /* Get the mountpoint private data from the inode structure */
+
+  nmp = (struct nfsmount*)mountpt->i_private;
+
+  /* Check if the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Find the NFS node of the directory containing the file to be deleted */
+
+  error = nfs_finddir(nmp, relpath, &fhandle, &fattr, filename);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Create the REMOVE RPC call arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.removef.remove;
+  reqlen = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned(fhandle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &fhandle.handle, fhandle.length);
+  reqlen += (int)fhandle.length;
+  ptr    += uint32_increment(fhandle.length);
+
+  /* Copy the variable-length file name */
+
+  namelen = strlen(filename);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, filename, namelen);
+  reqlen += uint32_alignup(namelen);
+
+  /* Perform the REMOVE RPC call */
+
+  nfs_statistics(NFSPROC_REMOVE);
+  error = nfs_request(nmp, NFSPROC_REMOVE,
+                      (FAR void *)&nmp->nm_msgbuffer.removef, reqlen,
+                      (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+
+errout_with_semaphore:
+   nfs_semgive(nmp);
+   return -error;
+}
+
+/****************************************************************************
+ * Name: nfs_mkdir
+ *
+ * Description:
+ *   Create a directory
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_mkdir(struct inode *mountpt, const char *relpath, mode_t mode)
+{
+  struct nfsmount       *nmp;
+  struct file_handle     fhandle;
+  struct nfs_fattr       fattr;
+  char                   dirname[NAME_MAX + 1];
+  FAR uint32_t          *ptr;
+  uint32_t               tmp;
+  int                    namelen;
+  int                    reqlen;
+  int                    error;
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt && mountpt->i_private);
+
+  /* Get the mountpoint private data from the inode structure */
+
+  nmp = (struct nfsmount*) mountpt->i_private;
+
+  /* Check if the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Find the NFS node of the directory containing the directory to be created */
+
+  error = nfs_finddir(nmp, relpath, &fhandle, &fattr, dirname);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      return error;
+    }
+
+  /* Format the MKDIR call message arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.mkdir.mkdir;
+  reqlen = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned(fhandle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &fhandle.handle, fhandle.length);
+  ptr    += uint32_increment(fhandle.length);
+  reqlen += (int)fhandle.length;
+
+  /* Copy the variable-length directory name */
+
+  namelen = strlen(dirname);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, dirname, namelen);
+  ptr    += uint32_increment(namelen);
+  reqlen += uint32_alignup(namelen);
+
+  /* Set the mode.  NOTE: Here we depend on the fact that the NuttX and NFS
+   * bit settings are the same (at least for the bits of interest).
+   */
+
+  *ptr++  = nfs_true; /* True: mode value follows */
+  reqlen += sizeof(uint32_t);
+
+  tmp = mode & (NFSMODE_IXOTH | NFSMODE_IWOTH | NFSMODE_IROTH |
+                NFSMODE_IXGRP | NFSMODE_IWGRP | NFSMODE_IRGRP |
+                NFSMODE_IXUSR | NFSMODE_IWUSR | NFSMODE_IRUSR);
+  *ptr++  = txdr_unsigned(tmp);
+  reqlen += sizeof(uint32_t);
+
+  /* Set the user ID to zero */
+
+  *ptr++  = nfs_true;             /* True: Uid value follows */
+  *ptr++  = 0;                    /* UID = 0 (nobody) */
+  reqlen += 2*sizeof(uint32_t);
+
+  /* Set the group ID to one */
+
+  *ptr++  = nfs_true;            /* True: Gid value follows */
+  *ptr++  = HTONL(1);            /* GID = 1 (nogroup) */
+  reqlen += 2*sizeof(uint32_t);
+
+  /* No size */
+
+  *ptr++  = nfs_false; /* False: No size value follows */
+  reqlen += sizeof(uint32_t);
+
+  /* Don't change times */
+
+  *ptr++  = HTONL(NFSV3SATTRTIME_DONTCHANGE); /* Don't change atime */
+  *ptr++  = HTONL(NFSV3SATTRTIME_DONTCHANGE); /* Don't change mtime */
+  reqlen += 2*sizeof(uint32_t);
+
+  /* Perform the MKDIR RPC */
+
+  nfs_statistics(NFSPROC_MKDIR);
+  error = nfs_request(nmp, NFSPROC_MKDIR,
+                      (FAR void *)&nmp->nm_msgbuffer.mkdir, reqlen,
+                      (FAR void *)&nmp->nm_iobuffer, nmp->nm_buflen);
+  if (error)
+    {
+      fdbg("ERROR: nfs_request failed: %d\n", error);
+    }
+
+errout_with_semaphore:
+  nfs_semgive(nmp);
+  return -error;
+}
+
+/****************************************************************************
+ * Name: nfs_rmdir
+ *
+ * Description:
+ *   Remove a directory
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_rmdir(struct inode *mountpt, const char *relpath)
+{
+  struct nfsmount       *nmp;
+  struct file_handle     fhandle;
+  struct nfs_fattr       fattr;
+  char                   dirname[NAME_MAX + 1];
+  FAR uint32_t          *ptr;
+  int                    namelen;
+  int                    reqlen;
+  int                    error;
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt && mountpt->i_private);
+
+  /* Get the mountpoint private data from the inode structure */
+
+  nmp = (struct nfsmount *)mountpt->i_private;
+
+  /* Check if the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Find the NFS node of the directory containing the directory to be removed */
+
+  error = nfs_finddir(nmp, relpath, &fhandle, &fattr, dirname);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      return error;
+    }
+
+  /* Set up the RMDIR call message arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.rmdir.rmdir;
+  reqlen = 0;
+
+  /* Copy the variable length, directory file handle */
+
+  *ptr++  = txdr_unsigned(fhandle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &fhandle.handle, fhandle.length);
+  reqlen += (int)fhandle.length;
+  ptr    += uint32_increment(fhandle.length);
+
+  /* Copy the variable-length directory name */
+
+  namelen = strlen(dirname);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, dirname, namelen);
+  reqlen += uint32_alignup(namelen);
+
+  /* Perform the RMDIR RPC */
+
+  nfs_statistics(NFSPROC_RMDIR);
+  error = nfs_request(nmp, NFSPROC_RMDIR,
+                          (FAR void *)&nmp->nm_msgbuffer.rmdir, reqlen,
+                          (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+
+errout_with_semaphore:
+  nfs_semgive(nmp);
+  return -error;
+}
+
+/****************************************************************************
+ * Name: nfs_rename
+ *
+ * Description:
+ *   Rename a file or directory
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_rename(struct inode *mountpt, const char *oldrelpath,
+                      const char *newrelpath)
+{
+  struct nfsmount        *nmp;
+  struct file_handle      from_handle;
+  struct file_handle      to_handle;
+  char                    from_name[NAME_MAX+1];
+  char                    to_name[NAME_MAX+1];
+  struct nfs_fattr        fattr;
+  FAR uint32_t           *ptr;
+  int                     namelen;
+  int                     reqlen;
+  int                     error;
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt && mountpt->i_private);
+
+  /* Get the mountpoint private data from the inode structure */
+
+  nmp = (struct nfsmount *)mountpt->i_private;
+
+  /* Check if the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount returned: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Find the NFS node of the directory containing the 'from' object */
+
+  error = nfs_finddir(nmp, oldrelpath, &from_handle, &fattr, from_name);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      return error;
+    }
+
+  /* Find the NFS node of the directory containing the 'from' object */
+
+  error = nfs_finddir(nmp, newrelpath, &to_handle, &fattr, to_name);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_finddir returned: %d\n", error);
+      return error;
+    }
+
+  /* Format the RENAME RPC arguments */
+
+  ptr    = (FAR uint32_t *)&nmp->nm_msgbuffer.renamef.rename;
+  reqlen = 0;
+
+  /* Copy the variable length, 'from' directory file handle */
+
+  *ptr++  = txdr_unsigned(from_handle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &from_handle.handle, from_handle.length);
+  reqlen += (int)from_handle.length;
+  ptr    += uint32_increment(from_handle.length);
+
+  /* Copy the variable-length 'from' object name */
+
+  namelen = strlen(from_name);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, from_name, namelen);
+  reqlen += uint32_alignup(namelen);
+  ptr    += uint32_increment(namelen);
+
+  /* Copy the variable length, 'to' directory file handle */
+
+  *ptr++  = txdr_unsigned(to_handle.length);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, &to_handle.handle, to_handle.length);
+  ptr    += uint32_increment(to_handle.length);
+  reqlen += (int)to_handle.length;
+
+  /* Copy the variable-length 'to' object name */
+
+  namelen = strlen(to_name);
+
+  *ptr++  = txdr_unsigned(namelen);
+  reqlen += sizeof(uint32_t);
+
+  memcpy(ptr, to_name, namelen);
+  reqlen += uint32_alignup(namelen);
+
+  /* Perform the RENAME RPC */
+
+  nfs_statistics(NFSPROC_RENAME);
+  error = nfs_request(nmp, NFSPROC_RENAME,
+                      (FAR void *)&nmp->nm_msgbuffer.renamef, reqlen,
+                      (FAR void *)nmp->nm_iobuffer, nmp->nm_buflen);
+
+errout_with_semaphore:
+  nfs_semgive(nmp);
+  return -error;
+}
+
+/****************************************************************************
+ * Name: nfs_stat
+ *
+ * Description:
+ *   Return information about the file system object at 'relpath'
+ *
+ * Returned Value:
+ *   0 on success; a negated errno value on failure.
+ *
+ ****************************************************************************/
+
+static int nfs_stat(struct inode *mountpt, const char *relpath,
+                    struct stat *buf)
+{
+  struct nfsmount   *nmp;
+  struct file_handle fhandle;
+  struct nfs_fattr   obj_attributes;
+  uint32_t           tmp;
+  uint32_t           mode;
+  int                error;
+
+  /* Sanity checks */
+
+  DEBUGASSERT(mountpt && mountpt->i_private);
+
+  /* Get the mountpoint private data from the inode structure */
+
+  nmp = (struct nfsmount*)mountpt->i_private;
+  DEBUGASSERT(nmp && buf);
+
+  /* Check if the mount is still healthy */
+
+  nfs_semtake(nmp);
+  error = nfs_checkmount(nmp);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_checkmount failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Get the file handle attributes of the requested node */
+
+  error = nfs_findnode(nmp, relpath, &fhandle, &obj_attributes, NULL);
+  if (error != OK)
+    {
+      fdbg("ERROR: nfs_findnode failed: %d\n", error);
+      goto errout_with_semaphore;
+    }
+
+  /* Construct the file mode.  This is a 32-bit, encoded value containing
+   * both the access mode and the file type.
+   */
+
+  tmp = fxdr_unsigned(uint32_t, obj_attributes.fa_mode);
+
+  /* Here we exploit the fact that most mode bits are the same in NuttX
+   * as in the NFSv3 spec.
+   */
+
+  mode = tmp & (NFSMODE_IXOTH|NFSMODE_IWOTH|NFSMODE_IROTH|
+                NFSMODE_IXGRP|NFSMODE_IWGRP|NFSMODE_IRGRP|
+                NFSMODE_IXUSR|NFSMODE_IWUSR|NFSMODE_IRUSR);
+
+  /* Handle the cases that are not the same */
+
+  if ((mode & NFSMODE_ISGID) != 0)
+    {
+      mode |= S_ISGID;
+    }
+
+  if ((mode & NFSMODE_ISUID) != 0)
+    {
+      mode |= S_ISUID;
+    }
+
+  /* Now OR in the file type */
+
+  tmp = fxdr_unsigned(uint32_t, obj_attributes.fa_type);
+  switch (tmp)
+    {
+    default:
+    case NFNON:   /* Unknown type */
+      break;
+
+    case NFREG:   /* Regular file */
+      mode |= S_IFREG;
+      break;
+
+    case NFDIR:   /* Directory */
+      mode |= S_IFDIR;
+      break;
+
+    case NFBLK:   /* Block special device file */
+      mode |= S_IFBLK;
+      break;
+
+    case NFCHR:   /* Character special device file */
+      mode |= S_IFCHR;
+      break;
+
+    case NFLNK:   /* Symbolic link */
+      mode |= S_IFLNK;
+      break;
+
+    case NFSOCK:  /* Socket */
+      mode |= S_IFSOCK;
+      break;
+
+    case NFFIFO:  /* Named pipe */
+      mode |= S_IFMT;
+      break;
+    }
+
+  buf->st_mode    = mode;
+  buf->st_size    = fxdr_hyper(&obj_attributes.fa_size);
+  buf->st_blksize = 0;
+  buf->st_blocks  = 0;
+  buf->st_mtime   = fxdr_hyper(&obj_attributes.fa_mtime);
+  buf->st_atime   = fxdr_hyper(&obj_attributes.fa_atime);
+  buf->st_ctime   = fxdr_hyper(&obj_attributes.fa_ctime);
+
+errout_with_semaphore:
+  nfs_semgive(nmp);
+  return -error;
+}

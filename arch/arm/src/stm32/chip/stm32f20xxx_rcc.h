@@ -1,7 +1,7 @@
 /****************************************************************************************************
  * arch/arm/src/stm32/chip/stm32f20xxx_rcc.h
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -240,7 +240,7 @@
 #define RCC_AHB1RSTR_GPIOGRST       (1 << 6)  /* Bit 6:  IO port G reset */
 #define RCC_AHB1RSTR_GPIOHRST       (1 << 7)  /* Bit 7:  IO port H reset */
 #define RCC_AHB1RSTR_CRCRST         (1 << 12) /* Bit 12  IO port I reset */
-#define RCC_AHB1RSTR_DMA1RST        (1 << 21) /* Bit 21: DMA2 reset */
+#define RCC_AHB1RSTR_DMA1RST        (1 << 21) /* Bit 21: DMA1 reset */
 #define RCC_AHB1RSTR_DMA2RST        (1 << 22) /* Bit 22: DMA2 reset */
 #define RCC_AHB1RSTR_ETHMACRST      (1 << 25) /* Bit 25: Ethernet MAC reset */
 #define RCC_AHB1RSTR_OTGHSRST       (1 << 29) /* Bit 29: USB OTG HS module reset */
@@ -311,7 +311,6 @@
 #define RCC_AHB1ENR_GPIOIEN         (1 << 8)  /* Bit 8:  IO port I clock enable */
 #define RCC_AHB1ENR_CRCEN           (1 << 12) /* Bit 12: CRC clock enable */
 #define RCC_AHB1ENR_BKPSRAMEN       (1 << 18) /* Bit 18: Backup SRAM interface clock enable */
-#define RCC_AHB1ENR_CCMDATARAMEN    (1 << 20) /* Bit 20: CCM data RAM clock enable */
 #define RCC_AHB1ENR_DMA1EN          (1 << 21) /* Bit 21: DMA1 clock enable */
 #define RCC_AHB1ENR_DMA2EN          (1 << 22) /* Bit 22: DMA2 clock enable */
 #define RCC_AHB1ENR_ETHMACEN        (1 << 25) /* Bit 25: Ethernet MAC clock enable */
@@ -392,7 +391,6 @@
 #define RCC_AHB1LPENR_SRAM1LPEN      (1 << 16) /* Bit 16: SRAM 1 interface clock enable during Sleep mode */
 #define RCC_AHB1LPENR_SRAM2LPEN      (1 << 17) /* Bit 17: SRAM 2 interface clock enable during Sleep mode */
 #define RCC_AHB1LPENR_BKPSRAMLPEN    (1 << 18) /* Bit 18: Backup SRAM interface clock enable during Sleep mode */
-#define RCC_AHB1LPENR_CCMDATARAMLPEN (1 << 20) /* Bit 20: CCM data RAM clock enable during Sleep mode */
 #define RCC_AHB1LPENR_DMA1LPEN       (1 << 21) /* Bit 21: DMA1 clock enable during Sleep mode */
 #define RCC_AHB1LPENR_DMA2LPEN       (1 << 22) /* Bit 22: DMA2 clock enable during Sleep mode */
 #define RCC_AHB1LPENR_ETHMACLPEN     (1 << 25) /* Bit 25: Ethernet MAC clock enable during Sleep mode */

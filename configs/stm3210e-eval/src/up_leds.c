@@ -80,12 +80,6 @@
  * Private Function Protototypes
  **************************************************************************************/
 
-/* LED State Controls */
-
-static inline void led_clrbits(unsigned int clrbits);
-static inline void led_setbits(unsigned int setbits);
-static void led_setonoff(unsigned int bits);
-
 /* LED Power Management */
 
 #ifdef CONFIG_PM

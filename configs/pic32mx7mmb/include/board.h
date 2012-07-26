@@ -58,8 +58,9 @@
 #define BOARD_POSC_FREQ        8000000  /* Primary OSC XTAL frequency (8MHz) */
 #define BOARD_SOSC_FREQ        32768    /* Secondary OSC XTAL frequency (32.768KHz) */
 
-/* Clock modes */
+/* Oscillator modes */
 
+#define BOARD_FNOSC_POSCPLL    1        /* Use primary oscillator w/PLL */
 #define BOARD_POSC_XTMODE      1        /* Resonator, crystal or resonator (XT) mode */
 #undef  BOARD_POSC_SWITCH               /* Use FRC until POSC stabilizes, then switch */
 #undef  BOARD_POSC_FSCM                 /* Switch to FRC if POSC fails */
@@ -70,6 +71,7 @@
  * CPU_CLOCK = ((POSC_FREQ / IDIV) * MULT) / ODIV
  */
 
+#define BOARD_PLL_INPUT        BOARD_POSC_FREQ
 #define BOARD_PLL_IDIV         2        /* PLL input divider */
 #define BOARD_PLL_MULT         20       /* PLL multiplier */
 #define BOARD_PLL_ODIV         1        /* PLL output divider */
@@ -134,8 +136,8 @@
 /* LED bits for use with pic32mx_setleds() */
 
 #define PIC32MX_PIC32MX7MMB_LED0_BIT (1 << PIC32MX_PIC32MX7MMB_LED0)
-#define PIC32MX_PIC32MX7MMB_LED1_BIT (1 << PIC32MX_PIC32MX7MMB_LED2)
-#define PIC32MX_PIC32MX7MMB_LED2_BIT (1 << PIC32MX_PIC32MX7MMB_LED3)
+#define PIC32MX_PIC32MX7MMB_LED1_BIT (1 << PIC32MX_PIC32MX7MMB_LED1)
+#define PIC32MX_PIC32MX7MMB_LED2_BIT (1 << PIC32MX_PIC32MX7MMB_LED2)
 
 /* If CONFIG_ARCH_LEDs is defined, then NuttX will control the 3 LEDs
  * on board the Mikroelektronika PIC32MX7 MMB.  The following definitions

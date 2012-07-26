@@ -1,8 +1,8 @@
 /************************************************************************************
  * arch/arm/src/lpc17xx/lpc17_i2s
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,7 +91,7 @@
 #define I2S_DAO_WDWID_MASK          (3 << I2S_DAO_WDWID_SHIFT)
 #  define I2S_DAO_WDWID_8BITS       (0 << I2S_DAO_WDWID_SHIFT)
 #  define I2S_DAO_WDWID_16BITS      (1 << I2S_DAO_WDWID_SHIFT)
-#  define I2S_DAO_WDWID_32BITS      (2 << I2S_DAO_WDWID_SHIFT)
+#  define I2S_DAO_WDWID_32BITS      (3 << I2S_DAO_WDWID_SHIFT)
 #define I2S_DAO_MONO                (1 << 2)  /* Bit 2:  Mono format */
 #define I2S_DAO_STOP                (1 << 3)  /* Bit 3:  Disable FIFOs / mute mode */
 #define I2S_DAO_RESET               (1 << 4)  /* Bit 4:  Reset TX channel and FIFO */
@@ -106,7 +106,7 @@
 #define I2S_DAI_WDWID_MASK          (3 << I2S_DAI_WDWID_SHIFT)
 #  define I2S_DAI_WDWID_8BITS       (0 << I2S_DAI_WDWID_SHIFT)
 #  define I2S_DAI_WDWID_16BITS      (1 << I2S_DAI_WDWID_SHIFT)
-#  define I2S_DAI_WDWID_32BITS      (2 << I2S_DAI_WDWID_SHIFT)
+#  define I2S_DAI_WDWID_32BITS      (3 << I2S_DAI_WDWID_SHIFT)
 #define I2S_DAI_MONO                (1 << 2)  /* Bit 2:  Mono format */
 #define I2S_DAI_STOP                (1 << 3)  /* Bit 3:  Disable FIFOs / mute mode */
 #define I2S_DAI_RESET               (1 << 4)  /* Bit 4:  Reset TX channel and FIFO */
@@ -133,7 +133,7 @@
 
 #define I2S_DMA_RXDMAEN             (1 << 0)  /* Bit 0:  Enable DMA1 for I2S receive */
 #define I2S_DMA_TXDMAEN             (1 << 1)  /* Bit 1:  Enable DMA1 for I2S transmit */
-                                              /* Bits 3-7: Reserved */
+                                              /* Bits 2-7: Reserved */
 #define I2S_DMA_RXDEPTH_SHIFT       (8)       /* Bits 8-11: FIFO level that triggers RX request on DMA1 */
 #define I2S_DMA_RXDEPTH_MASK        (15 << I2S_DMA_RXDEPTH_SHIFT)
                                               /* Bits 12-15: Reserved */
@@ -142,10 +142,9 @@
                                               /* Bits 20-31: Reserved */
 /* Interrupt Request Control Register */
 
-#define I2S_IRQ_
 #define I2S_IRQ_RXEN                (1 << 0)  /* Bit 0:  Enable I2S receive interrupt */
 #define I2S_IRQ_TXEN                (1 << 1)  /* Bit 1:  Enable I2S transmit interrupt */
-                                              /* Bits 3-7: Reserved */
+                                              /* Bits 2-7: Reserved */
 #define I2S_IRQ_RXDEPTH_SHIFT       (8)       /* Bits 8-11: Set FIFO level for irq request */
 #define I2S_IRQ_RXDEPTH_MASK        (15 << I2S_IRQ_RXDEPTH_SHIFT)
                                               /* Bits 12-15: Reserved */

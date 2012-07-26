@@ -1,8 +1,8 @@
 /************************************************************************************
  * arch/arm/src/lpc17xx/lpc17_adc.h
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,6 @@
 
 /* Register offsets *****************************************************************/
 
-
 #define LPC17_ADC_CR_OFFSET      0x0000  /* A/D Control Register */
 #define LPC17_ADC_GDR_OFFSET     0x0004  /* A/D Global Data Register */
 #define LPC17_ADC_INTEN_OFFSET   0x000c  /* A/D Interrupt Enable Register */
@@ -70,7 +69,6 @@
 #define LPC17_ADC_TRM_OFFSET     0x0034  /* ADC trim register */
 
 /* Register addresses ***************************************************************/
-
 
 #define LPC17_ADC_CR             (LPC17_ADC_BASE+LPC17_ADC_CR_OFFSET)
 #define LPC17_ADC_GDR            (LPC17_ADC_BASE+LPC17_ADC_GDR_OFFSET)
@@ -115,10 +113,10 @@
                                            /* Bits 28-31: Reserved */
 /* A/D Global Data Register AND Channel 0-7 Data Register */
                                            /* Bits 0-3: Reserved */
-#define ADC_DR_RESULT_SHIFT      (4)       /* Bits 4-15: Result of conversion (DONE==1)*/
+#define ADC_DR_RESULT_SHIFT      (4)       /* Bits 4-15: Result of conversion (DONE==1) */
 #define ADC_DR_RESULT_MASK       (0x0fff << ADC_DR_RESULT_SHIFT)
                                            /* Bits 16-23: Reserved */
-#define ADC_DR_CHAN_SHIFT        (24)      /* Bits 24-26: Channel converted*/
+#define ADC_DR_CHAN_SHIFT        (24)      /* Bits 24-26: Channel converted */
 #define ADC_DR_CHAN_MASK         (3 << ADC_DR_CHN_SHIFT)
                                            /* Bits 27-29: Reserved */
 #define ADC_DR_OVERRUN           (1 << 30) /* Bit 30: Conversion(s) lost/overwritten*/

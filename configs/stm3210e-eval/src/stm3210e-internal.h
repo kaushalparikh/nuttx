@@ -292,6 +292,31 @@ void stm32_deselectlcd(void);
 
 #endif /* CONFIG_STM32_FSMC */
 
+/************************************************************************************
+ * Name: up_ledpminitialize
+ *
+ * Description:
+ *   Register the LEDs to receive power management event callbacks
+ *
+ ************************************************************************************/
+
+#if defined(CONFIG_PM) && defined(CONFIG_ARCH_LEDS)
+void up_ledpminitialize(void);
+#endif
+
+/************************************************************************************
+ * Name: up_pmbuttons
+ *
+ * Description:
+ *   Configure all the buttons of the STM3210e-eval board as EXTI, so any button is
+ *   able to wakeup the MCU from the PM_STANDBY mode
+ *
+ ************************************************************************************/
+
+#if defined(CONFIG_PM) && defined(CONFIG_IDLE_CUSTOM) && defined(CONFIG_PM_BUTTONS)
+void up_pmbuttons(void);
+#endif
+
 #endif /* __ASSEMBLY__ */
 #endif /* __CONFIGS_STM3210E_EVAL_SRC_STM3210E_INTERNAL_H */
 

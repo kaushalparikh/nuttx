@@ -1,8 +1,8 @@
 /************************************************************************************
  * arch/arm/src/lpc17xx/lpc17_ssp.h
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -95,8 +95,8 @@
 #define SSP_CR0_DSS_SHIFT       (0)       /* Bits 0-3: DSS Data Size Select */
 #define SSP_CR0_DSS_MASK        (15 << SSP_CR0_DSS_SHIFT)
 #  define SSP_CR0_DSS_4BIT      (3 << SSP_CR0_DSS_SHIFT)
-#  define SSP_CR0_DSS_5BIT      (5 << SSP_CR0_DSS_SHIFT)
-#  define SSP_CR0_DSS_6BIT      (4 << SSP_CR0_DSS_SHIFT)
+#  define SSP_CR0_DSS_5BIT      (4 << SSP_CR0_DSS_SHIFT)
+#  define SSP_CR0_DSS_6BIT      (5 << SSP_CR0_DSS_SHIFT)
 #  define SSP_CR0_DSS_7BIT      (6 << SSP_CR0_DSS_SHIFT)
 #  define SSP_CR0_DSS_8BIT      (7 << SSP_CR0_DSS_SHIFT)
 #  define SSP_CR0_DSS_9BIT      (8 << SSP_CR0_DSS_SHIFT)

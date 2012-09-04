@@ -1,4 +1,4 @@
-NuttX TODO List (Last updated June 20, 2012)
+NuttX TODO List (Last updated August 12, 2012)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file summarizes known NuttX bugs, limitations, inconsistencies with 
@@ -6,7 +6,7 @@ standards, things that could be improved, and ideas for enhancements.
 
 nuttx/
 
-  (6)  Task/Scheduler (sched/)
+  (5)  Task/Scheduler (sched/)
   (1)  On-demand paging (sched/)
   (1)  Memory Managment (mm/)
   (2)  Signals (sched/, arch/)
@@ -15,20 +15,21 @@ nuttx/
   (5)  Binary loaders (binfmt/)
  (17)  Network (net/, drivers/net)
   (3)  USB (drivers/usbdev, drivers/usbhost)
-  (8)  Libraries (lib/)
- (10)  File system/Generic drivers (fs/, drivers/)
+ (11)  Libraries (lib/)
+  (9)  File system/Generic drivers (fs/, drivers/)
   (5)  Graphics subystem (graphics/)
   (1)  Pascal add-on (pcode/)
   (1)  Documentation (Documentation/)
-  (7)  Build system / Toolchains
+  (6)  Build system / Toolchains
   (5)  Linux/Cywgin simulation (arch/sim)
-  (5)  ARM (arch/arm/)
+  (6)  ARM (arch/arm/)
   (1)  ARM/C5471 (arch/arm/src/c5471/)
   (3)  ARM/DM320 (arch/arm/src/dm320/)
   (2)  ARM/i.MX (arch/arm/src/imx/)
   (3)  ARM/LPC17xx (arch/arm/src/lpc17xx/)
   (7)  ARM/LPC214x (arch/arm/src/lpc214x/)
   (2)  ARM/LPC313x (arch/arm/src/lpc313x/)
+  (0)  ARM/LPC43x (arch/arm/src/lpc43xx/)
   (3)  ARM/STR71x (arch/arm/src/str71x/)
   (3)  ARM/LM3S6918 (arch/arm/src/lm3s/)
   (7)  ARM/STM32 (arch/arm/src/stm32/)
@@ -57,14 +58,6 @@ o Task/Scheduler (sched/)
                terminated?
   Status:      Open
   Priority:    Medium, required for good emulation of process/pthread model.
-
-  Title:       MULTIPLE ATEXIT() FUNCTIONS
-  Description: atexit() supports registration of only single function called on
-               exit().  It should support multiple functions registered by atexit()
-               or onexit() and these should be called in reverse order of
-               registration when the task exits.
-  Status:      Open
-  Priority:    Low
 
   Title:       MMAN.H
   Description: Implement sys/mman.h and functions
@@ -608,6 +601,11 @@ o Libraries (lib/)
   Description: Need some minimal termios support... at a minimum, enough to
                switch between raw and "normal" modes to support behavior like
                that needed for readline().
+               UPDATE:  There is growing functionality in lib/termios/ and in the
+               ioctl methods of several MCU serial drivers (stm32, lpc43, lpc17,
+               pic32).  However, as phrased, this bug cannot yet be closed since
+               this "growing functionality" does not address all termios.h
+               functionality and not all serial drivers support termios.
   Status:      Open
   Priority:    Low
 
@@ -674,6 +672,32 @@ o Libraries (lib/)
   Status:      Open
   Priority:    ??
 
+  Title:       SYSLOG INTEGRATION
+  Description: There are the beginnings of some system logging capabilities (see
+               drivers/syslog, fs/fs_syslog.c, and lib/stdio/lib_librawprintf.c and
+               lib_liblowprintf.c.  For NuttX, SYSLOG is a concept and includes,
+               extends, and replaces the legacy NuttX debug ouput.  Some additional
+               integration is required to formalized this.  For example:
+
+               o lib_rawprintf() shjould be renamed syslog().
+               o debug.h should be renamed syslog.h
+               o And what about lib_lowprintf()? llsyslog?
+  Status:      Open
+  Priority:    Low -- more of a roadmap
+
+  Title:       FLOATING POINT FORMATS
+  Description: Only the %f floating point format is supported.  Others are accepted
+               but treated like %f.
+  Status:      Open
+  Priority:    Medium (this might important to someone).
+
+  Title:       FLOATING POINT PRECISION
+  Description: A fieldwidth and precision is required with the %f format.  If %f
+               is used with no format, than floating numbers will be printed with
+               a precision of 0 (effectively presented as integers).
+  Status:      Open
+  Priority:    Medium (this might important to someone).
+
 o File system / Generic drivers (fs/, drivers/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -692,9 +716,9 @@ o File system / Generic drivers (fs/, drivers/)
 
   Title:       REMOVING PIPES AND FIFOS
   Description: There is no way to remove a FIFO or PIPE created in the
-               psuedo filesystem.  Once created, they persist indefinitely
+               pseudo filesystem.  Once created, they persist indefinitely
                and cannot be unlinked.  This is actually a more generic
-               issue:  unlink does not work for anything in the psuedo-
+               issue:  unlink does not work for anything in the pseudo-
                filesystem.
   Status:      Open, but partially resolved: pipe buffer is at least freed
                when there are not open references to the pipe/FIFO.
@@ -725,21 +749,6 @@ o File system / Generic drivers (fs/, drivers/)
                is incomplete and untested.
   Status:      Open
   Priority:    Low
-
-  Title:       SERIAL DRIVER DOES NOT RETURN WHEN SIGNAL RECEIVED
-  Description: The serial driver (drivers/serial) should return with an
-               error and errno=EINTR when an interrupt is received.  However,
-               the serial driver just continues waiting:
-
-               static void uart_takesem(FAR sem_t *sem)
-               {
-                 while (sem_wait(sem) != 0)
-                   {
-                     ASSERT(*get_errno_ptr() == EINTR);
-                   }
-               }
-  Status:      Open
-  Priority     Medium
 
   Title:       POLLHUP SUPPORT
   Description: All drivers that support the poll method should also report
@@ -835,21 +844,13 @@ o Documentation (Documentation/)
 o Build system
   ^^^^^^^^^^^^
 
-  Title:       DEPENDENCIES IN THE BOARD DIRECTORY
-  Description: Dependencies do not work correctly under configs/<board>/src
-               (same as arch/<arch>/src/board).
-               UPDATE:  Added the following to each arch/*/src/Makefile:
-               
-               PHONY: board/libboard$(LIBEXT)
-
-               However, I have not confirmed that this a full-proof fix in
-               all cases -- still under test (thanks to Mike Smith).
-  Status:      Open
-  Priority:    Medium (maybe higher for z80 target)
-
   Title:       NUTTX CONFIGURATION TOOL
   Description: Need a NuttX configuration tool.  The number of configuration
                settings has become quite large and difficult to manage manually.
+               Update:  This task is essentially completed.  But probably not for
+               all platforms and all features.  When do we know that the the
+               features is complete and that we can switch to exclusive use of
+               the tool?
   Status:      Open
   Priority:    Medium-low
 
@@ -903,7 +904,7 @@ o Build system
   Status:      Open
   Priority:    Low.
 
-  Title:       KERNEL BUILD MODE ISSUES
+  Title:       KERNEL BUILD MODE ISSUES - GRAPHICS/NSH PARTITIONING.
   Description: In the kernel build mode (where NuttX is built as a monlithic
                kernel and user code must trap into the protected kernel via
                syscalls), the single user mode cannot be supported.  In this
@@ -912,6 +913,9 @@ o Build system
                this case, most of the user end functions in graphics/nxmu
                must be moved to lib/nx and those functions must be built into
                libuser.a to be linked with the user-space code.
+               A similar issue exists in NSH that uses some internal OS
+               interfaces that would not be available in a kernel build
+               (such as foreach_task, foreach_mountpoint, etc.).
   Status:      Open
   Priority:    Low -- the kernel build configuration is not fully fielded
                yet.
@@ -1061,7 +1065,21 @@ o ARM (arch/arm/)
   Priority:    Low.  The conditions of continous interrupts is really the problem.
                If your design needs continous interrupts like this, please try
                the above change and, please, submit a patch with the working fix.
- 
+
+  Title:       KERNEL MODE ISSUES - HANDLERS
+  Description: The is a design flaw in the ARM/Cortex trap handlers.  Currently,
+               they try to process the SYSCALL within the trap handler.  That
+               cannot work.  There are two possibilities to fix this.
+               1) Just enable interrupts in the trap handler and make sure that
+                  that sufficient protection is in place to handler the nested
+                  interrupts, or
+               3) Return from the exception via a trampoline (such as is
+                  currently done for signal handlers).  In the trampoline,
+                  the trap would processed in supervisor mode with interrupts
+                  enabled.
+  Status:      Open
+  Priority:    medium-high.
+
 o ARM/C5471 (arch/arm/src/c5471/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1208,7 +1226,7 @@ o ARM/LPC214x (arch/arm/src/lpc214x/)
                I am not aware of anyone using LPC2148 now so I think the priority has
                to be low.
 
-o ARM/LPC313x (arch/arm/src/lpc313x/)
+o ARM/LPC31xx (arch/arm/src/lpc31xx/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
   Title:       PLATFORM-SPECIFIC LOGIC
@@ -1231,6 +1249,9 @@ o ARM/LPC313x (arch/arm/src/lpc313x/)
                Atmel at45dbxx serial FLASH driver.
   Status:      Open
   Priority:    High if you need to use SPI.
+
+o ARM/LPC43x (arch/arm/src/lpc43xx/)
+  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 o ARM/STR71x (arch/arm/src/str71x/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1349,7 +1370,7 @@ o ARM/STM32 (arch/arm/src/stm32/)
   Status:      Open
   Priority:    Low (I am not even sure if this is a problem yet).
 
-  Status:      Unfinished STM32 F4 OTG FS Host Driver
+  Status:      UNFINISHED STM32 F4 OTG FS HOST DRIVER
   Description: A quick-n-dirty leverage of the the LPC17xx host driver was put into
                the STM32 source to support development of the STM32 F4 OTG FS host
                driver.  It is non-functional and still waiting for STM32 F4 logic
@@ -1783,7 +1804,7 @@ o mc68hc1x (arch/hc)
   Description: There is no script for building in banked mode (more correctly, there
                is a script, but logic inside the script has not yet been implemented).
                It would be necessary to implement banked mode to able to access more
-               the 48Kb of FLASH.
+               the 48K of FLASH.
   Status:      Open.
   Priority:    Medium/Low
 
@@ -1861,7 +1882,8 @@ o System libraries apps/system (apps/system)
   Description: readline implementation does not use C-buffered I/O, but rather
                talks to serial driver directly via read().  It includes VT-100
                specific editting commands.  A more generic readline() should be
-               implemented.
+               implemented using termios' tcsetattr() to put the serial driver
+               into a "raw" mode.
   Status:      Open
   Priority:    Low (unless you are using mixed C-buffered I/O with readline and
                fgetc, for example).
@@ -1884,7 +1906,7 @@ o Other Applications & Tests (apps/examples/)
 
   Title:       EXAMPLES/SENDMAIL UNTESTED
   Description: examples/sendmail is untested on the target (it has been tested
-               on the host, but not on the target.
+               on the host, but not on the target).
   Status:      Open
   Priority:    Med
 

@@ -52,7 +52,6 @@
 # CONFIG_BOARD_LOOPSPERMSEC - for delay loops
 # CONFIG_DRAM_SIZE - Describes the installed DRAM.
 # CONFIG_DRAM_START - The start address of DRAM (physical)
-# CONFIG_DRAM_END - Last address+1 of installed RAM
 # CONFIG_ARCH_NOINTC - define if the architecture does not
 #   support an interrupt controller or otherwise cannot support
 #   APIs like up_enable_irq() and up_disable_irq().
@@ -82,17 +81,16 @@
 #   the delay actually is 100 seconds.
 # CONFIG_ARCH_DMA - Support DMA initialization
 #
-CONFIG_ARCH=mips
+CONFIG_ARCH="mips"
 CONFIG_ARCH_MIPS=y
 CONFIG_ARCH_MIPS32=y
-CONFIG_ARCH_CHIP=pic32mx
+CONFIG_ARCH_CHIP="pic32mx"
 CONFIG_ARCH_CHIP_PIC32MX250F128D=y
-CONFIG_ARCH_BOARD=mirtoo
+CONFIG_ARCH_BOARD="mirtoo"
 CONFIG_ARCH_BOARD_MIRTOO=y
 CONFIG_BOARD_LOOPSPERMSEC=8079
-CONFIG_DRAM_SIZE=(32*1024)
+CONFIG_DRAM_SIZE=32768
 CONFIG_DRAM_START=0xa0000000
-CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
 CONFIG_ARCH_NOINTC=n
 CONFIG_ARCH_VECNOTIRQ=y
 CONFIG_ARCH_IRQPRIO=y
@@ -343,7 +341,7 @@ CONFIG_HAVE_LIBM=n
 # CONFIG_SCHED_WORKPRIORITY - The execution priority of the worker
 #  thread.  Default: 50
 # CONFIG_SCHED_WORKPERIOD - How often the worker thread checks for
-#  work in units of microseconds.  Default: 50*1000 (50 MS).
+#  work in units of microseconds.  Default: 50000 (50 MS).
 # CONFIG_SCHED_WORKSTACKSIZE - The stack size allocated for the worker
 #  thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
 # CONFIG_SIG_SIGWORK - The signal number that will be used to wake-up
@@ -382,7 +380,7 @@ CONFIG_FDCLONE_STDIO=n
 CONFIG_SDCLONE_DISABLE=y
 CONFIG_SCHED_WORKQUEUE=n
 CONFIG_SCHED_WORKPRIORITY=192
-CONFIG_SCHED_WORKPERIOD=(50*1000)
+CONFIG_SCHED_WORKPERIOD=50000
 CONFIG_SCHED_WORKSTACKSIZE=1024
 CONFIG_SIG_SIGWORK=4
 CONFIG_SCHED_WAITPID=y
@@ -747,11 +745,48 @@ CONFIG_USBMSC_VERSIONNO=0x0399
 CONFIG_USBMSC_REMOVABLE=y
 
 #
+# PGA117 support
+#
+# Prerequisites:
+#  CONFIG_ADC=y is needed to enable support for analog input devices
+#
+# CONFIG_ADC_PGA11X
+#   Enables support for the PGA11X driver (Needs CONFIG_ADC)
+# CONFIG_PGA11X_SPIFREQUENCY
+#   SPI frequency.  Default 1MHz
+# CONFIG_PGA11X_DAISYCHAIN
+#   Use two PGA116/7's in Daisy Chain commands.
+# CONFIG_PGA11X_SPIMODE
+#   SPI Mode.  The specification says that the device operates in Mode 0 or
+#   Mode 3.  But sometimes you need to tinker with this to get things to
+#   work correctly. Default:  Mode 0
+# CONFIG_PGA11X_MULTIPLE
+#   Can be defined to support multiple PGA11X devices on board.  Each
+#   device will require a customized SPI interface to distinguish them
+#   When SPI_SELECT is called with devid=SPIDEV_MUX.
+#
+# Other settings that effect the driver:
+#   CONFIG_SPI_OWNBUS -- If the PGA117 is the only device on the SPI
+#     bus, then this should be set to 'y'
+#   CONFIG_DEBUG_SPI -- With CONFIG_DEBUG and CONFIG_DEBUG_VERBOSE,
+#     this will enable debug output from the PGA117 driver.
+#
+CONFIG_ADC=n
+CONFIG_SPI_OWNBUS=y
+CONFIG_DEBUG_SPI=n
+
+CONFIG_ADC_PGA11X=n
+#CONFIG_PGA11X_SPIFREQUENCY
+CONFIG_PGA11X_DAISYCHAIN=n
+CONFIG_PGA11X_SPIMODE=1
+CONFIG_PGA11X_MULTIPLE=n
+
+#
 # Settings for examples/uip
 #
-CONFIG_EXAMPLE_UIP_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_EXAMPLE_UIP_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_EXAMPLE_UIP_NETMASK=(255<<24|255<<16|255<<8|0)
+CONFIG_EXAMPLE_UIP_IPADDR=0x0a000002
+CONFIG_EXAMPLE_UIP_DRIPADDR=0x0a000001
+CONFIG_EXAMPLE_UIP_NETMASK=0xffffff00
 CONFIG_EXAMPLE_UIP_DHCPC=n
 
 #
@@ -773,10 +808,10 @@ CONFIG_EXAMPLE_UIP_DHCPC=n
 CONFIG_EXAMPLE_NETTEST_SERVER=n
 CONFIG_EXAMPLE_NETTEST_PERFORMANCE=n
 CONFIG_EXAMPLE_NETTEST_NOMAC=y
-CONFIG_EXAMPLE_NETTEST_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_EXAMPLE_NETTEST_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_EXAMPLE_NETTEST_NETMASK=(255<<24|255<<16|255<<8|0)
-CONFIG_EXAMPLE_NETTEST_CLIENTIP=(10<<24|0<<16|0<<8|1)
+CONFIG_EXAMPLE_NETTEST_IPADDR=0x0a000002
+CONFIG_EXAMPLE_NETTEST_DRIPADDR=0x0a000001
+CONFIG_EXAMPLE_NETTEST_NETMASK=0xffffff00
+CONFIG_EXAMPLE_NETTEST_CLIENTIP=0x0a000001
 
 #
 # Settings for examples/ostest
@@ -835,9 +870,9 @@ CONFIG_NSH_ARCHINIT=n
 CONFIG_NSH_IOBUFFER_SIZE=512
 CONFIG_NSH_DHCPC=n
 CONFIG_NSH_NOMAC=n
-CONFIG_NSH_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_NSH_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_NSH_NETMASK=(255<<24|255<<16|255<<8|0)
+CONFIG_NSH_IPADDR=0x0a000002
+CONFIG_NSH_DRIPADDR=0x0a000001
+CONFIG_NSH_NETMASK=0xffffff00
 CONFIG_NSH_ROMFSMOUNTPT="/etc"
 CONFIG_NSH_INITSCRIPT="init.d/rcS"
 CONFIG_NSH_ROMFSDEVNO=0

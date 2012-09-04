@@ -84,7 +84,24 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: nsh_execute
+ * Name: nsh_execapp
+ *
+ * Description:
+ *    Attempt to execute the application task whose name is 'cmd'
+ *
+ * Returned Value:
+ *   <0          If exec_namedapp() fails, then the negated errno value
+ *               is returned.
+ *   -1 (ERROR)  if the application task corresponding to 'cmd' could not
+ *               be started (possibly because it doesn not exist).
+ *    0 (OK)     if the application task corresponding to 'cmd' was
+ *               and successfully started.  If CONFIG_SCHED_WAITPID is
+ *               defined, this return value also indicates that the
+ *               application returned successful status (EXIT_SUCCESS)
+ *    1          If CONFIG_SCHED_WAITPID is defined, then this return value
+ *               indicates that the application task was spawned successfully
+ *               but returned failure exit status.
+ *
  ****************************************************************************/
 
 int nsh_execapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
@@ -92,30 +109,79 @@ int nsh_execapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
 {
   int ret = OK;
 
-  /* Try to find command within pre-built application list. */
+  /* Lock the scheduler to prevent the application from running until the
+   * waitpid() has been called.
+   */
+
+  sched_lock();
+
+  /* Try to find and execute the command within the list of builtin
+   * applications.
+   */
 
   ret = exec_namedapp(cmd, (FAR const char **)argv);
+  if (ret >= 0)
+    {
+      /* The application was successfully started (but still blocked because the
+       * scheduler is locked).  If the application was not backgrounded, then we
+       * need to wait here for the application to exit.
+       */
+
+#ifdef CONFIG_SCHED_WAITPID
+      if (vtbl->np.np_bg == false)
+        {
+          int rc = 0;
+
+          /* Wait for the application to exit.  Since we have locked the
+           * scheduler above, we know that the application has not yet
+           * started and there is no possibility that it has already exited.
+           * The scheduler will be unlocked while waitpid is waiting and the
+           * application will be able to run.
+           */
+
+          ret = waitpid(ret, &rc, 0);
+          if (ret >= 0)
+            {
+              /* We can't return the exact status (nsh has nowhere to put it)
+               * so just pass back zero/nonzero in a fashion that doesn't look 
+               * like an error.
+               */
+
+              ret = (rc == 0) ? OK : 1;
+
+             /* TODO:  Set the environment variable '?' to a string corresponding
+              * to WEXITSTATUS(rc) so that $? will expand to the exit status of
+              * the most recently executed task.
+              */
+            }
+        }
+      else
+#endif
+        {
+          struct sched_param param;
+          sched_getparam(0, &param);
+          nsh_output(vtbl, "%s [%d:%d]\n", cmd, ret, param.sched_priority);
+
+          /* Backgrounded commands always 'succeed' as long as we can start
+           * them.
+           */
+
+          ret = OK;
+        }
+    }
+
+  sched_unlock();
+
+  /* If exec_namedapp() or waitpid() failed, then return the negated errno
+   * value.
+   */
+
   if (ret < 0)
     {
       return -errno;
     }
 
-#ifdef CONFIG_SCHED_WAITPID
-  if (vtbl->np.np_bg == false)
-    {
-      waitpid(ret, NULL, 0);
-    }
-  else
-#endif
-    {
-      struct sched_param param;
-      sched_getparam(0, &param);
-      nsh_output(vtbl, "%s [%d:%d]\n", cmd, ret, param.sched_priority);
-    }
-
-  return OK;
+  return ret;
 }
 
 #endif /* CONFIG_NSH_BUILTIN_APPS */
-
-

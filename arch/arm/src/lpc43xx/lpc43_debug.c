@@ -1,5 +1,5 @@
 /****************************************************************************
- *  arch/arm/src/lpc43/lpc43_pin_config.c
+ *  arch/arm/src/lpc43/lpc43_debug.c
  *
  *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -37,13 +37,15 @@
  * Included Files
  ****************************************************************************/
 
-#include <arch/board/board.h>
 #include <nuttx/config.h>
 
-#include <nuttx/arch.h>
 #include <errno.h>
 
+#include <arch/board/board.h>
+
+#include "up_arch.h"
 #include "lpc43_pinconfig.h"
+#include "lpc43_gpio.h"
 
 #ifdef CONFIG_DEBUG
 

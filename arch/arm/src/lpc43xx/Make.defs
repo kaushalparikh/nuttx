@@ -82,6 +82,10 @@ ifeq ($(CONFIG_LPC43_SPI),y)
 CHIP_CSRCS += lpc43_spi.c
 endif
 
+ifeq ($(CONFIG_LPC43_SPIFI),y)
+CHIP_CSRCS += lpc43_spifi.c
+endif
+
 ifeq ($(CONFIG_LPC43_SSP0),y)
 CHIP_CSRCS += lpc43_ssp.c
 else
@@ -113,3 +117,10 @@ ifeq ($(CONFIG_LPC43_DAC),y)
 CHIP_CSRCS += lpc43_adc.c
 endif
 endif
+
+ifeq ($(CONFIG_LPC43_USB0),y)
+ifeq ($(CONFIG_USBDEV),y)
+CHIP_CSRCS	+= lpc31_usb0dev.c
+endif
+endif
+

@@ -68,15 +68,19 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: unregister_driver()
+ * Name: unregister_driver
+ *
+ * Description:
+ *   Remove the character driver inode at 'path' from the pseudo-file system
+ *
  ****************************************************************************/
 
 int unregister_driver(FAR const char *path)
 {
   int ret;
+
   inode_semtake();
   ret = inode_remove(path);
   inode_semgive();
   return ret;
 }
-

@@ -492,7 +492,7 @@ void nsh_usbtrace(void);
 #  ifndef CONFIG_NSH_DISABLE_LS
       int cmd_ls(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #  endif
-#  if defined(CONFIG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
+#  if defined(CONFIG_SYSLOG) && defined(CONFIG_RAMLOG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
       int cmd_dmesg(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #  endif
 #  if CONFIG_NFILE_STREAMS > 0 && !defined(CONFIG_NSH_DISABLESCRIPT)
@@ -508,6 +508,9 @@ void nsh_usbtrace(void);
        int cmd_mkfifo(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #   endif
 #   ifdef CONFIG_FS_READABLE
+#     ifndef CONFIG_NSH_DISABLE_DF
+         int cmd_df(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#     endif
 #     ifndef CONFIG_NSH_DISABLE_MOUNT
          int cmd_mount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #     endif

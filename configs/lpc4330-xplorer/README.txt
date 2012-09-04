@@ -12,11 +12,17 @@ Contents
   - Development Environment
   - GNU Toolchain Options
   - IDEs
+  - Code Red IDE/Tools
+    Booting the LPCLink
+    Using GDB
+    Troubleshooting
+    Command Line Flash Programming
+    Executing from SPIFI
+    USB DFU Booting
   - NuttX buildroot Toolchain
   - Serial Console
   - FPU
   - LPC4330-Xplorer Configuration Options
-  - USB Host Configuration
   - Configurations
 
 LPC4330-Xplorer board
@@ -56,7 +62,8 @@ Status
 
   - The basic OS test configuration and the basic NSH configurations
     are present and fully verified.  This includes:  SYSTICK system time,
-    pin and GPIO configuration, and serial console support.
+    pin and GPIO configuration, and serial console support.  A SPIFI
+    MTD driver is also in place but requires further verification.
 
   - The following drivers have been copied from the LPC17xx port, but
     require integration into the LPC43xx.  This integration should
@@ -89,7 +96,6 @@ Status
 
     - SD/MMC,
     - EMC,
-    - SPIFI*,
     - USB0,
     - USB1,
     - Ethernet,
@@ -103,9 +109,6 @@ Status
     - RTC,
     - Event monitor, and
     - CAN,
-
-    * I am not sure, exactly, what is needed for SPIFI support.  There
-      are not SPI registers listed in the user manual.
 
     For the missing drivers some of these can be leveraged from other
     MCUs that appear to support the same peripheral IP.
@@ -266,8 +269,8 @@ IDEs
   Startup files will probably cause you some headaches.  The NuttX startup file
   is arch/arm/src/common/up_vectors.S.
 
-Code Red IDE
-^^^^^^^^^^^^
+Code Red IDE/Tools
+^^^^^^^^^^^^^^^^^^
 
   Booting the LPCLink
   -------------------
@@ -381,8 +384,35 @@ Code Red IDE
     CONFIG_DEBUG=y
     CONFIG_DEBUG_SYMBOLS=y
 
-  Troubleshooting.  This page provides some troubleshooting information that
-  you can use to verify that the LPCLink is working correctly:
+  NOTE 4: Every time that you control-C out of the command line GDB, you
+  leave a copy of the Code Red debugger (crt_emu_lpc18_43_nxp) running.  I
+  have found that if you have these old copies of the debugger running, 
+  hen strange things can happen when start yet another copy of the
+  debugger (I suspect that GDB may be talking with the wrong debugger).
+
+  If you exit GDB with quit (not control-C), it seems to clean-up okay.
+  But I have taken to keeping a Process Explorer window open all of the
+  time to keep track of how many of these bad processes have been created.
+
+  NOTE 5: There is also a certain function that is causing some problems.
+  The very first thing that the start-up logic does is call a function
+  called lpc43_softreset() which resets most of the peripherals.  But it
+  also causes some crashes... I think because the resets are causing some
+  interrupts.
+
+  I put a big delay in the soft reset logic between resetting and clearing
+  pending interrupts  and that seems to help some but I am not confident
+  that that is a fix.  I think that the real fix might be to just eliminated
+  this lpc43_softreset() function if we determine that it is not needed.
+
+  If you step over lpc43_softreset() after loading the coding (using the 'n'
+  command), then everything seems work okay.
+
+  Troubleshooting
+  ---------------
+
+  This page provides some troubleshooting information that you can use to
+  verify that the LPCLink is working correctly:
 
     http://support.code-red-tech.com/CodeRedWiki/LPCLinkDiagnostics
 
@@ -393,6 +423,44 @@ Code Red IDE
   flash directly from the command line.  The script flash.sh that may be
   found in the configs/lpc4330-xplorer/scripts directory can do that with
   a single command line command.
+
+  Executing from SPIFI
+  --------------------
+
+  By default, the configurations here assume that you are executing directly
+  from SRAM.
+
+    CONFIG_BOOT_SRAM=y             : Executing in SRAM
+    CONFIG_LPC32_CODEREDW=y        : Code Red under Windows
+
+  To execute from SPIFI, you would need to set:
+
+    CONFIG_BOOT_SPIFI=y            : Executing from SPIFI
+    CONFIG_DRAM_SIZE=(128*1024)    : SRAM Bank0 size
+    CONFIG_DRAM_START=0x10000000   : SRAM Bank0 base address
+    CONFIG_SPIFI_OFFSET=(512*1024) : SPIFI file system offset
+
+  To boot the LPC4330-Xplorer from SPIFI the DIP switches should be 1-OFF,
+  2-ON, 3-ON, 4-ON (LOW LOW LOW HIGH in Table 19, MSB to LSB).
+
+  If the code in flash hard faults after reset and crt_emu_lpc18_43_nxp
+  can't reset the MCU, an alternative is to temporarily change switch 1
+  to  ON and press the reset button so it enters UART boot mode. Then
+  change it back to OFF and reset to boot again from flash.
+
+  # Use -wire to specify the debug probe in use:
+  #   (empty)       Red Probe+
+  #   -wire=winusb  LPC-Link on Windows XP
+  #   -wire=hid     LPC-Link on Windows Vista/ Windows 7
+  # Add -g -4 for verbose output
+
+  crt_emu_lpc18_43_nxp -wire=hid -pLPC4330 -load-base=0x14000000 
+    -flash-load-exec=nuttx.bin -flash-driver=LPC1850A_4350A_SPIFI.cfx
+
+  USB DFU Booting
+  ---------------
+
+  To be provided.
 
 NuttX buildroot Toolchain
 =========================
@@ -598,10 +666,6 @@ LPC4330-Xplorer Configuration Options
 
        CONFIG_DRAM_START=0x10000000
 
-    CONFIG_DRAM_END - Last address+1 of installed RAM
-
-       CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
-
     CONFIG_ARCH_IRQPRIO - The LPC43xx supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
@@ -684,7 +748,7 @@ LPC4330-Xplorer Configuration Options
       CONFIG_LPC43_USB1_ULPI=y
       CONFIG_LPC43_WWDT=y
 
-  LPC43xx specific device driver settings
+  LPC43xx specific U[S]ART device driver settings
 
     CONFIG_U[S]ARTn_SERIAL_CONSOLE - selects the UARTn for the
        console and ttys0 (default is the USART0).
@@ -697,6 +761,10 @@ LPC4330-Xplorer Configuration Options
     CONFIG_U[S]ARTn_PARTIY - 0=no parity, 1=odd parity, 2=even parity
     CONFIG_U[S]ARTn_2STOP - Two stop bits
 
+    CONFIG_USARTn_RS485MODE - Support LPC43xx USART0,2,3 RS485 mode
+      ioctls (TIOCSRS485 and TIOCGRS485) to enable and disable
+      RS-485 mode.
+  
   LPC43xx specific CAN device driver settings.  These settings all
   require CONFIG_CAN:
 
@@ -771,41 +839,6 @@ LPC4330-Xplorer Configuration Options
       application can guarantee that all end-user I/O buffers
       reside in AHB SRAM.
 
-USB Host Configuration
-======================
-
-The LPC4330-Xplorer board supports a USB host interface.  The hidkbd
-example can be used to test this interface.
-
-The NuttShell (NSH) lpc4330-xplorer can also be modified in order to support USB
-host operations.  To make these modifications, do the following:
-
-1. First configure to build the NSH configuration from the top-level
-   NuttX directory:
-
-   cd tools
-   ./configure lpc4330-xplorer/nsh
-   cd ..
-
-2. Then edit the top-level .config file to enable USB host.  Make the
-   following changes:
-
-   CONFIG_LPC43_USBHOST=n
-   CONFIG_USBHOST=n
-   CONFIG_SCHED_WORKQUEUE=y
-
-When this change is made, NSH should be extended to support USB flash
-devices.  When a FLASH device is inserted, you should see a device
-appear in the /dev (psuedo) directory.  The device name should be
-like /dev/sda, /dev/sdb, etc.  The USB mass storage device, is present
-it can be mounted from the NSH command line like:
-
-   ls /dev
-   mount -t vfat /dev/sda /mnt/flash
-
-Files on the connect USB flash device should then be accessible under
-the mountpoint /mnt/flash.
-
 Configurations
 ==============
 
@@ -867,3 +900,50 @@ Where <subdir> is one of the following:
 
       CONFIG_BOOT_SRAM=y             : Executing in SRAM
       CONFIG_LPC32_CODEREDW=y        : Code Red under Windows
+
+    To execute from SPIFI, you would need to set:
+
+      CONFIG_BOOT_SPIFI=y            : Executing from SPIFI
+      CONFIG_DRAM_SIZE=(128*1024)    : SRAM Bank0 size
+      CONFIG_DRAM_START=0x10000000   : SRAM Bank0 base address
+      CONFIG_SPIFI_OFFSET=(512*1024) : SPIFI file system offset
+
+    CONFIG_MM_REGIONS should also be increased if you want to other SRAM banks
+    to the memory pool.
+
+    This configuration has some special options that can be used to
+    create a block device on the SPIFI FLASH.  NOTE:  CONFIG_LPC43_SPIFI=y
+    must also be defined to enable SPIFI setup support:
+
+    SPIFI device geometry:
+
+      CONFIG_SPIFI_OFFSET - Offset the beginning of the block driver this many
+        bytes into the device address space.  This offset must be an exact
+        multiple of the erase block size (CONFIG_SPIFI_BLKSIZE). Default 0.
+      CONFIG_SPIFI_BLKSIZE - The size of one device erase block.  If not defined
+        then the driver will try to determine the correct erase block size by
+        examining that data returned from spifi_initialize (which sometimes
+        seems bad).
+
+    Other SPIFI options
+
+      CONFIG_SPIFI_SECTOR512 - If defined, then the driver will report a more
+        FAT friendly 512 byte sector size and will manage the read-modify-write
+        operations on the larger erase block.
+      CONFIG_SPIFI_READONLY - Define to support only read-only operations.
+      CONFIG_SPIFI_LIBRARY - Don't use the LPC43xx ROM routines but, instead,
+        use an external library implementation of the SPIFI interface.
+      CONFIG_SPIFI_VERIFY - Verify all spifi_program() operations by reading
+        from the SPI address space after each write.
+      CONFIG_DEBUG_SPIFI_DUMP - Debug option to dump read/write buffers.  You
+        probably do not want to enable this unless you want to dig through a
+        *lot* of debug output!  Also required CONFIG_DEBUG, CONFIG_DEBUG_VERBOSE,
+        and CONFIG_DEBUG_FS,
+
+    In my experience, there were some missing function pointers in the LPC43xx
+    SPIFI ROM routines and the SPIFI configuration could only be built with
+    CONFIG_SPIFI_LIBRARY=y.  The SPIFI library is proprietary and cannot be
+    provided within NuttX open source repository; SPIFI library binaries can
+    be found on the lpcware.com website.  In this build sceneario, you must
+    also provide the patch to the external SPIFI library be defining the make
+    variable EXTRA_LIBS in the top-level Make.defs file.  Good luck!

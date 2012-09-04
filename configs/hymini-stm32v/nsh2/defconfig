@@ -51,7 +51,6 @@
 # CONFIG_BOARD_LOOPSPERMSEC - for delay loops
 # CONFIG_DRAM_SIZE - Describes the installed DRAM.
 # CONFIG_DRAM_START - The start address of DRAM (physical)
-# CONFIG_DRAM_END - Last address+1 of installed RAM
 # CONFIG_ARCH_IRQPRIO - The ST32F103Z supports interrupt prioritization
 # CONFIG_ARCH_INTERRUPTSTACK - This architecture supports an interrupt
 #   stack. If defined, this symbol is the size of the interrupt
@@ -69,17 +68,16 @@
 #   the delay actually is 100 seconds.
 # CONFIG_ARCH_DMA - Support DMA initialization
 #
-CONFIG_ARCH=arm
+CONFIG_ARCH="arm"
 CONFIG_ARCH_ARM=y
 CONFIG_ARCH_CORTEXM3=y
-CONFIG_ARCH_CHIP=stm32
+CONFIG_ARCH_CHIP="stm32"
 CONFIG_ARCH_CHIP_STM32F103VCT6=y
-CONFIG_ARCH_BOARD=hymini-stm32v
+CONFIG_ARCH_BOARD="hymini-stm32v"
 CONFIG_ARCH_BOARD_HYMINI_STM32V=y
 CONFIG_BOARD_LOOPSPERMSEC=5483
 CONFIG_DRAM_SIZE=0x0000C000
 CONFIG_DRAM_START=0x20000000
-CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
 CONFIG_ARCH_IRQPRIO=y
 CONFIG_ARCH_INTERRUPTSTACK=n
 CONFIG_ARCH_STACKDUMP=y
@@ -329,7 +327,7 @@ CONFIG_RTC=y
 # CONFIG_SCHED_WORKPRIORITY - The execution priority of the worker
 #  thread.  Default: 50
 # CONFIG_SCHED_WORKPERIOD - How often the worker thread checks for
-#  work in units of microseconds.  Default: 50*1000 (50 MS).
+#  work in units of microseconds.  Default: 50000 (50 MS).
 # CONFIG_SCHED_WORKSTACKSIZE - The stack size allocated for the worker
 #  thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
 # CONFIG_SIG_SIGWORK - The signal number that will be used to wake-up
@@ -366,7 +364,7 @@ CONFIG_FDCLONE_STDIO=n
 CONFIG_SDCLONE_DISABLE=y
 CONFIG_SCHED_WORKQUEUE=y
 CONFIG_SCHED_WORKPRIORITY=50
-CONFIG_SCHED_WORKPERIOD=(50*1000)
+CONFIG_SCHED_WORKPERIOD=50000
 CONFIG_SCHED_WORKSTACKSIZE=1024
 CONFIG_SIG_SIGWORK=4
 CONFIG_SCHED_WAITPID=y

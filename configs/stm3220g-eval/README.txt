@@ -468,10 +468,6 @@ STM3220G-EVAL-specific Configuration Options
 
        CONFIG_DRAM_START=0x20000000
 
-    CONFIG_DRAM_END - Last address+1 of installed RAM
-
-       CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
-
     In addition to internal SRAM, SRAM may also be available through the FSMC.
     In order to use FSMC SRAM, the following additional things need to be
     present in the NuttX configuration file:
@@ -573,12 +569,6 @@ STM3220G-EVAL-specific Configuration Options
     CONFIG_STM32_TIM10
     CONFIG_STM32_TIM11
 
-  Timer and I2C devices may need to the following to force power to be applied
-  unconditionally at power up.  (Otherwise, the device is powered when it is
-  initialized).
-
-    CONFIG_STM32_FORCEPOWER
-
   Timer devices may be used for different purposes.  One special purpose is
   to generate modulated outputs for such things as motor control.  If CONFIG_STM32_TIMn
   is defined (as above) then the following may also be defined to indicate that
@@ -678,6 +668,30 @@ STM3220G-EVAL-specific Configuration Options
       dump of all CAN registers.
 
   STM3220G-EVAL LCD Hardware Configuration
+
+  STM32 USB OTG FS Host Driver Support
+
+  Pre-requisites
+ 
+   CONFIG_USBHOST      - Enable general USB host support
+   CONFIG_STM32_OTGFS  - Enable the STM32 USB OTG FS block
+   CONFIG_STM32_SYSCFG - Needed
+ 
+  Options:
+ 
+   CONFIG_STM32_OTGFS_RXFIFO_SIZE - Size of the RX FIFO in 32-bit words.
+     Default 128 (512 bytes)
+   CONFIG_STM32_OTGFS_NPTXFIFO_SIZE - Size of the non-periodic Tx FIFO
+     in 32-bit words.  Default 96 (384 bytes)
+   CONFIG_STM32_OTGFS_PTXFIFO_SIZE - Size of the periodic Tx FIFO in 32-bit
+     words.  Default 96 (384 bytes)
+   CONFIG_STM32_OTGFS_DESCSIZE - Maximum size of a descriptor.  Default: 128
+   CONFIG_STM32_OTGFS_SOFINTR - Enable SOF interrupts.  Why would you ever
+     want to do that?
+   CONFIG_STM32_USBHOST_REGDEBUG - Enable very low-level register access
+     debug.  Depends on CONFIG_DEBUG.
+   CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
+     packets. Depends on CONFIG_DEBUG.
 
 Configurations
 ==============
@@ -844,7 +858,15 @@ Where <subdir> is one of the following:
        CONFIG_NX=y                          : Enable graphics suppport
        CONFIG_MM_REGIONS=2                  : When FSMC is enabled, so is the on-board SRAM memory region
 
-    8. This configuration requires that jumper JP22 be set to enable RS-232 operation.
+    8. USB OTG FS Device or Host Support
+ 
+       CONFIG_USBDEV          - Enable USB device support
+       CONFIG_USBHOST         - Enable USB host support
+       CONFIG_STM32_OTGFS     - Enable the STM32 USB OTG FS block
+       CONFIG_STM32_SYSCFG    - Needed
+       CONFIG_SCHED_WORKQUEUE - Worker thread support is required
+ 
+    9. This configuration requires that jumper JP22 be set to enable RS-232 operation.
 
   nsh2:
   -----

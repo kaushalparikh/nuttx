@@ -209,10 +209,6 @@ mbed Configuration Options
 
 	   CONFIG_DRAM_START=0x10000000
 
-	CONFIG_DRAM_END - Last address+1 of installed RAM
-
-	   CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
-
 	CONFIG_ARCH_IRQPRIO - The LPC17xx supports interrupt prioritization
 
 	   CONFIG_ARCH_IRQPRIO=y
@@ -384,7 +380,7 @@ host operations.  To make these modifications, do the following:
 
 When this change is made, NSH should be extended to support USB flash
 devices.  When a FLASH device is inserted, you should see a device
-appear in the /dev (psuedo) directory.  The device name should be
+appear in the /dev (pseudo) directory.  The device name should be
 like /dev/sda, /dev/sdb, etc.  The USB mass storage device, is present
 it can be mounted from the NSH command line like:
 

@@ -220,18 +220,18 @@ defined.  In that case, the usage by the board port is defined in
 include/board.h and src/up_leds.c. The LEDs are used to encode OS-related
 events as follows:
 
-  SYMBOL        Meaning          LED1*  LED2  LED3  LED4
-                                                green   orange  red     blue
+  SYMBOL                Meaning                 LED1*    LED2     LED3     LED4
+                                                green    orange   red      blue
   -------------------  -----------------------  -------  -------  -------  ------
-  LED_STARTED      NuttX has been started  ON    OFF    OFF    OFF
-  LED_HEAPALLOCATE  Heap has been allocated  OFF    ON    OFF    OFF
-  LED_IRQSENABLED    Interrupts enabled    ON    ON    OFF    OFF
-  LED_STACKCREATED  Idle stack created    OFF    OFF    ON    OFF
-  LED_INIRQ      In an interrupt**    ON    N/C    N/C    OFF
-  LED_SIGNAL      In a signal handler***  N/C    ON    N/C    OFF
-  LED_ASSERTION    An assertion failed    ON    ON    N/C    OFF
-  LED_PANIC      The system has crashed  N/C    N/C    N/C    ON
-    LED_IDLE            STM32 is is sleep mode  (Optional, not used)
+  LED_STARTED          NuttX has been started   ON       OFF      OFF      OFF
+  LED_HEAPALLOCATE     Heap has been allocated  OFF      ON       OFF      OFF
+  LED_IRQSENABLED      Interrupts enabled       ON       ON       OFF      OFF
+  LED_STACKCREATED     Idle stack created       OFF      OFF      ON       OFF
+  LED_INIRQ            In an interrupt**        ON       N/C      N/C      OFF
+  LED_SIGNAL           In a signal handler***   N/C      ON       N/C      OFF
+  LED_ASSERTION        An assertion failed      ON       ON       N/C      OFF
+  LED_PANIC            The system has crashed   N/C      N/C      N/C      ON
+  LED_IDLE             STM32 is is sleep mode   (Optional, not used)
 
   * If LED1, LED2, LED3 are statically on, then NuttX probably failed to boot
     and these LEDs will give you some indication of where the failure was
@@ -508,12 +508,12 @@ I purchased an LCD display on eBay from china.  The LCD is 320x240 RGB565 and
 is based on an SSD1289 LCD controller and an XPT2046 touch IC.  The pin out
 from the 2x16 connect on the LCD is labeled as follows:
 
-LCD CONNECTOR:          SSD1289 MPU INTERFACE PINS
+LCD CONNECTOR:          SSD1289 MPU INTERFACE PINS:
 
-   +------+------+      DEN     I  Display enble pin
-1  | GND  | 3V3  |  2   VSYNC   I  Frame synchonrization signal
-   +------+------+      HSYNC   I  Line synchroniziation signal
-3  | D1   | D0   |  4   DOTCLIK I  Dot clock ans OSC source
+   +------+------+      DEN     I  Display enable pin
+1  | GND  | 3V3  |  2   VSYNC   I  Frame synchronization signal
+   +------+------+      HSYNC   I  Line synchronization signal
+3  | D1   | D0   |  4   DOTCLK  I  Dot clock and OSC source
    +------+------+      DC      I  Data or command
 5  | D3   | D2   |  6   E (~RD) I  Enable/Read strobe
    +------+------+      R (~WR) I  Read/Write strobe
@@ -531,12 +531,12 @@ LCD CONNECTOR:          SSD1289 MPU INTERFACE PINS
    +------+------+
 19 | RS   | CS   | 20
    +------+------+
-21 | RD   | WR   | 22
+21 | RD   | WR   | 22  NOTES:
    +------+------+
-23 |EL_CNT|RESET | 24
+23 |BL_CNT|RESET | 24  BL_CNT is the PWM backlight level control.
    +------+------+
-25 |TP_RQ |TP_S0 | 26  These pins are for the touch panel
-   +------+------+
+25 |TP_RQ |TP_S0 | 26  These pins are for the touch panel: TP_REQ
+   +------+------+     TP_S0, TP_SI, TP_SCX, and TP_CS
 27 | NC   |TP_SI | 28
    +------+------+
 29 | NC   |TP_SCX| 30
@@ -546,31 +546,32 @@ LCD CONNECTOR:          SSD1289 MPU INTERFACE PINS
 
 MAPPING TO STM32 F4:
 
-  ---------------- ------------- ----------------------------------
+  ---------------- -------------- ----------------------------------
    STM32 FUNCTION  LCD PIN       STM32F4Discovery PIN
-  ---------------- ------------- ----------------------------------
-   FSMC_D0          D0    pin 4   PD14 P1 pin 46 Conflict (Note 1)
-   FSMC_D1          D1    pin 3   PD15 P1 pin 47 Conflict (Note 2)
-   FSMC_D2          D2    pin 6   PD0  P2 pin 36 Free I/O
-   FSMC_D3          D3    pin 5   PD1  P2 pin 33 Free I/O
-   FSMC_D4          D4    pin 8   PE7  P1 pin 25 Free I/O
-   FSMC_D5          D5    pin 7   PE8  P1 pin 26 Free I/O
-   FSMC_D6          D6    pin 10  PE9  P1 pin 27 Free I/O
-   FSMC_D7          D7    pin 9   PE10 P1 pin 28 Free I/O
-   FSMC_D8          D8    pin 12  PE11 P1 pin 29 Free I/O
-   FSMC_D9          D9    pin 11  PE12 P1 pin 30 Free I/O
-   FSMC_D10         D10   pin 14  PE13 P1 pin 31 Free I/O
-   FSMC_D11         D11   pin 13  PE14 P1 pin 32 Free I/O
-   FSMC_D12         D12   pin 16  PE15 P1 pin 33 Free I/O
-   FSMC_D13         D13   pin 15  PD8  P1 pin 40 Free I/O
-   FSMC_D14         D14   pin 18  PD9  P1 pin 41 Free I/O
-   FSMC_D15         D15   pin 17  PD10 P1 pin 42 Free I/O
-   FSMC_A16         RS    pin 19  PD11 P1 pin 27 Free I/O
-   FSMC_NE1         ~CS   pin 10  PD7  P2 pin 27 Free I/O
-   FSMC_NWE         ~WR   pin 22  PD5  P2 pin 29 Conflict (Note 3)
-   FSMC_NOE         ~RD   pin 21  PD4  P2 pin 32 Conflict (Note 4)
-   PC6              RESET pin 24  PC6  P2 pin 47 Free I/O
-  ---------------- ------------- ----------------------------------
+  ---------------- -------------- ----------------------------------
+   FSMC_D0          D0     pin 4   PD14 P1 pin 46 Conflict (Note 1)
+   FSMC_D1          D1     pin 3   PD15 P1 pin 47 Conflict (Note 2)
+   FSMC_D2          D2     pin 6   PD0  P2 pin 36 Free I/O
+   FSMC_D3          D3     pin 5   PD1  P2 pin 33 Free I/O
+   FSMC_D4          D4     pin 8   PE7  P1 pin 25 Free I/O
+   FSMC_D5          D5     pin 7   PE8  P1 pin 26 Free I/O
+   FSMC_D6          D6     pin 10  PE9  P1 pin 27 Free I/O
+   FSMC_D7          D7     pin 9   PE10 P1 pin 28 Free I/O
+   FSMC_D8          D8     pin 12  PE11 P1 pin 29 Free I/O
+   FSMC_D9          D9     pin 11  PE12 P1 pin 30 Free I/O
+   FSMC_D10         D10    pin 14  PE13 P1 pin 31 Free I/O
+   FSMC_D11         D11    pin 13  PE14 P1 pin 32 Free I/O
+   FSMC_D12         D12    pin 16  PE15 P1 pin 33 Free I/O
+   FSMC_D13         D13    pin 15  PD8  P1 pin 40 Free I/O
+   FSMC_D14         D14    pin 18  PD9  P1 pin 41 Free I/O
+   FSMC_D15         D15    pin 17  PD10 P1 pin 42 Free I/O
+   FSMC_A16         RS     pin 19  PD11 P1 pin 27 Free I/O
+   FSMC_NE1         ~CS    pin 10  PD7  P2 pin 27 Free I/O
+   FSMC_NWE         ~WR    pin 22  PD5  P2 pin 29 Conflict (Note 3)
+   FSMC_NOE         ~RD    pin 21  PD4  P2 pin 32 Conflict (Note 4)
+   PC6              RESET  pin 24  PC6  P2 pin 47 Free I/O
+   Timer ouput      BL_CNT pin 23  (to be determined)
+  ---------------- -------------- ----------------------------------
 
    1 Used for the RED LED
    2 Used for the BLUE LED
@@ -664,7 +665,7 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_ARCH_CHIP_name - For use in C code to identify the exact
        chip:
 
-       CONFIG_ARCH_CHIP_STM32F407IG=y
+       CONFIG_ARCH_CHIP_STM32F407VG=y
 
     CONFIG_ARCH_BOARD_STM32_CUSTOM_CLOCKCONFIG - Enables special STM32 clock
        configuration features.
@@ -694,10 +695,6 @@ STM32F4Discovery-specific Configuration Options
 
        CONFIG_DRAM_START=0x20000000
 
-    CONFIG_DRAM_END - Last address+1 of installed RAM
-
-       CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
-
     CONFIG_STM32_CCMEXCLUDE - Exclude CCM SRAM from the HEAP
 
     In addition to internal SRAM, SRAM may also be available through the FSMC.
@@ -711,11 +708,11 @@ STM32F4Discovery-specific Configuration Options
 
     CONFIG_HEAP2_END - The end (+1) of the SRAM in the FSMC address space
 
-    CONFIG_ARCH_IRQPRIO - The STM3240xxx supports interrupt prioritization
+    CONFIG_ARCH_IRQPRIO - The STM32F4Discovery supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
 
-    CONFIG_ARCH_FPU - The STM3240xxx supports a floating point unit (FPU)
+    CONFIG_ARCH_FPU - The STM32F4Discovery supports a floating point unit (FPU)
 
        CONFIG_ARCH_FPU=y
 
@@ -806,12 +803,6 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_STM32_TIM10
     CONFIG_STM32_TIM11
 
-  Timer and I2C devices may need to the following to force power to be applied
-  unconditionally at power up.  (Otherwise, the device is powered when it is
-  initialized).
-
-    CONFIG_STM32_FORCEPOWER
-
   Timer devices may be used for different purposes.  One special purpose is
   to generate modulated outputs for such things as motor control.  If CONFIG_STM32_TIMn
   is defined (as above) then the following may also be defined to indicate that
@@ -842,7 +833,7 @@ STM32F4Discovery-specific Configuration Options
       but without JNTRST.
     CONFIG_STM32_JTAG_SW_ENABLE - Set JTAG-DP disabled and SW-DP enabled
 
-  STM3240xxx specific device driver settings
+  STM32F4Discovery specific device driver settings
 
     CONFIG_U[S]ARTn_SERIAL_CONSOLE - selects the USARTn (n=1,2,3) or UART
            m (m=4,5) for the console and ttys0 (default is the USART1).
@@ -855,7 +846,7 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_U[S]ARTn_PARTIY - 0=no parity, 1=odd parity, 2=even parity
     CONFIG_U[S]ARTn_2STOP - Two stop bits
 
-  STM3240xxx CAN Configuration
+  STM32F4Discovery CAN Configuration
 
     CONFIG_CAN - Enables CAN support (one or both of CONFIG_STM32_CAN1 or
       CONFIG_STM32_CAN2 must also be defined)
@@ -874,7 +865,7 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_CAN_REGDEBUG - If CONFIG_DEBUG is set, this will generate an
       dump of all CAN registers.
 
-  STM3240xxx SPI Configuration
+  STM32F4Discovery SPI Configuration
 
     CONFIG_STM32_SPI_INTERRUPTS - Select to enable interrupt driven SPI
       support. Non-interrupt-driven, poll-waiting is recommended if the
@@ -882,7 +873,7 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_STM32_SPI_DMA - Use DMA to improve SPI transfer performance.
       Cannot be used with CONFIG_STM32_SPI_INTERRUPT.
 
-  STM3240xxx DMA Configuration
+  STM32F4Discovery DMA Configuration
 
     CONFIG_SDIO_DMA - Support DMA data transfers.  Requires CONFIG_STM32_SDIO
       and CONFIG_STM32_DMA2.
@@ -891,6 +882,32 @@ STM32F4Discovery-specific Configuration Options
       Default:  Medium
     CONFIG_SDIO_WIDTH_D1_ONLY - Select 1-bit transfer mode.  Default:
       4-bit transfer mode.
+
+  STM32 USB OTG FS Host Driver Support
+
+  Pre-requisites
+ 
+   CONFIG_USBDEV          - Enable USB device support
+   CONFIG_USBHOST         - Enable USB host support
+   CONFIG_STM32_OTGFS     - Enable the STM32 USB OTG FS block
+   CONFIG_STM32_SYSCFG    - Needed
+   CONFIG_SCHED_WORKQUEUE - Worker thread support is required
+ 
+  Options:
+ 
+   CONFIG_STM32_OTGFS_RXFIFO_SIZE - Size of the RX FIFO in 32-bit words.
+     Default 128 (512 bytes)
+   CONFIG_STM32_OTGFS_NPTXFIFO_SIZE - Size of the non-periodic Tx FIFO
+     in 32-bit words.  Default 96 (384 bytes)
+   CONFIG_STM32_OTGFS_PTXFIFO_SIZE - Size of the periodic Tx FIFO in 32-bit
+     words.  Default 96 (384 bytes)
+   CONFIG_STM32_OTGFS_DESCSIZE - Maximum size of a descriptor.  Default: 128
+   CONFIG_STM32_OTGFS_SOFINTR - Enable SOF interrupts.  Why would you ever
+     want to do that?
+   CONFIG_STM32_USBHOST_REGDEBUG - Enable very low-level register access
+     debug.  Depends on CONFIG_DEBUG.
+    CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
+     packets. Depends on CONFIG_DEBUG.
 
 Configurations
 ==============
@@ -1070,3 +1087,50 @@ Where <subdir> is one of the following:
       CONFIG_STM32_CODESOURCERYW=y : CodeSourcery under Windows
 
     NOTE: As of this writing, I have not seen the LCD work!
+
+  pm:
+  --
+    This is a configuration that is used to test STM32 power management, i.e.,
+    to test that the board can go into lower and lower states of power usage
+    as a result of inactivity.  This configuration is based on the nsh2
+    configuration with modifications for testing power management.  This
+    configuration should provide some guideline for power management in your
+    STM32 application.
+
+      CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+
+    CONFIG_PM_CUSTOMINIT and CONFIG_IDLE_CUSTOM are necessary parts of the
+    PM configuration:
+
+      CONFIG_PM_CUSTOMINIT=y
+
+    CONFIG_PM_CUSTOMINIT moves the PM initialization from arch/arm/src/stm32/stm32_pminitialiaze.c
+    to configs/stm3210-eval/src/up_pm.c.  This allows us to support board-
+    specific PM initialization.
+    
+      CONFIG_IDLE_CUSTOM=y
+
+    The bulk of the PM activities occur in the IDLE loop.  The IDLE loop is
+    special because it is what runs when there is no other task running.  Therefore
+    when the IDLE executes, we can be assure that nothing else is going on; this
+    is the ideal condition for doing reduced power management.
+
+    The configuration CONFIG_IDLE_CUSTOM allows us to "steal" the normal STM32
+    IDLE loop (of arch/arm/src/stm32/stm32_idle.c) and replace this with our own
+    custom IDLE loop (at configs/stm3210-eval/src/up_idle.c).
+
+    Here are some additional things to note in the configuration:
+
+      CONFIG_PM_BUTTONS=y
+    
+    CONFIG_PM_BUTTONS enables button support for PM testing.  Buttons can drive
+    EXTI interrupts and EXTI interrrupts can be used to wakeup for certain reduced
+    power modes (STOP mode).  The use of the buttons here is for PM testing purposes
+    only; buttons would normally be part the application code and CONFIG_PM_BUTTONS
+    would not be defined.
+
+      CONFIG_RTC_ALARM=y
+
+    The RTC alarm is used to wake up from STOP mode and to transition to
+    STANDBY mode.  This used of the RTC alarm could conflict with other uses of
+    the RTC alarm in your application.

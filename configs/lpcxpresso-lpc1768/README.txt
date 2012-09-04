@@ -568,10 +568,6 @@ LPCXpresso Configuration Options
 
        CONFIG_DRAM_START=0x10000000
 
-    CONFIG_DRAM_END - Last address+1 of installed RAM
-
-       CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
-
     CONFIG_ARCH_IRQPRIO - The LPC17xx supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
@@ -646,18 +642,18 @@ LPCXpresso Configuration Options
   LPC17xx specific CAN device driver settings.  These settings all
   require CONFIG_CAN:
 
-	CONFIG_CAN_EXTID - Enables support for the 29-bit extended ID.  Default
-	  Standard 11-bit IDs.
-	CONFIG_CAN1_BAUD - CAN1 BAUD rate.  Required if CONFIG_LPC17_CAN1 is defined.
-	CONFIG_CAN2_BAUD - CAN1 BAUD rate.  Required if CONFIG_LPC17_CAN2 is defined.
-	CONFIG_CAN1_DIVISOR - CAN1 is clocked at CCLK divided by this number.
-	  (the CCLK frequency is divided by this number to get the CAN clock).
-	  Options = {1,2,4,6}. Default: 4.
-	CONFIG_CAN2_DIVISOR - CAN2 is clocked at CCLK divided by this number.
-	  (the CCLK frequency is divided by this number to get the CAN clock).
-	  Options = {1,2,4,6}. Default: 4.
-	CONFIG_CAN_TSEG1 - The number of CAN time quanta in segment 1. Default: 6
-	CONFIG_CAN_TSEG2 = the number of CAN time quanta in segment 2. Default: 7
+    CONFIG_CAN_EXTID - Enables support for the 29-bit extended ID.  Default
+      Standard 11-bit IDs.
+    CONFIG_CAN1_BAUD - CAN1 BAUD rate.  Required if CONFIG_LPC17_CAN1 is defined.
+    CONFIG_CAN2_BAUD - CAN1 BAUD rate.  Required if CONFIG_LPC17_CAN2 is defined.
+    CONFIG_CAN1_DIVISOR - CAN1 is clocked at CCLK divided by this number.
+      (the CCLK frequency is divided by this number to get the CAN clock).
+      Options = {1,2,4,6}. Default: 4.
+    CONFIG_CAN2_DIVISOR - CAN2 is clocked at CCLK divided by this number.
+      (the CCLK frequency is divided by this number to get the CAN clock).
+      Options = {1,2,4,6}. Default: 4.
+    CONFIG_CAN_TSEG1 - The number of CAN time quanta in segment 1. Default: 6
+    CONFIG_CAN_TSEG2 = the number of CAN time quanta in segment 2. Default: 7
 
   LPC17xx specific PHY/Ethernet device driver settings.  These setting
   also require CONFIG_NET and CONFIG_LPC17_ETHERNET.
@@ -787,10 +783,10 @@ Where <subdir> is one of the following:
     class driver at apps/examples/usbstorage.  See apps/examples/README.txt
     for more information.
 
-	NOTE: At present, the value for the SD SPI frequency is too
-	high and the SD will fail.  Setting that frequency to 400000
-	removes the problem. TODO:  Tune this frequency to some optimal
-	value.
+    NOTE: At present, the value for the SD SPI frequency is too
+    high and the SD will fail.  Setting that frequency to 400000
+    removes the problem. TODO:  Tune this frequency to some optimal
+    value.
  
     Jumpers: J55 must be set to provide chip select PIO1_11 signal as
     the SD slot chip select.

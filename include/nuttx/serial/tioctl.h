@@ -49,21 +49,21 @@
  * Pre-Processor Definitions
  ********************************************************************************************/
 
-/* Get and Set Terminal Attributes */
+/* Get and Set Terminal Attributes (see termios.h) */
 
-#define TCGETS          _TIOC(0x0001)  /* Get serial port settings: FAR struct termios */
-#define TCSETS          _TIOC(0x0002)  /* Set serial port settings: FAR const struct termios */
-#define TCSETSW         _TIOC(0x0003)  /* Drain output and set serial port settings: FAR const struct termios */
-#define TCSETSF         _TIOC(0x0004)  /* Drain output, discard intput, and set serial port settings: FAR const struct termios */
-#define TCGETA          _TIOC(0x0005)  /* See TCGETS: FAR struct termio */
-#define TCSETA          _TIOC(0x0006)  /* See TCSETS: FAR const struct termio */
-#define TCSETAW         _TIOC(0x0007)  /* See TCSETSF: FAR const struct termio */
-#define TCSETAF         _TIOC(0x0008)  /* See TCSETSF: FAR const struct termio */
+#define TCGETS          _TIOC(0x0001)  /* Get serial port settings: FAR struct termios* */
+#define TCSETS          _TIOC(0x0002)  /* Set serial port settings: FAR const struct termios* */
+#define TCSETSW         _TIOC(0x0003)  /* Drain output and set serial port settings: FAR const struct termios* */
+#define TCSETSF         _TIOC(0x0004)  /* Drain output, discard intput, and set serial port settings: FAR const struct termios* */
+#define TCGETA          _TIOC(0x0005)  /* See TCGETS: FAR struct termio* */
+#define TCSETA          _TIOC(0x0006)  /* See TCSETS: FAR const struct termio* */
+#define TCSETAW         _TIOC(0x0007)  /* See TCSETSF: FAR const struct termio* */
+#define TCSETAF         _TIOC(0x0008)  /* See TCSETSF: FAR const struct termio* */
 
 /* Locking the termios structure */
 
-#define TIOCGLCKTRMIOS  _TIOC(0x0009) /* Get termios lock status: struct termios */
-#define TIOCSLCKTRMIOS  _TIOC(0x000a) /* Set termios lock status: const struct termios */
+#define TIOCGLCKTRMIOS  _TIOC(0x0009) /* Get termios lock status: FAR struct termios* */
+#define TIOCSLCKTRMIOS  _TIOC(0x000a) /* Set termios lock status: FAR const struct termios* */
 
 /* Get and Set Window Size */
 
@@ -128,17 +128,17 @@
 #define TIOCMBIC        _TIOC(0x0020)  /* Clear modem bits: FAR const int */
 #define TIOCMBIS        _TIOC(0x0021)  /* Set modem bits: FAR const int */
 
-#  define TIOCM_LE     (1 << 0)        /* DSR (data set ready/line enable) */
-#  define TIOCM_DTR    (1 << 1)        /* DTR (data terminal ready) */
-#  define TIOCM_RTS    (1 << 2)        /* RTS (request to send) */
-#  define TIOCM_ST     (1 << 3)        /* Secondary TXD (transmit) */
-#  define TIOCM_SR     (1 << 4)        /* Secondary RXD (receive) */
-#  define TIOCM_CTS    (1 << 5)        /* CTS (clear to send) */
-#  define TIOCM_CAR    (1 << 6)        /* DCD (data carrier detect) */
-#  define TIOCM_CD     TIOCM_CAR
-#  define TIOCM_RNG    (1 << 7)        /* RNG (ring) */
-#  define TIOCM_RI     TIOCM_RNG
-#  define TIOCM_DSR    (1 << 8)        /* DSR (data set ready) */
+#  define TIOCM_LE      (1 << 0)       /* DSR (data set ready/line enable) */
+#  define TIOCM_DTR     (1 << 1)       /* DTR (data terminal ready) */
+#  define TIOCM_RTS     (1 << 2)       /* RTS (request to send) */
+#  define TIOCM_ST      (1 << 3)       /* Secondary TXD (transmit) */
+#  define TIOCM_SR      (1 << 4)       /* Secondary RXD (receive) */
+#  define TIOCM_CTS     (1 << 5)       /* CTS (clear to send) */
+#  define TIOCM_CAR     (1 << 6)       /* DCD (data carrier detect) */
+#  define TIOCM_CD      TIOCM_CAR
+#  define TIOCM_RNG     (1 << 7)       /* RNG (ring) */
+#  define TIOCM_RI      TIOCM_RNG
+#  define TIOCM_DSR     (1 << 8)       /* DSR (data set ready) */
 
 /* TTY shutdown */
 
@@ -160,9 +160,21 @@
 #define TIOCMIWAIT      _TIOC(0x0028)  /* Wait for a change on serial input line(s): void */
 #define TIOCGICOUNT     _TIOC(0x0029)  /* Read serial port interrupt count: FAR  struct serial_icounter_struct */
 
+/* RS-485 Support */
+
+#define TIOCSRS485      _TIOC(0x002a)  /* Set RS485 mode, arg: pointer to struct serial_rs485 */
+#define TIOCGRS485      _TIOC(0x002b)  /* Get RS485 mode, arg: pointer to struct serial_rs485 */
+
 /* Debugging */
 
-#define TIOCSERGSTRUCT  _TIOC(0x002a) /* Get device TTY structure */
+#define TIOCSERGSTRUCT  _TIOC(0x002c) /* Get device TTY structure */
+
+/* Definitions used in struct serial_rs485 (Linux compatible) */
+
+#define SER_RS485_ENABLED        (1 << 0) /* Enable/disble RS-485 support */
+#define SER_RS485_RTS_ON_SEND    (1 << 1) /* Logic level for RTS pin when sending */
+#define SER_RS485_RTS_AFTER_SEND (1 << 2) /* Logic level for RTS pin after sent */
+#define SER_RS485_RX_DURING_TX   (1 << 4)
 
 /********************************************************************************************
  * Public Type Definitions
@@ -176,6 +188,15 @@ struct winsize
   uint16_t ws_col;
 /* uint16_t ws_xpixel;    unused */
 /* uint16_t ws_ypixel;    unused */
+};
+
+/* Structure used with TIOCSRS485 and TIOCGRS485 (Linux compatible) */
+
+struct serial_rs485
+{
+  uint32_t flags;                  /* See SER_RS485_* definitions */
+  uint32_t delay_rts_before_send;  /* Delay before send (milliseconds) */
+  uint32_t delay_rts_after_send;   /* Delay after send (milliseconds) */
 };
 
 /********************************************************************************************

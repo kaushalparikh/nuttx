@@ -53,6 +53,10 @@
 #include <nuttx/serial/serial.h>
 #include <nuttx/power/pm.h>
 
+#ifdef CONFIG_SERIAL_TERMIOS
+#  include <termios.h>
+#endif
+
 #include <arch/serial.h>
 #include <arch/board/board.h>
 
@@ -128,6 +132,30 @@
  */
 
 #  define RXDMA_BUFFER_SIZE   32
+
+/* DMA priority */
+
+#  ifndef CONFIG_USART_DMAPRIO
+#    if defined(CONFIG_STM32_STM32F10XX)
+#      define CONFIG_USART_DMAPRIO  DMA_CCR_PRIMED
+#    elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#      define CONFIG_USART_DMAPRIO  DMA_SCR_PRIMED
+#    else
+#      error "Unknown STM32 DMA"
+#    endif
+#  endif
+#  if defined(CONFIG_STM32_STM32F10XX)
+#    if (CONFIG_USART_DMAPRIO & ~DMA_CCR_PL_MASK) != 0
+#      error "Illegal value for CONFIG_USART_DMAPRIO"
+#    endif
+#  elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#    if (CONFIG_USART_DMAPRIO & ~DMA_SCR_PL_MASK) != 0
+#      error "Illegal value for CONFIG_USART_DMAPRIO"
+#    endif
+#  else
+#    error "Unknown STM32 DMA"
+#  endif
+
 #endif
 
 /* Power management definitions */
@@ -149,11 +177,23 @@ struct up_dev_s
   uint16_t          ie;        /* Saved interrupt mask bits value */
   uint16_t          sr;        /* Saved status bits */
 
-  const uint8_t     irq;       /* IRQ associated with this USART */
+  /* If termios are supported, then the following fields may vary at
+   * runtime.
+   */
+
+#ifdef CONFIG_SERIAL_TERMIOS
+  uint8_t           parity;    /* 0=none, 1=odd, 2=even */
+  uint8_t           bits;      /* Number of bits (7 or 8) */
+  bool              stopbits2; /* True: Configure with 2 stop bits instead of 1 */
+  uint32_t          baud;      /* Configured baud */
+#else
   const uint8_t     parity;    /* 0=none, 1=odd, 2=even */
   const uint8_t     bits;      /* Number of bits (7 or 8) */
   const bool        stopbits2; /* True: Configure with 2 stop bits instead of 1 */
   const uint32_t    baud;      /* Configured baud */
+#endif
+
+  const uint8_t     irq;       /* IRQ associated with this USART */
   const uint32_t    apbclock;  /* PCLK 1 or 2 frequency */
   const uint32_t    usartbase; /* Base address of USART registers */
   const uint32_t    tx_gpio;   /* U[S]ART TX GPIO pin configuration */
@@ -181,6 +221,7 @@ struct up_dev_s
  * Private Function Prototypes
  ****************************************************************************/
 
+static void up_setspeed(struct uart_dev_s *dev);
 static int  up_setup(struct uart_dev_s *dev);
 static void up_shutdown(struct uart_dev_s *dev);
 static int  up_attach(struct uart_dev_s *dev);
@@ -771,6 +812,54 @@ static int up_dma_nextrx(struct up_dev_s *priv)
 #endif
 
 /****************************************************************************
+ * Name: up_setspeed
+ *
+ * Description:
+ *   Set the serial line speed.
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_SUPPRESS_UART_CONFIG
+static void up_setspeed(struct uart_dev_s *dev)
+{
+  struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
+  uint32_t usartdiv32;
+  uint32_t mantissa;
+  uint32_t fraction;
+  uint32_t brr;
+
+  /* Configure the USART Baud Rate.  The baud rate for the receiver and
+   * transmitter (Rx and Tx) are both set to the same value as programmed
+   * in the Mantissa and Fraction values of USARTDIV.
+   *
+   *   baud     = fCK / (16 * usartdiv)
+   *   usartdiv = fCK / (16 * baud)
+   *
+   * Where fCK is the input clock to the peripheral (PCLK1 for USART2, 3, 4, 5
+   * or PCLK2 for USART1)
+   *
+   * First calculate (NOTE: all stand baud values are even so dividing by two
+   * does not lose precision):
+   *
+   *   usartdiv32 = 32 * usartdiv = fCK / (baud/2)
+   */
+
+   usartdiv32 = priv->apbclock / (priv->baud >> 1);
+
+   /* The mantissa part is then */
+
+   mantissa   = usartdiv32 >> 5;
+   brr        = mantissa << USART_BRR_MANT_SHIFT;
+
+   /* The fractional remainder (with rounding) */
+
+   fraction   = (usartdiv32 - (mantissa << 5) + 1) >> 1;
+   brr       |= fraction << USART_BRR_FRAC_SHIFT;
+   up_serialout(priv, STM32_USART_BRR_OFFSET, brr);
+}
+#endif
+
+/****************************************************************************
  * Name: up_setup
  *
  * Description:
@@ -783,10 +872,6 @@ static int up_setup(struct uart_dev_s *dev)
 {
   struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
 #ifndef CONFIG_SUPPRESS_UART_CONFIG
-  uint32_t usartdiv32;
-  uint32_t mantissa;
-  uint32_t fraction;
-  uint32_t brr;
   uint32_t regval;
 
   /* Note: The logic here depends on the fact that that the USART module
@@ -858,34 +943,9 @@ static int up_setup(struct uart_dev_s *dev)
 
   up_serialout(priv, STM32_USART_CR3_OFFSET, regval);
 
-  /* Configure the USART Baud Rate.  The baud rate for the receiver and
-   * transmitter (Rx and Tx) are both set to the same value as programmed
-   * in the Mantissa and Fraction values of USARTDIV.
-   *
-   *   baud     = fCK / (16 * usartdiv)
-   *   usartdiv = fCK / (16 * baud)
-   *
-   * Where fCK is the input clock to the peripheral (PCLK1 for USART2, 3, 4, 5
-   * or PCLK2 for USART1)
-   *
-   * First calculate (NOTE: all stand baud values are even so dividing by two
-   * does not lose precision):
-   *
-   *   usartdiv32 = 32 * usartdiv = fCK / (baud/2)
-   */
+  /* Configure the USART Baud Rate. */
 
-   usartdiv32 = priv->apbclock / (priv->baud >> 1);
-
-   /* The mantissa part is then */
-
-   mantissa   = usartdiv32 >> 5;
-   brr        = mantissa << USART_BRR_MANT_SHIFT;
-
-   /* The fractional remainder (with rounding) */
-
-   fraction   = (usartdiv32 - (mantissa << 5) + 1) >> 1;
-   brr       |= fraction << USART_BRR_FRAC_SHIFT;
-   up_serialout(priv, STM32_USART_BRR_OFFSET, brr);
+  up_setspeed(dev);
 
   /* Enable Rx, Tx, and the USART */
 
@@ -939,6 +999,7 @@ static int up_dma_setup(struct uart_dev_s *dev)
                  DMA_SCR_MINC          |
                  DMA_SCR_PSIZE_8BITS   |
                  DMA_SCR_MSIZE_8BITS   |
+                 CONFIG_USART_DMAPRIO  |
                  DMA_SCR_PBURST_SINGLE |
                  DMA_SCR_MBURST_SINGLE);
 
@@ -1182,7 +1243,7 @@ static int up_ioctl(struct file *filep, int cmd, unsigned long arg)
 {
   struct inode      *inode = filep->f_inode;
   struct uart_dev_s *dev   = inode->i_private;
-#ifdef CONFIG_USART_BREAKS
+#ifdef CONFIG_SERIAL_TERMIOS
   struct up_dev_s   *priv  = (struct up_dev_s*)dev->priv;
 #endif
   int                ret    = OK;
@@ -1191,17 +1252,58 @@ static int up_ioctl(struct file *filep, int cmd, unsigned long arg)
     {
     case TIOCSERGSTRUCT:
       {
-         struct up_dev_s *user = (struct up_dev_s*)arg;
-         if (!user)
-           {
-             ret = -EINVAL;
-           }
-         else
-           {
-             memcpy(user, dev, sizeof(struct up_dev_s));
-           }
-       }
-       break;
+        struct up_dev_s *user = (struct up_dev_s*)arg;
+        if (!user)
+          {
+            ret = -EINVAL;
+          }
+        else
+          {
+            memcpy(user, dev, sizeof(struct up_dev_s));
+          }
+      }
+      break;
+
+#ifdef CONFIG_SERIAL_TERMIOS
+    case TCGETS:
+      {
+        struct termios *termiosp = (struct termios*)arg;
+
+        if (!termiosp)
+          {
+            ret = -EINVAL;
+            break;
+          }
+
+        /* TODO:  Other termios fields are not yet returned.
+         * Note that only cfsetospeed is not necessary because we have
+         * knowledge that only one speed is supported.
+         */
+
+        cfsetispeed(termiosp, priv->baud);
+      }
+      break;
+
+    case TCSETS:
+      {
+        struct termios *termiosp = (struct termios*)arg;
+
+        if (!termiosp)
+          {
+            ret = -EINVAL;
+            break;
+          }
+
+        /* TODO:  Handle other termios settings.
+         * Note that only cfgetispeed is used besued we have knowledge
+         * that only one speed is supported.
+         */
+
+        priv->baud = cfgetispeed(termiosp);
+        up_setspeed(dev);
+      }
+      break;
+#endif
 
 #ifdef CONFIG_USART_BREAKS
     case TIOCSBRK:  /* BSD compatibility: Turn break on, unconditionally */

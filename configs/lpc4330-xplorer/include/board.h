@@ -69,28 +69,78 @@
 #define BOARD_RTCCLK_FREQUENCY      (32768)     /* RTC oscillator frequency (Y1) */
 #define BOARD_INTRCOSC_FREQUENCY    (4000000)   /* Internal RC oscillator frequency */
 
-/* TODO:  The LPC43xx is capable of running at much higher frequencies, but requires
- * a ramp-up in several stages.
- */
-
 /* Integer and direct modes are supported:
  *
- * In integer mode:
+ * In integer mode (Fclkout < 156000000):
  *    Fclkin  = BOARD_XTAL_FREQUENCY
  *    Fclkout = Msel * FClkin / Nsel
- *    Fcco    = 2 * Psel * Nclkout
- * In direct mode:
+ *    Fcco    = 2 * Psel * Fclkout
+ * In direct mode (Fclkout > 156000000):
  *    Fclkin  = BOARD_XTAL_FREQUENCY
  *    Fclkout = Msel * FClkin / Nsel
  *    Fcco    = Fclkout
  */
 
-#undef  BOARD_PLL1_DIRECT                       /* Integer mode */
-#define BOARD_PLL_MSEL              (6)         /* Msel = 6 */
-#define BOARD_PLL_NSEL              (1)         /* Nsel = 1 */
-#define BOARD_PLL_PSEL              (2)         /* Psel = 2 */
-#define BOARD_FCLKOUT_FREQUENCY     (72000000)  /* 6 * 12,000,000 / 1 */
-#define BOARD_FCCO_FREQUENCY        (244000000) /* 2 * 2 * 72,000,000 */
+#ifdef CONFIG_LPC43_72MHz
+
+/* NOTE:  At 72MHz, the calibrated value of CONFIG_BOARD_LOOPSPERMSEC was
+ * determined to be:
+ *
+ *    CONFIG_BOARD_LOOPSPERMSEC=7191
+ *
+ * executing from SRAM.
+ */
+
+/* Final clocking (Integer mode with no ramp-up)
+ *
+ *    Fclkout = 6 * 12MHz / 1  = 72MHz
+ *    Fcco    = 2 * 2 * 72MHz = 216MHz
+ */
+
+#  define BOARD_PLL_MSEL            (6)         /* Msel = 6 */
+#  define BOARD_PLL_NSEL            (1)         /* Nsel = 1 */
+#  define BOARD_PLL_PSEL            (2)         /* Psel = 2 */
+
+#  define BOARD_FCLKOUT_FREQUENCY   (72000000)  /* 6 * 12,000,000 / 1 */
+#  define BOARD_FCCO_FREQUENCY      (244000000) /* 2 * 2 * Fclkout */
+ 
+#else
+
+/* NOTE:  At 72MHz, the calibrated value of CONFIG_BOARD_LOOPSPERMSEC was
+ * determined to be:
+ *
+ *    CONFIG_BOARD_LOOPSPERMSEC=18535
+ *
+ * executing from SRAM.
+ */
+
+/* Intermediate ramp-up clocking (Integer mode). If BOARD_PLL_RAMP_MSEL
+ * is not defined, there will be no ramp-up.  
+ *
+ *    Fclkout = 9 * 12MHz / 1  = 108MHz
+ *    Fcco    = 2 * 1 * 108MHz = 216MHz
+ */
+
+#  define BOARD_PLL_RAMP_MSEL       (9)         /* Msel = 9 */
+#  define BOARD_PLL_RAMP_NSEL       (1)         /* Nsel = 1 */
+#  define BOARD_PLL_RAMP_PSEL       (1)         /* Psel = 1 */
+
+#  define BOARD_RAMP_FCLKOUT        (108000000) /* 9 * 12,000,000 / 1 */
+#  define BOARD_RAMP_FCCO           (216000000) /* 2 * 1 * Fclkout */
+
+/* Final clocking (Direct mode). 
+ *
+ *    Fclkout = 17 * 12MHz / 1 = 204MHz
+ *    Fcco    = Fclockout      = 204MHz
+ */
+
+#  define BOARD_PLL_MSEL            (17)        /* Msel = 17 */
+#  define BOARD_PLL_NSEL            (1)         /* Nsel = 1 */
+
+#  define BOARD_FCLKOUT_FREQUENCY   (204000000) /* 17 * 12,000,000 / 1 */
+#  define BOARD_FCCO_FREQUENCY      (204000000) /* Fclockout */
+
+#endif
 
 /* This is the clock setup we configure for:
  *
@@ -100,6 +150,38 @@
  */
 
 #define LPC43_CCLK                  BOARD_FCLKOUT_FREQUENCY
+
+/* SPIFI clocking **********************************************************/
+/* The SPIFI will receive clocking from a divider per the settings provided
+ * in this file.  The NuttX code will configure PLL1 as the input clock
+ * for the selected divider
+ */
+
+#undef  BOARD_SPIFI_PLL1                        /* No division */
+#undef  BOARD_SPIFI_DIVA                        /* Supports division by 1-4 */
+#undef  BOARD_SPIFI_DIVB                        /* Supports division by 1-16 */
+#undef  BOARD_SPIFI_DIVC                        /* Supports division by 1-16 */
+#undef  BOARD_SPIFI_DIVD                        /* Supports division by 1-16 */
+#undef  BOARD_SPIFI_DIVE                        /* Supports division by 1-256 */
+
+#if BOARD_FCLKOUT_FREQUENCY < 20000000
+#  define BOARD_SPIFI_PLL1          1           /* Use PLL1 directly */
+#else
+#  define BOARD_SPIFI_DIVB          1           /* Use IDIVB */
+#endif
+
+
+/* We need to configure the divider so that its output is as close to the
+ * desired SCLK value.  The peak data transfer rate will be about half of
+ * this frequency in bytes per second.
+ */
+
+#if BOARD_FCLKOUT_FREQUENCY < 20000000
+#  define BOARD_SPIFI_FREQUENCY     BOARD_FCLKOUT_FREQUENCY  /* 72Mhz? */
+#else
+#  define BOARD_SPIFI_DIVIDER       (14)        /* 204MHz / 14 = 14.57MHz */
+#  define BOARD_SPIFI_FREQUENCY     (102000000) /* 204MHz / 14 = 14.57MHz */
+#endif
 
 /* UART clocking ***********************************************************/
 /* Configure all U[S]ARTs to use the XTAL input frequency */
@@ -111,7 +193,7 @@
 #define BOARD_UART1_BASEFREQ        BOARD_XTAL_FREQUENCY
 
 #define BOARD_USART2_CLKSRC         BASE_USART2_CLKSEL_XTAL
-#define BOARD_USART3_BASEFREQ       BOARD_XTAL_FREQUENCY
+#define BOARD_USART2_BASEFREQ       BOARD_XTAL_FREQUENCY
 
 #define BOARD_USART3_CLKSRC         BASE_USART3_CLKSEL_XTAL
 #define BOARD_USART3_BASEFREQ       BOARD_XTAL_FREQUENCY
@@ -179,9 +261,18 @@
 
 #define PINCONF_U0_TXD  PINCONF_U0_TXD_3
 #define PINCONF_U0_RXD  PINCONF_U0_RXD_3
+#define PINCONF_U0_DIR  PINCONF_U0_DIR_3
 
 #define PINCONF_U1_TXD  PINCONF_U1_TXD_1
 #define PINCONF_U1_RXD  PINCONF_U1_RXD_1
+
+#define PINCONF_U2_TXD  PINCONF_U2_TXD_1
+#define PINCONF_U2_RXD  PINCONF_U2_RXD_1
+#define PINCONF_U2_DIR  PINCONF_U2_DIR_1
+
+#define PINCONF_U3_TXD  PINCONF_U3_TXD_2
+#define PINCONF_U3_RXD  PINCONF_U3_RXD_2
+#define PINCONF_U3_DIR  PINCONF_U3_DIR_2
 
 /****************************************************************************
  * Public Types

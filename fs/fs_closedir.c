@@ -2,7 +2,7 @@
  * fs/fs_closedir.c
  *
  *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,20 +57,19 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: seekdir
+ * Name: closedir
  *
  * Description:
- *    The closedir() function closes the directory stream 
- *    associated with 'dirp'.  The directory stream
- *    descriptor 'dirp' is not available after this call.
+ *    The closedir() function closes the directory stream associated with
+ *    'dirp'.  The directory stream descriptor 'dirp' is not available after
+ *    this call.
  *
  * Inputs:
- *   dirp -- An instance of type DIR created by a previous
- *     call to opendir();
+ *   dirp -- An instance of type DIR created by a previous call to opendir();
  *
  * Return:
- *   The closedir() function returns 0 on success.  On error,
- *   -1 is returned, and errno is set appropriately.
+ *   The closedir() function returns 0 on success.  On error, -1 is
+ *   returned, and errno is set appropriately.
  *
  ****************************************************************************/
 
@@ -97,15 +96,15 @@ int closedir(FAR DIR *dirp)
    */
 
 #ifndef CONFIG_DISABLE_MOUNTPOINT
-  if (INODE_IS_MOUNTPT(inode) && !DIRENT_ISPSUEDONODE(idir->fd_flags))
+  if (INODE_IS_MOUNTPT(inode) && !DIRENT_ISPSEUDONODE(idir->fd_flags))
     {
       /* The node is a file system mointpoint. Verify that the mountpoint
        * supports the closedir() method (not an error if it does not)
        */
 
       if (inode->u.i_mops && inode->u.i_mops->closedir)
-         {
-           /* Perform the closedir() operation */
+        {
+          /* Perform the closedir() operation */
 
           ret = inode->u.i_mops->closedir(inode, idir);
           if (ret < 0)
@@ -118,13 +117,13 @@ int closedir(FAR DIR *dirp)
   else
 #endif
     {
-      /* The node is part of the root psuedo file system, release
+      /* The node is part of the root pseudo file system, release
        * our contained reference to the 'next' inode.
        */
 
-      if (idir->u.psuedo.fd_next)
+      if (idir->u.pseudo.fd_next)
         {
-          inode_release(idir->u.psuedo.fd_next);
+          inode_release(idir->u.pseudo.fd_next);
         }
     }
 
@@ -144,7 +143,6 @@ errout_with_inode:
 #endif
 
 errout:
-  errno = ret;
+  set_errno(ret);
   return ERROR;
 }
-

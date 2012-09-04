@@ -2,8 +2,12 @@
  * configs/stm3210e-eval/src/up_lcd.c
  * arch/arm/src/board/up_lcd.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *
+ * With power management enhancements by:
+ *
+ *   Author: Diego Sanchez <dsanchez@nx-engineering.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1169,14 +1173,35 @@ static void stm3210e_pm_notify(struct pm_callback_s *cb , enum pm_state_e pmstat
             {
               duty--;
             }
-            putreg16((uint16_t)duty, STM32_TIM1_CCR1);
+
+          putreg16((uint16_t)duty, STM32_TIM1_CCR1);
 #endif
         }
         break;
 
       case(PM_IDLE):
         {
-          /* Entering IDLE mode - Turn display off */
+          /* Entering IDLE mode - Reduce LCD light */
+
+#ifdef CONFIG_LCD_PWM
+          frac = (g_lcddev.power << 16) / CONFIG_LCD_MAXPOWER;
+          duty = (g_lcddev.reload * frac) >> 16;
+          if (duty > 0)
+            {
+              duty--;
+            }
+
+          /* Reduce the LCD backlight to 50% of the MAXPOWER */
+
+          duty >>= 1;
+          putreg16((uint16_t)duty, STM32_TIM1_CCR1);
+#endif
+        }
+        break;
+
+      case(PM_STANDBY):
+        {
+          /* Entering STANDBY mode - Turn display backlight off */
 
 #ifdef CONFIG_LCD_PWM
           putreg16(0, STM32_TIM1_CCR1);
@@ -1184,16 +1209,39 @@ static void stm3210e_pm_notify(struct pm_callback_s *cb , enum pm_state_e pmstat
         }
         break;
 
-      case(PM_STANDBY):
-        {
-          /* Entering STANDBY mode - Logic for PM_STANDBY goes here */
-        }
-        break;
-
       case(PM_SLEEP):
         {
-          /* Entering SLEEP mode - Logic for PM_SLEEP goes here */
+          /* Entering SLEEP mode - Turn off LCD */
 
+          if (g_lcddev.type == LCD_TYPE_AM240320)
+            {
+              /* Display off sequence */
+
+              stm3210e_writereg(LCD_REG_0,  0xa0); /* White display mode setting */
+              up_mdelay(10);                       /* Wait for 2 frame scan */
+              stm3210e_writereg(LCD_REG_59, 0x00); /* Gate scan stop */
+
+              /* Power off sequence */
+
+              stm3210e_writereg(LCD_REG_30, 0x09); /* VCOM stop */
+              stm3210e_writereg(LCD_REG_27, 0x0e); /* VS/VDH turn off */
+              stm3210e_writereg(LCD_REG_24, 0xc0); /* CP1, CP2, CP3 turn off */
+              up_mdelay(10);                       /* wait 10 ms */
+
+              stm3210e_writereg(LCD_REG_24, 0x00); /* VR1 / VR2 off*/
+              stm3210e_writereg(LCD_REG_28, 0x30); /* Step up circuit operating current stop */
+              up_mdelay(10);
+
+              stm3210e_poweroff();
+              stm3210e_writereg(LCD_REG_0,  0xa0); /* White display mode setting */
+              up_mdelay(10);                       /* Wait for 2 frame scan */
+
+              stm3210e_writereg(LCD_REG_59, 0x00); /* Gate scan stop */
+            }
+          else
+            {
+              (void)stm3210e_poweroff();
+            }
         }
         break;
 

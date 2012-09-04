@@ -816,7 +816,7 @@
 	  and (2) it requires symbol table arguments.
 	* lib/: Add fileno()
 	* examples/ostest: Several of the tests used a big, hard-coded stack size
-	  when creating test threads (16Kb stacksize).	The stack size should
+	  when creating test threads (16K stacksize).	The stack size should
 	  be controlled by the .config file or the OSTest won't work on platforms
 	  with memory constraints.
 	* netutils/thttpd: An initial port of Jeff Poskanzer's THTTPD HTTP server.
@@ -1369,10 +1369,10 @@
 	  out instead.  This improves behavior, for example, on the first GET request
 	  from a browser.
 	* arch/arm/src/lpc17xx/lpc17_emacram.h and lpc17_allocateheap.c: The Ethernet
-	  logic was using all of AHB SRAM Bank0 for Ethernet packet buffers (16Kb).  An
+	  logic was using all of AHB SRAM Bank0 for Ethernet packet buffers (16K).  An
 	  option was added to limit the amount of SRAM used for packet buffering and to
 	  re-use any extra Bank0 memory for heap.  configs/olimex-lpc1766stk/nettest
-	  now uses only 8Kb at the beginning of Bank0; the 8Kb at the end of Bank0 is
+	  now uses only 8K at the beginning of Bank0; the 8K at the end of Bank0 is
 	  included in the heap
 	* arch/arm/src/lpc17xx/lpc17_ssp.c: Fix compilation errors when SSP1 is
 	  selected.
@@ -1785,7 +1785,7 @@
 	  that support 16-bit addressability have smaller overhead than devices
 	  that support 32-bit addressability.  However, there are many MCUs
 	  that support 32-bit addressability *but* have internal SRAM of size
-	  less than or equal to 64Kb.  In this case, CONFIG_MM_SMALL can be
+	  less than or equal to 64K.  In this case, CONFIG_MM_SMALL can be
 	  defined so that those MCUs will also benefit from the smaller, 16-
 	  bit-based allocation overhead.
 	* lib/string/lib_strndup.c: Add standard strndup() library function.
@@ -1846,7 +1846,7 @@
 	* arch/sim/src/up_romgetc.c: Used to test the basic logic to access strings
 	  without directly de-referencing a string pointer.
 	* arch/avr/src/avr/up_romget.c: Used to access strings that lie in the first
-	  64Kb of FLASH (But I still haven't figured out how to get strings to reside in
+	  64K of FLASH (But I still haven't figured out how to get strings to reside in
 	  FLASH without using the PROGMEM attribute).
 	* configs/teensy/src/up_spi.c: Correct reading of SD CD and WP pins (was reading
 	  the wrong register.  AVR SPI now appears to be functional.
@@ -2280,7 +2280,7 @@
 	  the particular condition that revealed the bug occurred.  My impression is
 	  that this latter bugfix also fixes some STM32 USB performance problems.
 	* configs/hymini-stm32v: A configuration for the HY-Mini STM32v board contributed
-	  by Laurent Latil.  Theses changes also include support for the STM32F103VCT6. 
+	  by Laurent Latil.  These changes also include support for the STM32F103VCT6. 
 	* arch/configs/stm3240g-eval/src/up_pwm.c:  Add hooks needed to use the new
 	  apps/examples/pwm test of the STM32 PWM  driver.
 	* drivers/mtd/mp25x.c:  Add ability to use different SPI modes and different
@@ -2977,5 +2977,204 @@
 	* configs/lpc4330-xplorer/nsh:  Add an NSH configuration for the LPC4330
 	  Xplorer board.
 
-6.21 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.21 2012-08-25 Gregory Nutt <gnutt@nuttx.org>
 
+	* configs/lpc4330-xplorer/up_nsh.c:  Add support for a basic SPIFI block
+	  driver for use by NSH.  Does not work!  Crashes on first SPIFI write.
+	* configs/lpc4330-xplorer/*/defconfig: Calibrate delay loops (this is
+	  based on the current "slow" 72MHz M4 clock and will need to be
+	  re-calibrated when this is increased).
+	* configs/stm3220g-eval/include/board.h and configs/stm3240g-eval/include/board.h:
+	  The SDIOCLK frequency in the F2 and F4 derives for PLL48CLK and not HCLK
+	  so that the SDIOCLK input frequency should always be 48MHz.
+	* sched/os_internal.h, sched_setupidlefiles.c, sched_setuptaskfiles.c, and
+	  sched_setupidlefiles.c:  Detangle some conditional compilation.  Allow for
+	  a perverse configuration that has socket descriptors and streams but no file
+	  descriptors (sure, why not?).
+	* sched/: Stylistic clean-up of all files.  Some of these files are pretty old
+	  and do not follow current NuttX coding standards in detail.
+	* fs/: More stylistic file clean-up.
+	* mm/: More stylistic file clean-up.
+	* drivers/ and drivers/serial/: More stylistic file clean-up.
+	* arch/arm/src/lpc43xx/lpc43_clockconfig.c:  Fix PLL1 bit manipulation logic.
+	  Critical bugfix! This would often cause the LPC43xx to fail to boot.
+	* arch/arm/src/lpc43xx/lpc43_rgu.c:  The soft reset logic called from the
+	  beginning of __start seems cause problems.  A magic delay seems to improve
+	  the logic some.  But I suspect that real fix is to get rid of all of the
+	  soft reset logic.  This would also be a critical bugfix if I believed
+	  that it really fixed all of the issues.
+	* arch/arm/src/lpc43xx/chip/lpc43_cgu.h:  Fix a bit mask in the PLL1
+	  control register.  Critical bugfix.
+	* arch/arm/src/lpc43xx/lpc43_clockconfig.c and configs/lpc4330-xplorer/include/board.h:
+	  Implement PLL1 ramp-up logic; Now the LPC43xx is running at 204MHz.
+	* configs/lpc4330-xplorer/*/defconfig:  Re-calibrated delay loops using
+	  the 204MHz clock.  The LPC43xx ripping rips!  This calibration was performed
+	  with symbols enabled and all optimization disabled.  It will need to be
+	  better recalibrated again down the road.
+	* arch/arm/src/stm32/stm32_exti.c:  Renamed to rch/arm/src/stm32/stm32_exti_gpio.c
+	  to make a little room in the file name space.
+	* arch/arm/src/stm32/stm32_exti_alarm.c:  Add initial logic to attached the
+	  RTC alarm EXTI interrupt.  This is work be performed mostly by Diego Sanchez.
+	* include/: More stylistic file clean-up.
+	* arch/arm/src/lpc43xx/lpc43_spifi.c, lpc43_spifi.h, and chip/lpc43_spifi.h:  Add
+	  logic to configure and initialize the SPIFI device (does not yet work).
+	* configs/lpc4330-xplorer/include/board.h:  Reduce SPI SCLK value.
+	* arch/arm/src/lpc43xx/lpc43_spifi.c, lpc43_spifi.h, and chip/lpc43_spifi.h:
+	  Logic completely redesigned.  It now creates an MTD driver to access SPIFI...
+	  but the driver still does not work.
+	* arch/arm/src/stm32 and arch/arm/include/stm32: Make name of RTC ALARM interrupt
+	  common on STM32 F1,2,4
+	* arch/arm/src/stm32 and arch/arm/include/stm32: Add support for the
+	  STM32F100x "Value Line" devices. This includes changes to stm32F10xx_rcc.c that
+	  add the ability to run the chip off the internal oscillator.  There is no open
+	  board configuration for this part yet (the STM32VLDiscovery would be a candidate).
+	  Contributed by Mike Smith.
+	* arch/arm/src/stm32: Fixed typos in conditional compilation in the CAN and DMA
+	  and some pin configuration.  This would have caused problems for STM32 F107xx.
+	  Typos noted by Mike Smith.
+	* arch/arm/src/lpc43xx/lpc43_serial.c:  Add support for certain RS-485 features
+	* lib/termios/lib_cfsetispeed.c, lib_cfsetospeed.c, lib_tcflush.c:  Add
+	  simple implementations of cfsetispeed(), cfsetospeed(), and tcflush().
+	* include/sys/str_tty.h, lib/lib_setspeed.c, lib_getspeed.c, and lib_resetspeed.c:
+	  Add APIs to support setting non-standard BAUD values not supported by POSIX
+	  termios.  These are non-standard interfaces but have a precedence:  There are
+	  similar interfaces in AIX.
+	* include/sys/str_tty.h, lib/lib_setspeed.c, lib_getspeed.c, and lib_resetspeed.c:
+	  Sigh... removed.  We don't need any more almost standard interfaces!  (SVN
+	  revision 4968 if you want the short-lived code).
+	* include/termios.h and lib/termios/*:  Open the existing, standard termios
+	  interfaces to permit some non-standard baud settings.  The new termios definitions
+	  still supports the POSIX standard except that it does not strictly enforce
+	  baud rate settings, permitting some non-portable, but useful baud rate settings
+	  (this is what the short-lived AIX-like interfaces would have accomplished as well).
+	* include/termios.h and lib/termios/*:  Redesigned yet again (this is getting
+	  painful.  NuttX now supports the BOTHER baud setting just as Linux does.  termios
+	  Bxxx definitions are again encoded; cf[set|get][o|i]speed now deal with only the
+	  encoded values.  If the encoded baud is set to BOTHER, then the values in the (non-
+	  standard) c_ispeed and c_ospeed baud values may be accessed directly.
+	* arch/arm/src/stm32/stm32_serial.c:  Add minimal termios support for the STM32
+	  (BOTHER style baud settings only).  Contributed by Mike Smith.
+	* configs/lpc4343-xplorer/src:  Clean up SPIFI-library based build to that it
+	  actually works.
+	* arch/arm/src/lpc43xx/lpc43_spifi.c:  Add support for verification to writes.
+	  Add debug option to dump buffers.  Several bugfixes... almost works.
+	* include/termios.h, lib/termios/*, and arch/arm/src/stm32/stm32_serial.c: :
+	  BOTHER is gone again.
+	* arch/arm/src/stm32/stm32_sdio.c and chip/stm32f20xx_pinmap.h:  STM32 F2 SDIO
+	  fixes from Gary Teravskis and Scott Rondestvedt.
+	* include/termios.h and lib/termios/*:  Replace cfsetispeed and cfsetospeed with
+	  cfsetspeed (with definitions for the input/outputs in termios.h).
+	* configs/stm32f4discovery/src and configs/stm32f4discovery/pm:  Add a power
+	  management configuration for the STM32F4Discovery and supporting logic.  This
+	  check-in also includes some fixes for the F4 RTC alarm logic.
+	* drivers/input/pga11x.c and include/nuttx/input/pga11x.h:  Add support for the
+	  TI PGA112/3/6/7 amplifier/multiplexer parts.
+	* configs/mirtoo/README.txt, nsh/defconfig, and nxffs/defconfig:  Add support
+	  for the PGA117 on the Mirtoo module.
+	* drivers/analog/pga11x.c and include/nuttx/analog/pga11x.h:  These belong in
+	  the analog subdirectories, not input.
+	* configs/compal_e99/src/ssd1783.c and /ssd1783.h:  Drivers for the SSD1783
+	  LCD found in the Motorola C155 telephone.  The driver is specific to the C155
+	  because it uses the uwire transport.  Contributed by Denis Carilki and
+	  Alan Carvalho de Assis.
+	* drivers/power/pm_changestate.c.  Correct a case where interrupts were not
+	  being re-enabled.  Found by Diego Sanchez.
+	* configs/mirtoo/nxffs/defconfig:  This Mirtoo NXFFS configuration now uses the
+	  open Pinguino toolchain by default.  This is necessary because the free C32
+	  toolchain does not support any optimization and the unoptimized NXFFS image
+	  hits the PIC32MX2 FLASH size (128K).  There is plenty of room to grow using
+	  the Pinguino toolchain with -O2 optimization.
+	* configs/mirtoo/src/up_adc.c.  This is just a stub for now, but this is
+	  where Mirtoo ADC logic will eventually need to go.
+	* arch/mips/src/pic32mx/pic32mx-gpio.c:  Now supports the PIC32MX1/2 ANSEL
+	  IOPORT register.
+	* lib/string/lib_memchr.c:  Add support for memchr() (contributed by Mike Smith)
+	* lib/string/lib_memccpy.c:  Add support for memccpy()
+	* arch/arm/src/lpc17xx/lpc17_serial.c:  Now supports ioctl commands to change
+	  the baud using tcsetattr() (contributed by Chris Taglia).
+	* arch/*/src/*_serial.c: Fix ioctl method return values.  These methods
+	  should return a negated errno value; they should not set the errno
+	  variable.
+	* sched/on_exit.c, sched/task_exithook.c, and include/nuttx/sched.c:  Add
+	  support for multiple registered on_exit() functions if CONFIG_SCHED_ONEXIT_MAX
+	  is defined.
+	* drivers/syslog/ramlog.c: Move the RAM SYSLOG device into drivers/syslog
+	  so that it will be in the same directory as some new SYSLOGing devices
+	  in the works.
+	* include/nuttx/syslog.h and drivers/syslog/ramlog.c:  The SYSLOG putc function
+	  now has a common name that is independent of the device that provides the
+	  SYSLOG.
+	* include/nuttx/syslog.h and drivers/syslog/syslog.c:  This is a new, generic
+	  SYSLOG device that can redirect debug output to any character device or file.
+	  So you can log debug output to a file or you can put the console on /dev/ttyS0
+	  and the debug output on /dev/ttyS1.
+	* arch/arm/src/lpc43xxl/lpc43_spifi.c: Correct an addressing error in the LPC43
+	  SPIFI MTD driver
+	* drivers/syslog/syslog.c and fs/fs_syslog.c:  Moved the generic syslog logic
+	  from drivers/syslog to fs/ where is belongs.  Especially after realizing that
+	  the syslog logic is going to have to some internal FS operations in order
+	  to realize a totally thread-independent SYSLOG interface.
+	* arch/arm/src/stm32/stm32*_rcc.c and .h:  If CONFIG_PM is defined, add a
+	  function called stm32_clockenable() that can be used by PM logic to re-start
+	  the PLL after re-awakening from deep sleep modes.
+	* fs/fs_foreachinode.c and fs/fs_foreachmountpoint.c:  Add logic to traverse
+	  inodes and mountpoints in the NuttX pseudo-file system.
+	* fs/fat/fs_fat32.c: Max. filename length reported by statfs() was wrong
+	  if FAT long file names were enabled.
+	* lib/stdio/lib_libvsprintf.c:  Fieldwidth and justification were not
+	  supported for the %s format.  As a result, %s, %12s, and %-12s all
+	  produced the same output.
+	* lib/stdio/lib_libdtoa.c:  Fix several issues with presenting floating
+	  point numbers (conversions are fine, but presentation was bad).  This
+	  is a critical bug fix if you use printf or sprintf to deal with floating
+	  point numbers.
+	* lib/stdio/lib_libdtoa.c and lib_libvsprintf.c:  Correct some floating
+	  point options.
+	* arch/arm/lpc43xx/lpc32_usb0dev.c:  Add framework for development of
+	  an USB0, device-side driver for the LPC43XX.  The initial check-in,
+	  however, is simply for the LPC31xx driver with name changes.  The
+	  LPC31xx has the same USB IP, but will require some additional initialization
+	  (and lots of testing) before it can be used with the LPC43xx.
+	* nuttx/Documentation/NuttShell.html:  Added a section covering ways to
+	  customize the behavior of NSH.
+	* arch/arm/src/stm32/chip/stm32f1*_pinmap.h: STM32 CAN TX/RX pins reversed;
+	  inconsistent conditional compilation.  Reported by Max Holtzberg.
+	* arch/arm/*/stm32:  Add support for STM32 F107 "Connectivity Line" 
+	  Ethernet (contributed by Max Holtzberg).
+	* configs/olimex-stm32-p107:  Add board support for the Olimiex STM32-P107
+	   board (contributed by Max Holtzberg).
+	* arch/arm/src/stm32/stm32f2xx_dma.c, stm32f4xx_dma.c, stm32_serial.c, and
+	  stm32_spic.c:  DMA priority was getting zeroed by STM32 F2/F4 DMA drivers
+	  so that all DMAs ran at the lowest priority.
+	* configs/stm3240g-eval/include/board.h and configs/stm3220:  Drop SD card
+	  frequency from 24 to 16 MHz.  Apparently 24 MHz is too fast for the board.
+	  This (plus the change to the STM32 DMA (above) fixes SDIO DMA on the
+	  STM3240G-EVAL (and probably STM3220G-EVAL -- untested).
+	* arch/arm/src/stm32/stm32f2xx_dma.c and stm32f4xx_dma.c: Backed out the
+	  DMA priority change just above.  The reduced SD card frequency was
+	  necessary and sufficient to resolve the problem.
+	* drivers/serial/serial.c:  open, read, write, and poll methods may now
+	  abort return EINTR (or a short transfer size) if a signal is received
+	  while waiting to receive or send serial data.  This behavior is required
+	  by POSIX.
+	* include/sys/types.h:  Define NULL to be (0) if __cplusplus is defined.
+	  (contributed by Mike Smith)
+	* include/ctype.h: Remove a stray semi-colon in a definitions (Thanks
+	  Mike Smith).
+	* configs/.../Make.defs.  Fix C++ include path set-up in Make.defs file
+	  for all 8-bit AVR platforms (Thanks Richard Cochran).
+	* lib/stdio/lib_*stream.c:  Revised to handle new error return values from
+	  serial.c.
+	* arch/arm/src/stm32/stm32_spi.c:  SPI driver can now service re-
+	  initialization (Mike Smith).
+	* tools/mkconfig.c:  If CONFIG_DRAM_END is not specified, this tool
+	  will provide default definition of (CONFIG_DRAM_START + CONFIG_DRAM_SIZE)
+	* arch/arm/src/stm32/stm32_otgfshost.c:  Renamed from stm32_usbhost.c.
+	  This is nearly code complete and, with any luck, will be available
+	  in NuttX-6.21.
+	* configs/*/defconfig:  Update all defconfig files to remove syntax
+	  that is incompatible with the mconf configuration tool.
+	* arch/arm/src/stm32/stm32_otgfshost.c:  This driver now appears to be
+	  functional (although more testing is necesary).
+
+6.22 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>

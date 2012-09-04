@@ -45,7 +45,7 @@ examples/adc
 
   Specific configuration options for this example include:
  
-    CONFIG_EXAMPLES_ADC_DEVPATH - The path to the ADC device. Default: /dev/adc0
+    CONFIG_EXAMPLES_ADC_DEVPATH - The default path to the ADC device. Default: /dev/adc0
     CONFIG_EXAMPLES_ADC_NSAMPLES - If CONFIG_NSH_BUILTIN_APPS
       is defined, then the number of samples is provided on the command line
       and this value is ignored.  Otherwise, this number of samples is
@@ -482,6 +482,25 @@ examples/mm
   internals of the memory manager as does mm/mm_test.c, but it has the
   advantage that it runs in the actual NuttX tasking environment (the
   mm/mm_test.c only runs in a PC simulation environment).
+
+examples/modbus
+^^^^^^^^^^^^^^^
+
+  This is a port of the FreeModbus Linux demo.  It derives from the
+  demos/LINUX directory of the FreeModBus version 1.5.0 (June 6, 2010)
+  that can be downloaded in its entirety from http://developer.berlios.de/project/showfiles.php?group_id=6120.
+
+    CONFIG_EXAMPLES_MODBUS_PORT, Default 0 (for /dev/ttyS0)
+    CONFIG_EXAMPLES_MODBUS_BAUD, Default B38400
+    CONFIG_EXAMPLES_MODBUS_PARITY, Default MB_PAR_EVEN
+
+    CONFIG_EXAMPLES_MODBUS_REG_INPUT_START, Default 1000
+    CONFIG_EXAMPLES_MODBUS_REG_INPUT_NREGS, Default 4
+    CONFIG_EXAMPLES_MODBUS_REG_HOLDING_START, Default 2000
+    CONFIG_EXAMPLES_MODBUS_REG_HOLDING_NREGS, Default 130
+
+  The FreeModBus library resides at apps/modbus.  See apps/modbus/README.txt
+  for additional configuration information.
 
 examples/mount
 ^^^^^^^^^^^^^^
@@ -1040,7 +1059,7 @@ examples/pwm
  
   Specific configuration options for this example include:
  
-    CONFIG_EXAMPLES_PWM_DEVPATH - The path to the PWM device. Default: /dev/pwm0
+    CONFIG_EXAMPLES_PWM_DEVPATH - The path to the default PWM device. Default: /dev/pwm0
     CONFIG_EXAMPLES_PWM_FREQUENCY - The initial PWM frequency.  Default: 100 Hz
     CONFIG_EXAMPLES_PWM_DUTYPCT - The initial PWM duty as a percentage.  Default: 50%
     CONFIG_EXAMPLES_PWM_DURATION - The initial PWM pulse train duration in seconds.

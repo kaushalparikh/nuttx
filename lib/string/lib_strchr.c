@@ -1,8 +1,8 @@
 /****************************************************************************
  * lib/string/lib_strchr.c
  *
- *   Copyright (C) 2007, 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007, 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,11 +45,21 @@
  * Global Functions
  ****************************************************************************/
 
-/* The strchr() function returns a pointer to the first
- * occurrence of the character c in the string s.
- */
+/****************************************************************************
+ * Name: strchr
+ *
+ * Description:
+ *   The strchr() function locates the first occurrence of 'c' (converted to
+ *   a char) in the string pointed to by 's'. The terminating null byte is
+ *   considered to be part of the string.
+ *
+ * Returned Value:
+ *   Upon completion, strchr() returns a pointer to the byte, or a null
+ *   pointer if the byte was not found.
+ *
+ ****************************************************************************/
 
-char *strchr(const char *s, int c)
+FAR char *strchr(FAR const char *s, int c)
 {
   if (s)
     {
@@ -57,11 +67,10 @@ char *strchr(const char *s, int c)
         {
           if (*s == c)
             {
-              return (char*)s;
+              return (FAR char *)s;
             }
         }
     }
 
   return NULL;
 }
-

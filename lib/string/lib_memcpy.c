@@ -1,8 +1,8 @@
-/************************************************************
+/****************************************************************************
  * lib/string/lib_memcpy.c
  *
  *   Copyright (C) 2007, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,29 +31,33 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Compilation Switches
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Included Files
- ************************************************************/
+ ****************************************************************************/
 
 #include <nuttx/config.h>
 #include <sys/types.h>
 #include <string.h>
 
-/************************************************************
+/****************************************************************************
  * Global Functions
- ************************************************************/
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: memcpy
+ ****************************************************************************/
 
 #ifndef CONFIG_ARCH_MEMCPY
-void *memcpy(void *dest, const void *src, size_t n)
+FAR void *memcpy(FAR void *dest, FAR const void *src, size_t n)
 {
-  unsigned char *pout = (unsigned char*)dest;
-  unsigned char *pin  = (unsigned char*)src;
+  FAR unsigned char *pout = (FAR unsigned char*)dest;
+  FAR unsigned char *pin  = (FAR unsigned char*)src;
   while (n-- > 0) *pout++ = *pin++;
   return dest;
 }

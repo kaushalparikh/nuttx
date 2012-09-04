@@ -92,6 +92,18 @@ EXTERN void weak_function pic32mx_spi2initialize(void);
 EXTERN void pic32mx_ledinit(void);
 #endif
 
+/****************************************************************************
+ * Name: pic32mx_adcinitialize
+ *
+ * Description:
+ *   Perform architecture specific ADC initialization
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_PIC32MX_ADC
+/* EXTERN int pic32mx_adcinitialize(void); not used */
+#endif
+
 #undef EXTERN
 #ifdef __cplusplus
 }

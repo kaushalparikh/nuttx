@@ -788,6 +788,8 @@ nuttx
  |   |   `- README.txt
  |   |- sercomm/
  |   |   `- README.txt
+ |   |- syslog/
+ |   |   `- README.txt
  |   `- README.txt
  |- fs/
  |   |- mmap/
@@ -814,6 +816,8 @@ apps
  |- interpreters/
  |   |- ficl
  |   |  `- README.txt
+ |   `- README.txt
+ |- modbus/
  |   `- README.txt
  |- netutils/
  |   |- ftpc

@@ -44,44 +44,88 @@
 #include <debug.h>
 #include <errno.h>
 
-#include <nuttx/spi.h>
-#include <nuttx/mmcsd.h>
+#include "chip.h"
+
+#ifdef CONFIG_LPC43_SPIFI
+#  include <nuttx/mtd.h>
+#  include "lpc43_spifi.h"
+
+#  ifdef CONFIG_SPFI_NXFFS
+#    include <sys/mount.h>
+#    include <nuttx/fs/nxffs.h>
+#  endif
+#endif
 
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
-
 /* Configuration ************************************************************/
 
-/* PORT and SLOT number probably depend on the board configuration */
-
-#ifdef CONFIG_ARCH_BOARD_LPC4330_XPLORER
-#  define CONFIG_NSH_HAVEUSBDEV 1
-#else
-#  error "Unrecognized board"
-#  undef CONFIG_NSH_HAVEUSBDEV
+#ifndef CONFIG_SPIFI_DEVNO
+#  define CONFIG_SPIFI_DEVNO 0
 #endif
 
-/* Can't support USB features if USB is not enabled */
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
 
-#ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+/****************************************************************************
+ * Name: nsh_spifi_initialize
+ *
+ * Description:
+ *   Make the SPIFI (or part of it) into a block driver that can hold a
+ *   file system.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_LPC43_SPIFI
+static int nsh_spifi_initialize(void)
+{
+  FAR struct mtd_dev_s *mtd;
+  int ret;
+
+  /* Initialize the SPIFI interface and create the MTD driver instance */
+
+  mtd = lpc43_spifi_initialize();
+  if (!mtd)
+    {
+      fdbg("ERROR: lpc43_spifi_initialize failed\n");
+      return -ENODEV;
+    }
+
+#ifndef CONFIG_SPFI_NXFFS
+  /* And finally, use the FTL layer to wrap the MTD driver as a block driver */
+
+  ret = ftl_initialize(CONFIG_SPIFI_DEVNO, mtd);
+  if (ret < 0)
+    {
+      fdbg("ERROR: Initializing the FTL layer: %d\n", ret);
+      return ret;
+    }
+#else
+  /* Initialize to provide NXFFS on the MTD interface */1G
+
+  ret = nxffs_initialize(mtd);
+  if (ret < 0)
+    {
+      fdbg("ERROR: NXFFS initialization failed: %d\n", ret);
+      return ret;
+    }
+
+  /* Mount the file system at /mnt/spifi */
+
+  ret = mount(NULL, "/mnt/spifi", "nxffs", 0, NULL);
+  if (ret < 0)
+    {
+      fdbg("ERROR: Failed to mount the NXFFS volume: %d\n", errno);
+      return ret;
+    }
 #endif
 
-/* Debug ********************************************************************/
-
-#ifdef CONFIG_CPP_HAVE_VARARGS
-#  ifdef CONFIG_DEBUG
-#    define message(...) lib_lowprintf(__VA_ARGS__)
-#  else
-#    define message(...) printf(__VA_ARGS__)
-#  endif
+  return OK;
+}
 #else
-#  ifdef CONFIG_DEBUG
-#    define message lib_lowprintf
-#  else
-#    define message printf
-#  endif
+#  define nsh_spifi_initialize() (OK)
 #endif
 
 /****************************************************************************
@@ -98,5 +142,7 @@
 
 int nsh_archinitialize(void)
 {
-  return OK;
+  /* Initialize the SPIFI block device */
+
+  return nsh_spifi_initialize();
 }

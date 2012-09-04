@@ -60,6 +60,7 @@ include power/Make.defs
 include sensors/Make.defs
 include sercomm/Make.defs
 include serial/Make.defs
+include syslog/Make.defs
 include usbdev/Make.defs
 include usbhost/Make.defs
 include wireless/Make.defs
@@ -69,10 +70,6 @@ ifneq ($(CONFIG_NFILE_DESCRIPTORS),0)
 
 ifneq ($(CONFIG_DISABLE_MOUNTPOINT),y)
   CSRCS += ramdisk.c rwbuffer.c
-endif
-
-ifeq ($(CONFIG_RAMLOG),y)
-  CSRCS += ramlog.c
 endif
 
 ifeq ($(CONFIG_CAN),y)

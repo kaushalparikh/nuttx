@@ -1,9 +1,8 @@
 /************************************************************************************
- * configs/stm3220g-eval/src/up_usbdev.c
- * arch/arm/src/board/up_boot.c
+ * arch/arm/src/lpc43xx/lpc43_usbdev.h
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <gnutt@nuttx.org>
+ *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,70 +33,66 @@
  *
  ************************************************************************************/
 
+#ifndef __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H
+#define __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H
+
 /************************************************************************************
  * Included Files
  ************************************************************************************/
 
 #include <nuttx/config.h>
-
-#include <sys/types.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <debug.h>
-
 #include <nuttx/usb/usbdev.h>
-#include <nuttx/usb/usbdev_trace.h>
+#include <stdint.h>
 
-#include "up_arch.h"
-#include "stm32_internal.h"
-#include "stm3220g-internal.h"
-
-/************************************************************************************
- * Definitions
- ************************************************************************************/
-
-/************************************************************************************
- * Private Functions
- ************************************************************************************/
+#include "chip.h"
+#include "chip/lpc43_usb0.h"
 
 /************************************************************************************
  * Public Functions
  ************************************************************************************/
 
+#ifndef __ASSEMBLY__
+
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
+
 /************************************************************************************
- * Name: stm32_usbinitialize
+ * Name:  lpc43_usbpullup
  *
  * Description:
- *   Called to setup USB-related GPIO pins for the STM3210E-EVAL board.
+ *   If USB is supported and the board supports a pullup via GPIO (for USB software
+ *   connect and disconnect), then the board software must provide lpc43_pullup.
+ *   See include/nuttx/usb/usbdev.h for additional description of this method.
+ *   Alternatively, if no pull-up GPIO the following EXTERN can be redefined to be
+ *   NULL.
  *
  ************************************************************************************/
 
-void stm32_usbinitialize(void)
-{
-  /* The OTG FS has an internal soft pull-up */
-
-  /* Configure the OTG FS VBUS sensing GPIO, Power On, and Overcurrent GPIOs */
-
-#ifdef CONFIG_STM32_OTGFS
-  stm32_configgpio(GPIO_OTGFS_VBUS);
-  stm32_configgpio(GPIO_OTGFS_PWRON);
-  stm32_configgpio(GPIO_OTGFS_OVER);
-#endif
-}
+EXTERN int lpc43_usbpullup(FAR struct usbdev_s *dev,  bool enable);
 
 /************************************************************************************
- * Name:  stm32_usbsuspend
+ * Name:  lpc43_usbsuspend
  *
  * Description:
- *   Board logic must provide the stm32_usbsuspend logic if the USBDEV driver is
+ *   Board logic must provide the lpc43_usbsuspend logic if the USBDEV driver is
  *   used.  This function is called whenever the USB enters or leaves suspend mode.
  *   This is an opportunity for the board logic to shutdown clocks, power, etc.
  *   while the USB is suspended.
  *
  ************************************************************************************/
 
-void stm32_usbsuspend(FAR struct usbdev_s *dev, bool resume)
-{
-  ulldbg("resume: %d\n", resume);
+EXTERN void lpc43_usbsuspend(FAR struct usbdev_s *dev, bool resume);
+
+#undef EXTERN
+#if defined(__cplusplus)
 }
+#endif
+
+#endif /* __ASSEMBLY__ */
+#endif /* __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H */
 

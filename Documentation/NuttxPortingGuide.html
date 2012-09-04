@@ -3935,7 +3935,7 @@ build
     16-bit addressability have smaller overhead than devices that
     support 32-bit addressability.  However, there are many MCUs
     that support 32-bit addressability <i>but</i> have internal SRAM
-    of size less than or equal to 64Kb.  In this case, CONFIG_MM_SMALL
+    of size less than or equal to 64K.  In this case, CONFIG_MM_SMALL
     can be defined so that those MCUs will also benefit from the
     smaller, 16-bit-based allocation overhead.
   </li>
@@ -4063,6 +4063,23 @@ build
     <code>CONFIG_SIG_SIGWORK</code>: The signal number that will be used to wake-up
     the worker thread.  Default: 4
   </li>
+  <li>
+    <code>CONFIG_SCHED_WAITPID</code>: Enables the <a href="NuttxUserGuide.html#waitpid"><code>waitpid()</code><a> API
+  </li>
+  <li>
+    <code>CONFIG_SCHED_ATEXIT</code>:  Enables the <a href="NuttxUserGuide.html#atexit">atexit()</code><a> API
+  </li>
+  <li>
+    <code>CONFIG_SCHED_ATEXIT_MAX</code>:  By default if <code>CONFIG_SCHED_ATEXIT</code> is selected, only a single <code>atexit()</code> function is supported.
+    That number can be increased by defined this setting to the number that you require.
+  </li>
+  <li>
+    <code>CONFIG_SCHED_ONEXIT</code>:  Enables the <a href="NuttxUserGuide.html#onexit">on_exit()</code><a> API
+  </li>
+  <li>
+    <code>CONFIG_SCHED_ONEXIT_MAX</code>:  By default if <code>CONFIG_SCHED_ONEXIT</code> is selected, only a single <code>on_exit()</code> function is supported.
+    That number can be increased by defined this setting to the number that you require.
+  </li>
 </ul>
 
 <p>
@@ -4072,9 +4089,23 @@ build
   <li>
     <code>CONFIG_SYSLOG</code>:  Enables general system logging support.
   </li>
+    <code>CONFIG_SYSLOG_DEVPATH</code>: The full path to the system logging device.
+    Default <code>&quot;/dev/ramlog&quot;</code> (RAMLOG) or <code>&quot;dev/ttyS1;</code> (CHARDEV).
   <p>
-    At present, the only system loggin device is a circular buffer in RAM.
+    At present, there are two system loggins devices available.
     If <code>CONFIG_SYSLOG</code> is selected, then these options are also available.
+  </p>
+  <p>
+    First, any a generic character device that may be used as the SYSLOG.
+  </p>
+  <li>
+    <code>CONFIG_SYSLOG_CHAR</code>:
+      Enable the generic character device for the SYSLOG.
+      A disadvantage of using the generic character device for the SYSLOG is that it cannot handle debug output generated from interrupt level handlers.
+      NOTE:  No more than one SYSLOG device should be configured.
+  <p>
+    Alternatively, a circular buffer in RAM can be used as the SYSLOGing device.
+    The contents of this RAM buffer can be dumped using the NSH dmesg command.
   </p>
   <li>
     <code>CONFIG_RAMLOG</code>: Enables the RAM logging feature
@@ -4088,11 +4119,11 @@ build
     circular buffer and can be viewed using the NSH 'dmesg' command.
   </li>
   <li>
-    <code>CONFIG_RAMLOG_SYSLOG</code>: Use the RAM logging device for the syslogging
-    interface.  If this feature is enabled (along with <code>CONFIG_SYSLOG</code>),
-    then all debug output (only) will be re-directed to the circular
-    buffer in RAM.  This RAM log can be view from NSH using the 'dmesg'
-    command.
+    <code>CONFIG_RAMLOG_SYSLOG</code>:
+    Use the RAM logging device for the syslogging interface.
+    If this feature is enabled (along with <code>CONFIG_SYSLOG</code>), then all debug output (only) will be re-directed to the circular buffer in RAM.
+    This RAM log can be view from NSH using the <code>dmesg</code> command.
+    NOTE: Unlike the limited, generic character driver SYSLOG device, the RAMLOG <i>can</i> be used to generate debug output from interrupt level handlers.
   </li>
   <li>
     <code>CONFIG_RAMLOG_NPOLLWAITERS</code>: The number of threads than can be waiting
@@ -4446,7 +4477,12 @@ build
     can be fopen'ed
   </li>
   <li>
-    <code>CONFIG_NAME_MAX</code>: The maximum size of a file name.
+    <code>CONFIG_NAME_MAX</code>: Maximum number of bytes in a filename (not including terminating null).
+    Default: 32
+  </li>
+  <li>
+    <code>CONFIG_PATH_MAX</code>: Maximum number of bytes in a pathname, including the terminating null character.
+    Default: <code>MIN(256,(4*CONFIG_NAME_MAX+1))</code>
   </li>
   <li>
     <code>CONFIG_STDIO_BUFFER_SIZE</code>: Size of the buffer to allocate
@@ -4704,7 +4740,7 @@ build
   <li>
     <code>CONFIG_P14201_FRAMEBUFFER</code>:
       If defined, accesses will be performed using an in-memory copy of the OLEDs GDDRAM.
-      This cost of this buffer is 128 * 96 / 2 = 6Kb.
+      This cost of this buffer is 128 * 96 / 2 = 6K.
       If this is defined, then the driver will be fully functional.
       If not, then it will have the following limitations:
       <ul>

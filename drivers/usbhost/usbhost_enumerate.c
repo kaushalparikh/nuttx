@@ -1,8 +1,8 @@
 /*******************************************************************************
  * drivers/usbhost/usbhost_enumerate.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Authors: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Authors: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -137,8 +137,8 @@ static void usbhost_callback(FAR struct usbhost_transfer_s *xfer)
  *
  *******************************************************************************/
 
-static inline int usbhost_devdesc(const struct usb_devdesc_s *devdesc,
-                                  struct usbhost_id_s *id)
+static inline int usbhost_devdesc(FAR const struct usb_devdesc_s *devdesc,
+                                  FAR struct usbhost_id_s *id)
 {
   /* Clear the ID info */
 

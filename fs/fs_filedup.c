@@ -1,8 +1,8 @@
 /****************************************************************************
  * fs/fs_filedup.c
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,10 +68,11 @@
  * Name: file_dup OR dup
  *
  * Description:
- *   Clone a file descriptor to an arbitray descriptor number.  If socket
- *   descriptors are implemented, then this is called by dup() for the case
- *   of file descriptors.  If socket descriptors are not implemented, then
- *   this function IS dup().
+ *   Clone a file descriptor 'fd' to an arbitray descriptor number (any value
+ *   greater than or equal to 'minfd'). If socket descriptors are
+ *   implemented, then this is called by dup() for the case of file
+ *   descriptors.  If socket descriptors are not implemented, then this
+ *   function IS dup().
  *
  ****************************************************************************/
 
@@ -85,15 +86,15 @@ int file_dup(int fildes, int minfd)
   list = sched_getfiles();
   if (!list)
     {
-      errno = EMFILE;
+      set_errno(EMFILE);
       return ERROR;
     }
 
- /* Verify that fildes is a valid, open file descriptor */
+  /* Verify that fildes is a valid, open file descriptor */
 
   if (!DUP_ISOPEN(fildes, list))
     {
-      errno = EBADF;
+      set_errno(EBADF);
       return ERROR;
     }
 
@@ -109,10 +110,11 @@ int file_dup(int fildes, int minfd)
                            minfd);
   if (fildes2 < 0)
     {
-      errno = EMFILE;
+      set_errno(EMFILE);
       inode_release(list->fl_files[fildes].f_inode);
       return ERROR;
     }
+
   return fildes2;
 }
 

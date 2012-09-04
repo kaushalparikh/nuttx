@@ -59,6 +59,9 @@
 #     include <netinet/in.h>
 #     include <nuttx/fs/nfs.h>
 #   endif
+#   ifdef CONFIG_RAMLOG_SYSLOG
+#     include <nuttx/ramlog.h>
+#   endif
 #endif
 #endif
 
@@ -523,10 +526,11 @@ int cmd_cat(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
  * Name: cmd_dmesg
  ****************************************************************************/
 
-#if CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
+#if CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_SYSLOG) && \
+    defined(CONFIG_RAMLOG_SYSLOG) && !defined(CONFIG_NSH_DISABLE_DMESG)
 int cmd_dmesg(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 {
-  return cat_common(vtbl, argv[0], "/dev/syslog");
+  return cat_common(vtbl, argv[0], CONFIG_SYSLOG_DEVPATH);
 }
 #endif
 
@@ -1028,7 +1032,7 @@ int cmd_mkrd(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
   int minor = 0;
   int ret;
 
-  /* Get the mount options */
+  /* Get the mkrd options */
 
   int option;
   while ((option = getopt(argc, argv, ":m:s:")) != ERROR)
@@ -1123,96 +1127,6 @@ errout_with_fmt:
 #endif
 
 /****************************************************************************
- * Name: cmd_mount
- ****************************************************************************/
-
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
-#ifndef CONFIG_NSH_DISABLE_MOUNT
-int cmd_mount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  char *source;
-  char *target;
-  char *filesystem = 0;
-  bool badarg = false;
-  int ret;
-
-  /* Get the mount options */
-
-  int option;
-  while ((option = getopt(argc, argv, ":t:")) != ERROR)
-    {
-      switch (option)
-        {
-          case 't':
-            filesystem = optarg;
-            break;
-
-          case ':':
-            nsh_output(vtbl, g_fmtargrequired, argv[0]);
-            badarg = true;
-            break;
-
-          case '?':
-          default:
-            nsh_output(vtbl, g_fmtarginvalid, argv[0]);
-            badarg = true;
-            break;
-        }
-    }
-
-  /* If a bad argument was encountered, then return without processing the command */
-
-  if (badarg)
-    {
-      return ERROR;
-    }
-
-  /* There are two required arguments after the options */
-
-  if (optind + 2 < argc)
-    {
-      nsh_output(vtbl, g_fmttoomanyargs, argv[0]);
-      return ERROR;
-    }
-  else if (optind + 2 > argc)
-    {
-      nsh_output(vtbl, g_fmtargrequired, argv[0]);
-      return ERROR;
-    }
-
-  /* The source and target paths might be relative to the current
-   * working directory.
-   */
-
-  source = nsh_getfullpath(vtbl, argv[optind]);
-  if (!source)
-    {
-      return ERROR;
-    }
-
-  target = nsh_getfullpath(vtbl, argv[optind+1]);
-  if (!target)
-    {
-      nsh_freefullpath(source);
-      return ERROR;
-    }
-
-  /* Perform the mount */
-
-  ret = mount(source, target, filesystem, 0, NULL);
-  if (ret < 0)
-    {
-      nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
-    }
-
-  nsh_freefullpath(source);
-  nsh_freefullpath(target);
-  return ret;
-}
-#endif
-#endif
-
-/****************************************************************************
  * Name: cmd_mv
  ****************************************************************************/
 
@@ -1251,113 +1165,6 @@ int cmd_mv(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 
   nsh_freefullpath(oldpath);
   nsh_freefullpath(newpath);
-  return ret;
-}
-#endif
-#endif
-
-/****************************************************************************
- * Name: cmd_nfsmount
- ****************************************************************************/
-
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && \
-    defined(CONFIG_NET) && defined(CONFIG_NFS)
-#ifndef CONFIG_NSH_DISABLE_NFSMOUNT
-int cmd_nfsmount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  struct nfs_args data;
-  FAR char *address;
-  FAR char *lpath;
-  FAR char *rpath;
-  bool badarg = false;
-#ifdef CONFIG_NET_IPv6
-  FAR struct sockaddr_in6 *sin;
-  struct in6_addr inaddr;
-#else
-  FAR struct sockaddr_in *sin;
-  struct in_addr inaddr;
-#endif
-  int ret;
-
-  /* If a bad argument was encountered, then return without processing the
-   * command.
-   */
-
-  if (badarg)
-    {
-      return ERROR;
-    }
-
-  /* The fist argument on the command line should be the NFS server IP address
-   * in standard IPv4 (or IPv6) dot format.
-   */
-
-  address = argv[1];
-  if (!address)
-    {
-      return ERROR;
-    }
-
-  /* The local mount point path (lpath) might be relative to the current working
-   * directory.
-   */
-
-  lpath = nsh_getfullpath(vtbl, argv[2]);
-  if (!lpath)
-    {
-      return ERROR;
-    }
-
-  /* Get the remote mount point path */
-
-  rpath = argv[3];
-
-   /* Convert the IP address string into its binary form */
-
-#ifdef CONFIG_NET_IPv6
-  ret = inet_pton(AF_INET6, address, &inaddr);
-#else
-  ret = inet_pton(AF_INET, address, &inaddr);
-#endif
-  if (ret != 1)
-    {
-      nsh_freefullpath(lpath);
-      return ERROR;
-    }
-
-  /* Place all of the NFS arguements into the nfs_args structure */
-
-  memset(&data, 0, sizeof(data));
-
-#ifdef CONFIG_NET_IPv6
-  sin                  = (FAR struct sockaddr_in6 *)&data.addr;
-  sin->sin_family      = AF_INET6;
-  sin->sin_port        = htons(NFS_PMAPPORT);
-  memcpy(&sin->sin6_addr, &inaddr, sizeof(struct in6_addr));
-  data.addrlen         = sizeof(struct sockaddr_in6);
-#else
-  sin                  = (FAR struct sockaddr_in *)&data.addr;
-  sin->sin_family      = AF_INET;
-  sin->sin_port        = htons(NFS_PMAPPORT);
-  sin->sin_addr        = inaddr;
-  data.addrlen         = sizeof(struct sockaddr_in);
-#endif
-
-  data.sotype          = SOCK_DGRAM;
-  data.path            = rpath;
-  data.flags           = 0;       /* 0=Use all defaults */
-
-  /* Perform the mount */
-
-  ret = mount(NULL, lpath, "nfs", 0, (FAR void *)&data);
-  if (ret < 0)
-    {
-      nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
-    }
-
-  /* We no longer need the allocated mount point path */
-
-  nsh_freefullpath(lpath);
   return ret;
 }
 #endif
@@ -1490,128 +1297,3 @@ int cmd_sh(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
 }
 #endif
 #endif
-
-/****************************************************************************
- * Name: cmd_umount
- ****************************************************************************/
-
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
-#ifndef CONFIG_NSH_DISABLE_UMOUNT
-int cmd_umount(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  char *fullpath = nsh_getfullpath(vtbl, argv[1]);
-  int ret = ERROR;
-
-  if (fullpath)
-    {
-      /* Perform the umount */
-
-      ret = umount(fullpath);
-      if (ret < 0)
-        {
-          nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
-        }
-      nsh_freefullpath(fullpath);
-    }
-  return ret;
-}
-#endif
-#endif
-
-/****************************************************************************
- * Name: cmd_sdcard
- ****************************************************************************/
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
-#ifndef CONFIG_NSH_DISABLE_SDCARD
-int cmd_sdcard(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  int ret;
-
-  if (strcmp(argv[1], "mount") == 0)
-    {
-      ret = nsh_sdcardinit();
-      if (ret == OK)
-        {
-          ret = mount("/dev/mmcsd0", "/sdcard", "vfat", 0, NULL);
-          if (ret < 0)
-            {
-              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
-            }
-        }
-    }
-  else if (strcmp(argv[1], "umount") == 0)
-    {
-      ret = nsh_sdcarddeinit();
-      if (ret == OK)
-        {
-          ret = umount("/sdcard");
-          if (ret < 0)
-            {
-              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
-            }
-        }
-    }
-  else
-    {
-      nsh_output(vtbl, g_fmtarginvalid, argv[1]);
-      return ERROR;
-    }
-
-  return ret;
-}
-#endif
-#endif
-
-/****************************************************************************
- * Name: cmd_usbh
- ****************************************************************************/
-#if !defined(CONFIG_DISABLE_MOUNTPOINT) && CONFIG_NFILE_DESCRIPTORS > 0 && defined(CONFIG_FS_READABLE)
-#ifndef CONFIG_NSH_DISABLE_USBH
-int cmd_usbh(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv)
-{
-  int ret;
-
-  if (strcmp(argv[1], "mount") == 0)
-    {
-      ret = nsh_usbhostinit();
-      /*
-      if (ret == OK)
-        {
-          ret = mount("/dev/mmcsd0", "/sdcard", "vfat", 0, NULL);
-          if (ret < 0)
-            {
-              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "mount", NSH_ERRNO);
-            }
-        }
-      */
-    }
-  else if (strcmp(argv[1], "umount") == 0)
-    {
-      ret = nsh_usbhostdeinit();
-      /*
-      if (ret == OK)
-        {
-          ret = umount("/sdcard");
-          if (ret < 0)
-            {
-              nsh_output(vtbl, g_fmtcmdfailed, argv[0], "umount", NSH_ERRNO);
-            }
-        }
-      */
-    }
-  else if (strcmp(argv[1], "reg") == 0)
-    {
-      nsh_usbhostregdump();
-      ret = OK;
-    }  
-  else
-    {
-      nsh_output(vtbl, g_fmtarginvalid, argv[1]);
-      return ERROR;
-    }
-
-  return ret;
-}
-#endif
-#endif
-

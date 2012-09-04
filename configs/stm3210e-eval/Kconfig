@@ -18,37 +18,20 @@ config ARCH_BUTTONS
 	---help---
 		"Support interfaces to use buttons provided by the board."
 
+config ARCH_IRQBUTTONS
+	bool "Button interrupt support"
+	default n
+	depends on ARCH_BUTTONS
+	---help---
+		"Support EXTI interrupts on button presses and releases."
+
 config STM3210E_LCD
 	bool "Select support for the STM3210E-EVAL LCD"
 	default y
-	depends on STM32_FSMC
-
-choice
-	prompt "STM3210E-EVAL LCD Orientation"
-	default LCD_LANDSCAPE
-	depends on STM3210E_LCD
-
-config LCD_LANDSCAPE
-	bool "320x240 landscape display"
+	depends on LCD && STM32_FSMC
 	---help---
-		Define for 320x240 display "landscape" support. Default is this 320x240
-		"landscape" orientation (this setting is informative only... not used).
-
-config LCD_PORTRAIT
-	bool "240x320 portrait display"
-	---help---
-		Define for 240x320 display "portrait" orientation support.  In this
-		orientation, the STM3210E-EVAL's LCD ribbon cable is at the bottom of
-		the display. Default is 320x240 "landscape" orientation.
-
-config LCD_RPORTRAIT
-	bool "240x320 reverse portrait display"
-	---help---
-		Define for 240x320 display "reverse portrait" orientation support.  In
-		this orientation, the STM3210E-EVAL's LCD ribbon cable is at the top
-		of the display. Default is 320x240 "landscape" orientation.
-
-endchoice
+		Enable support for the LCD on the STM3210E-EVAL board.  See additional,
+		LCD-common settings in the drivers/lcd Kconfig file.
 
 config LCD_BACKLIGHT
 	bool "LCD backlight support"
@@ -105,4 +88,79 @@ config STM32_R61580_DISABLE
 
 endif
 
+config PM_BUTTONS
+	bool "PM Button support"
+	default n
+	depends on PM && ARCH_IRQBUTTONS
+	---help---
+		Enable PM button EXTI interrupts to support PM testing
 
+config PM_BUTTONS_MIN
+	int "Minimum button number"
+	default 0
+	depends on PM_BUTTONS
+	---help---
+		The lowest button code to use for PM testing (see board.h)
+
+config PM_BUTTONS_MAX
+	int "Maximum button number"
+	default 7
+	depends on PM_BUTTONS
+	---help---
+		The highest button code to use for PM testing (see board.h)
+
+config PM_IRQBUTTONS_MIN
+	int "Minimum interrupting button number"
+	default 0
+	depends on PM_BUTTONS
+	---help---
+		The lowest interrupting button code to use for PM testing (see board.h)
+
+config PM_IRQBUTTONS_MAX
+	int "Maximum interrupting button number"
+	default 7
+	depends on PM_BUTTONS
+	---help---
+		The highest interrupting button code to use for PM testing (see board.h)
+
+config PM_BUTTON_ACTIVITY
+	int "Button PM activity weight"
+	default 10
+	depends on PM_BUTTONS
+	---help---
+		The activity weight to report to the power management subsystem when a button is pressed.
+
+config PM_ALARM_SEC
+	int "PM_STANDBY delay (seconds)"
+	default 15
+	depends on PM && RTC_ALARM
+	--help---
+		Number of seconds to wait in PM_STANDBY before going to PM_STANDBY mode.
+
+config PM_ALARM_NSEC
+	int "PM_STANDBY delay (nanoseconds)"
+	default 0
+	depends on PM && RTC_ALARM
+	--help---
+		Number of additional nanoseconds to wait in PM_STANDBY before going to PM_STANDBY mode.
+
+config PM_SLEEP_WAKEUP
+	bool "PM_SLEEP wake-up alarm"
+	default n
+	depends on PM && RTC_ALARM
+	--help---
+		Wake-up of PM_SLEEP mode after a delay and resume normal operation.
+
+config PM_SLEEP_WAKEUP_SEC
+	int "PM_SLEEP delay (seconds)"
+	default 10
+	depends on PM && RTC_ALARM
+	--help---
+		Number of seconds to wait in PM_SLEEP before going to PM_STANDBY mode.
+
+config PM_SLEEP_WAKEUP_NSEC
+	int "PM_SLEEP delay (nanoseconds)"
+	default 0
+	depends on PM && RTC_ALARM
+	--help---
+		Number of additional nanoseconds to wait in PM_SLEEP before going to PM_STANDBY mode.

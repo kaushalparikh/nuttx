@@ -38,9 +38,12 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+
 #include <sys/types.h>
 #include <errno.h>
+
 #include <nuttx/fs/fs.h>
+
 #include "fs_internal.h"
 
 /****************************************************************************
@@ -64,7 +67,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- * Name: register_driver
+ * Name: register_blockdriver
  *
  * Description:
  *   Register a block driver inode the pseudo file system.

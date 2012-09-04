@@ -51,7 +51,6 @@
 # CONFIG_BOARD_LOOPSPERMSEC - for delay loops
 # CONFIG_DRAM_SIZE - Describes the installed DRAM.
 # CONFIG_DRAM_START - The start address of DRAM (physical)
-# CONFIG_DRAM_END - Last address+1 of installed RAM
 # CONFIG_ARCH_IRQPRIO - The Cortex-M4 supports interrupt prioritization
 # CONFIG_ARCH_FPU - The Cortex-M4 supports a floating point unit (FPU)
 #   (But, unfortunately, most versions of GCC do not support it).
@@ -74,17 +73,16 @@
 #   LPC43xx port using the ARMv7 common vector logic.  There are two
 #   variants 
 #
-CONFIG_ARCH=arm
+CONFIG_ARCH="arm"
 CONFIG_ARCH_ARM=y
 CONFIG_ARCH_CORTEXM4=y
-CONFIG_ARCH_CHIP=lpc43xx
+CONFIG_ARCH_CHIP="lpc43xx"
 CONFIG_ARCH_CHIP_LPC4330FET100=y
-CONFIG_ARCH_BOARD=lpc4330-xplorer
+CONFIG_ARCH_BOARD="lpc4330-xplorer"
 CONFIG_ARCH_BOARD_LPC4330_XPLORER=y
-CONFIG_BOARD_LOOPSPERMSEC=7982
-CONFIG_DRAM_SIZE=(72*1024)
+CONFIG_BOARD_LOOPSPERMSEC=18535
+CONFIG_DRAM_SIZE=73728
 CONFIG_DRAM_START=0x10080000
-CONFIG_DRAM_END=(CONFIG_DRAM_START+CONFIG_DRAM_SIZE)
 CONFIG_ARCH_IRQPRIO=y
 CONFIG_ARCH_FPU=n
 CONFIG_ARCH_INTERRUPTSTACK=n
@@ -181,6 +179,11 @@ CONFIG_LPC43_WWDT=n
 #
 # LPC43xx specific serial device driver settings
 #
+# CONFIG_SERIAL_TERMIOS - Serial driver supports termios.h interfaces (tcsetattr,
+#   tcflush, etc.).  If this is not defined, then the terminal settings (baud,
+#   parity, etc.) are not configurable at runtime; serial streams cannot be
+#   flushed, etc.
+#
 # CONFIG_U[S]ARTn_SERIAL_CONSOLE - selects the UARTn for the
 #   console and ttys0 (default is the UART1).
 # CONFIG_U[S]ARTn_RXBUFSIZE - Characters are buffered as received.
@@ -192,6 +195,8 @@ CONFIG_LPC43_WWDT=n
 # CONFIG_U[S]ARTn_PARTIY - 0=no parity, 1=odd parity, 2=even parity
 # CONFIG_U[S]ARTn_2STOP - Two stop bits
 #
+CONFIG_SERIAL_TERMIOS=n
+
 CONFIG_USART0_SERIAL_CONSOLE=y
 CONFIG_UART1_SERIAL_CONSOLE=n
 CONFIG_USART2_SERIAL_CONSOLE=n
@@ -226,6 +231,15 @@ CONFIG_USART0_2STOP=0
 CONFIG_UART1_2STOP=0
 CONFIG_USART2_2STOP=0
 CONFIG_USART3_2STOP=0
+
+#
+# CONFIG_USARTn_RS485MODE - Support LPC43xx USART0,2,3 RS485 mode
+#   ioctls (TIOCSRS485 and TIOCGRS485) to enable and disable
+#   RS-485 mode.
+#
+CONFIG_USART0_RS485MODE=n
+CONFIG_USART2_RS485MODE=n
+CONFIG_USART3_RS485MODE=n
 
 #
 # LPC43xx specific PHY/Ethernet device driver settings
@@ -368,7 +382,7 @@ CONFIG_HAVE_LIBM=n
 # CONFIG_SCHED_WORKPRIORITY - The execution priority of the worker
 #  thread.  Default: 50
 # CONFIG_SCHED_WORKPERIOD - How often the worker thread checks for
-#  work in units of microseconds.  Default: 50*1000 (50 MS).
+#  work in units of microseconds.  Default: 50000 (50 MS).
 # CONFIG_SCHED_WORKSTACKSIZE - The stack size allocated for the worker
 #  thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
 # CONFIG_SIG_SIGWORK - The signal number that will be used to wake-up
@@ -381,6 +395,7 @@ CONFIG_DEBUG=n
 CONFIG_DEBUG_VERBOSE=n
 CONFIG_DEBUG_SYMBOLS=n
 CONFIG_DEBUG_SCHED=n
+CONFIG_DEBUG_FS=n
 
 CONFIG_HAVE_CXX=n
 CONFIG_HAVE_CXXINITIALIZE=n
@@ -405,7 +420,7 @@ CONFIG_FDCLONE_STDIO=n
 CONFIG_SDCLONE_DISABLE=y
 CONFIG_SCHED_WORKQUEUE=n
 CONFIG_SCHED_WORKPRIORITY=192
-CONFIG_SCHED_WORKPERIOD=(50*1000)
+CONFIG_SCHED_WORKPERIOD=50000
 CONFIG_SCHED_WORKSTACKSIZE=2048
 CONFIG_SIG_SIGWORK=4
 CONFIG_SCHED_WAITPID=y
@@ -482,7 +497,7 @@ CONFIG_DISABLE_SIGNALS=n
 CONFIG_DISABLE_MQUEUE=n
 CONFIG_DISABLE_MOUNTPOINT=n
 CONFIG_DISABLE_ENVIRON=n
-CONFIG_DISABLE_POLL=y
+CONFIG_DISABLE_POLL=n
 
 #
 # Misc libc settings
@@ -657,6 +672,42 @@ CONFIG_MMCSD_MMCSUPPORT=n
 CONFIG_MMCSD_HAVECARDDETECT=n
 
 #
+# The SPIFI driver has some special options that can be used to
+# create an MTD device on the SPIFI FLASH.  NOTE:  CONFIG_LPC43_SPIFI=y
+# must also be defined to enable SPIFI setup support:
+#
+# SPIFI device geometry:
+#
+#   CONFIG_SPIFI_OFFSET - Offset the beginning of the block driver this many
+#     bytes into the device address space.  This offset must be an exact
+#     multiple of the erase block size (CONFIG_SPIFI_BLKSIZE). Default 0.
+#   CONFIG_SPIFI_BLKSIZE - The size of one device erase block.  If not defined
+#     then the driver will try to determine the correct erase block size by
+#     examining that data returned from spifi_initialize (which sometimes
+#     seems bad).
+#
+# Other SPIFI options
+#
+#   CONFIG_SPIFI_SECTOR512 - If defined, then the driver will report a more
+#     FAT friendly 512 byte sector size and will manage the read-modify-write
+#     operations on the larger erase block.
+#   CONFIG_SPIFI_READONLY - Define to support only read-only operations.
+#   CONFIG_SPIFI_LIBRARY - Don't use the LPC43xx ROM routines but, instead,
+#     use an external library implementation of the SPIFI interface.
+#   CONFIG_SPIFI_VERIFY - Verify all spifi_program() operations by reading
+#     from the SPI address space after each write.
+#   CONFIG_DEBUG_SPIFI_DUMP - Debug option to dump read/write buffers.  You
+#     probably do not want to enable this unless you want to dig through a
+#     *lot* of debug output!  Also required CONFIG_DEBUG, CONFIG_DEBUG_VERBOSE,
+#     and CONFIG_DEBUG_FS,#
+#
+CONFIG_SPIFI_OFFSET=0
+CONFIG_SPIFI_BLKSIZE=4096
+CONFIG_SPIFI_SECTOR512=y
+CONFIG_SPIFI_RDONLY=n
+CONFIG_SPIFI_LIBRARY=n
+CONFIG_SPIFI_VERIFY=n
+CONFIG_DEBUG_SPIFI_DUMP=n
 # TCP/IP and UDP support via uIP
 # CONFIG_NET - Enable or disable all network features
 # CONFIG_NET_IPv6 - Build in support for IPv6
@@ -731,6 +782,72 @@ CONFIG_NET_RESOLV_ENTRIES=4
 # CONFIG_DISABLE_POLL - poll() support is required
 #
 CONFIG_FTPD_CMDBUFFERSIZE=2048
+
+#
+# CONFIG_MODBUS - General ModBus support
+# CONFIG_MB_ASCII_ENABLED - Modbus ASCII support
+# CONFIG_MB_RTU_ENABLED - Modbus RTU support
+# CONFIG_MB_TCP_ENABLED - Modbus TCP support
+# CONFIG_MB_ASCII_TIMEOUT_SEC - Character timeout value for Modbus ASCII. The
+#   character timeout value is not fixed for Modbus ASCII and is therefore
+#   a configuration option. It should be set to the maximum expected delay
+#   time of the network. Default 1
+# CONFIG_MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS - Timeout to wait in ASCII prior
+#   to enabling transmitter.  If defined the function calls
+#   vMBPortSerialDelay with the argument CONFIG_MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS
+#   to allow for a delay before the serial transmitter is enabled. This is
+#   required because some targets are so fast that there is no time between
+#   receiving and transmitting the frame. If the master is to slow with
+#   enabling its receiver then he will not receive the response correctly.
+# CONFIG_MB_FUNC_HANDLERS_MAX - Maximum number of Modbus functions codes the
+#   protocol stack should support. The maximum number of supported Modbus
+#   functions must be greater than the sum of all enabled functions in this
+#   file and custom function handlers. If set to small adding more functions
+#   will fail.
+# CONFIG_MB_FUNC_OTHER_REP_SLAVEID_BUF - Number of bytes which should be
+#   allocated for the Report Slave ID command. This number limits the
+#   maximum size of the additional segment in the report slave id function.
+#   See eMBSetSlaveID() for more information on how to set this value. It
+#   is only used if CONFIG_MB_FUNC_OTHER_REP_SLAVEID_ENABLED is set to 1.
+# CONFIG_MB_FUNC_OTHER_REP_SLAVEID_ENABLED - If the Report Slave ID
+#   function should be enabled.
+# CONFIG_MB_FUNC_READ_INPUT_ENABLED - If the Read Input Registers function
+#   should be enabled.
+# CONFIG_MB_FUNC_READ_HOLDING_ENABLED - If the Read Holding Registers
+#   function should be enabled.
+# CONFIG_MB_FUNC_WRITE_HOLDING_ENABLED - If the Write Single Register
+#   function should be enabled.
+# CONFIG_MB_FUNC_WRITE_MULTIPLE_HOLDING_ENABLED - If the Write Multiple
+#   registers function should be enabled.
+# CONFIG_MB_FUNC_READ_COILS_ENABLED - If the Read Coils function should
+#   be enabled.
+# CONFIG_MB_FUNC_WRITE_COIL_ENABLED - If the Write Coils function should
+#   be enabled.
+# CONFIG_MB_FUNC_WRITE_MULTIPLE_COILS_ENABLED - If the Write Multiple Coils
+#   function should be enabled.
+# CONFIG_MB_FUNC_READ_DISCRETE_INPUTS_ENABLED - If the Read Discrete Inputs
+#   function should be enabled.
+# CONFIG_MB_FUNC_READWRITE_HOLDING_ENABLED - If the Read/Write Multiple
+#   Registers function should be enabled.
+#
+CONFIG_MODBUS=n
+CONFIG_MB_ASCII_ENABLED=y
+CONFIG_MB_RTU_ENABLED=y
+CONFIG_MB_TCP_ENABLED=n
+CONFIG_MB_ASCII_TIMEOUT_SEC=1
+CONFIG_MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS=0
+CONFIG_MB_FUNC_HANDLERS_MAX=16
+CONFIG_MB_FUNC_OTHER_REP_SLAVEID_BUF=32
+CONFIG_MB_FUNC_OTHER_REP_SLAVEID_ENABLED=y
+CONFIG_MB_FUNC_READ_INPUT_ENABLED=y
+CONFIG_MB_FUNC_READ_HOLDING_ENABLED=y
+CONFIG_MB_FUNC_WRITE_HOLDING_ENABLED=y
+CONFIG_MB_FUNC_WRITE_MULTIPLE_HOLDING_ENABLED=y
+CONFIG_MB_FUNC_READ_COILS_ENABLED=y
+CONFIG_MB_FUNC_WRITE_COIL_ENABLED=y
+CONFIG_MB_FUNC_WRITE_MULTIPLE_COILS_ENABLED=y
+CONFIG_MB_FUNC_READ_DISCRETE_INPUTS_ENABLED=y
+CONFIG_MB_FUNC_READWRITE_HOLDING_ENABLED=y
 
 #
 # USB Device Configuration
@@ -859,20 +976,21 @@ CONFIG_USBMSC_REMOVABLE=y
 #
 # Settings for examples/uip
 #
-CONFIG_EXAMPLE_UIP_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_EXAMPLE_UIP_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_EXAMPLE_UIP_NETMASK=(255<<24|255<<16|255<<8|0)
+CONFIG_EXAMPLE_UIP_IPADDR=0x0a000002
+CONFIG_EXAMPLE_UIP_DRIPADDR=0x0a000001
+CONFIG_EXAMPLE_UIP_NETMASK=0xffffff00
 CONFIG_EXAMPLE_UIP_DHCPC=n
 
 #
 # Settings for examples/nettest
+#
 CONFIG_EXAMPLE_NETTEST_SERVER=n
 CONFIG_EXAMPLE_NETTEST_PERFORMANCE=n
 CONFIG_EXAMPLE_NETTEST_NOMAC=n
-CONFIG_EXAMPLE_NETTEST_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_EXAMPLE_NETTEST_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_EXAMPLE_NETTEST_NETMASK=(255<<24|255<<16|255<<8|0)
-CONFIG_EXAMPLE_NETTEST_CLIENTIP=(10<<24|0<<16|0<<8|1)
+CONFIG_EXAMPLE_NETTEST_IPADDR=0x0a000002
+CONFIG_EXAMPLE_NETTEST_DRIPADDR=0x0a000001
+CONFIG_EXAMPLE_NETTEST_NETMASK=0xffffff00
+CONFIG_EXAMPLE_NETTEST_CLIENTIP=0x0a000001
 
 #
 # Settings for examples/ostest
@@ -930,9 +1048,9 @@ CONFIG_NSH_ARCHINIT=y
 CONFIG_NSH_IOBUFFER_SIZE=512
 CONFIG_NSH_DHCPC=n
 CONFIG_NSH_NOMAC=n
-CONFIG_NSH_IPADDR=(10<<24|0<<16|0<<8|2)
-CONFIG_NSH_DRIPADDR=(10<<24|0<<16|0<<8|1)
-CONFIG_NSH_NETMASK=(255<<24|255<<16|255<<8|0)
+CONFIG_NSH_IPADDR=0x0a000002
+CONFIG_NSH_DRIPADDR=0x0a000001
+CONFIG_NSH_NETMASK=0xffffff00
 CONFIG_NSH_ROMFSMOUNTPT="/etc"
 CONFIG_NSH_INITSCRIPT="init.d/rcS"
 CONFIG_NSH_ROMFSDEVNO=0
@@ -982,6 +1100,21 @@ CONFIG_EXAMPLE_BUTTONS_MAX=0
 CONFIG_EXAMPLE_IRQBUTTONS_MIN=0
 CONFIG_EXAMPLE_IRQBUTTONS_MAX=0
 CONFIG_EXAMPLE_BUTTONS_NAME1="SW2"
+
+#
+# examples/modbus
+#
+# CONFIG_EXAMPLES_MODBUS_PORT, Default 0 (for /dev/ttyS0)
+# CONFIG_EXAMPLES_MODBUS_BAUD, Default B38400
+# CONFIG_EXAMPLES_MODBUS_PARITY, Default MB_PAR_EVEN
+#
+# CONFIG_EXAMPLES_MODBUS_REG_INPUT_START, Default 1000
+# CONFIG_EXAMPLES_MODBUS_REG_INPUT_NREGS, Default 4
+# CONFIG_EXAMPLES_MODBUS_REG_HOLDING_START, Default 2000
+# CONFIG_EXAMPLES_MODBUS_REG_HOLDING_NREGS, Default 130
+#
+CONFIG_EXAMPLES_MODBUS_PORT=1
+CONFIG_EXAMPLES_MODBUS_BAUD=B9600
 
 #
 # Settings for examples/usbserial

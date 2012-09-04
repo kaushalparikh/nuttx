@@ -93,9 +93,7 @@ void nsh_initialize(void)
 
   /* Perform architecture-specific initialization (if available) */
 
-#ifdef CONFIG_NSH_ARCHINIT
   (void)nsh_archinitialize();
-#endif
 
   /* Bring up the network */
 

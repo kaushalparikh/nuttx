@@ -407,6 +407,8 @@ int nsh_script(FAR struct nsh_vtbl_s *vtbl, const char *cmd, const char *path);
 #ifdef CONFIG_NSH_ARCHINIT
 int nsh_archinitialize(void);
 #else
+#  define nsh_archinitialize() (-ENOSYS)
+
 extern int nsh_sdcardinit(void);
 extern int nsh_sdcarddeinit(void);
 

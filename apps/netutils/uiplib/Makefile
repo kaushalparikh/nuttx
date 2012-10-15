@@ -2,7 +2,7 @@
 # apps/netutils/uiplib/Makefile
 #
 #   Copyright (C) 2011 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -41,7 +41,13 @@ include $(APPDIR)/Make.defs
 
 ASRCS		=
 CSRCS		= uiplib.c uip_sethostaddr.c uip_gethostaddr.c uip_setdraddr.c \
-			  uip_setnetmask.c uip_parsehttpurl.c uip_server.c
+			  uip_setnetmask.c uip_parsehttpurl.c
+
+# These require TCP support
+
+ifeq ($(CONFIG_NET_TCP),y)
+CSRCS		+= uip_server.c uip_listenon.c
+endif
 
 # No MAC address support for SLIP (Ethernet only)
 

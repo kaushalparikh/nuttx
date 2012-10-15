@@ -146,7 +146,7 @@ GNU Toolchain Options
   the CodeSourcery or devkitARM toolchain, you simply need add one of the
   following configuration options to your .config (or defconfig) file:
 
-    CONFIG_LPC32_CODEREDW=y       : Code Red "RedSuite" under Windows
+    CONFIG_LPC43_CODEREDW=y       : Code Red "RedSuite" under Windows
     CONFIG_LPC43_CODESOURCERYW=y  : CodeSourcery under Windows
     CONFIG_LPC43_CODESOURCERYL=y  : CodeSourcery under Linux
     CONFIG_LPC43_ATOLLIC_LITE=y   : The free, "Lite" version of Atollic toolchain under Windows
@@ -431,7 +431,7 @@ Code Red IDE/Tools
   from SRAM.
 
     CONFIG_BOOT_SRAM=y             : Executing in SRAM
-    CONFIG_LPC32_CODEREDW=y        : Code Red under Windows
+    CONFIG_LPC43_CODEREDW=y        : Code Red under Windows
 
   To execute from SPIFI, you would need to set:
 
@@ -470,7 +470,7 @@ NuttX buildroot Toolchain
   different from the default in your PATH variable).
 
   If you have no Cortex-M3 toolchain, one can be downloaded from the NuttX
-  SourceForge download site (https://sourceforge.net/project/showfiles.php?group_id=189573).
+  SourceForge download site (https://sourceforge.net/projects/nuttx/files/buildroot/).
   This GNU toolchain builds and executes in the Linux or Cygwin environment.
 
   1. You must have already configured Nuttx in <some-dir>/nuttx.
@@ -859,7 +859,7 @@ Where <subdir> is one of the following:
     executing directly from SRAM.
 
       CONFIG_BOOT_SRAM=y             : Executing in SRAM
-      CONFIG_LPC32_CODEREDW=y        : Code Red under Windows
+      CONFIG_LPC43_CODEREDW=y        : Code Red under Windows
 
     This configuration directory, performs a simple test of the USB host
     HID keyboard class driver using the test logic in examples/hidkbd.
@@ -899,7 +899,7 @@ Where <subdir> is one of the following:
     executing directly from SRAM.
 
       CONFIG_BOOT_SRAM=y             : Executing in SRAM
-      CONFIG_LPC32_CODEREDW=y        : Code Red under Windows
+      CONFIG_LPC43_CODEREDW=y        : Code Red under Windows
 
     To execute from SPIFI, you would need to set:
 

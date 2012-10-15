@@ -1,5 +1,5 @@
 ############################################################################
-# configs/xtrs/Make.defs
+# configs/xtrs/pashello/Make.defs
 #
 #   Copyright (C) 2008, 2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -34,28 +34,40 @@
 ############################################################################
 
 include ${TOPDIR}/.config
+include ${TOPDIR}/tools/Config.mk
 
-ifeq ("${CONFIG_DEBUG_SYMBOLS}","y")
+CROSSDEV		=
+CC				= sdcc
+CPP				= sdcpp
+AR				= sdcclib -a
+
+ifeq ($(CONFIG_SDCC_OLD),y)
+
+LD				= link-z80
+AS				= as-z80
+ARCHCPUFLAGS	= -mz80 --stack-auto --int-long-reent --float-reent
+
+else
+
+LD				= sdldz80
+AS				= sdasz80
+ARCHCPUFLAGS	= -mz80
+
+endif
+
+ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
   ARCHOPTIMIZATION	= --debug
 else
   ARCHOPTIMIZATION	=
 endif
 
-ARCHCPUFLAGS		= -mz80 --stack-auto --int-long-reent --float-reent
-ARCHPICFLAGS		=
-ARCHWARNINGS		=
+ARCHPICFLAGS	=
+ARCHWARNINGS	=
 ARCHDEFINES		=
-ARCHINCLUDES		= -I. -I$(TOPDIR)/include
-
-CROSSDEV		=
-CC			= sdcc
-CPP			= sdcpp
-LD			= link-z80
-AS			= as-z80
-AR			= sdcclib -a
+ARCHINCLUDES	= -I. -I$(TOPDIR)/include
 
 CFLAGS			= $(ARCHWARNINGS) $(ARCHOPTIMIZATION) \
-			  $(ARCHCPUFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+				  $(ARCHCPUFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
 CPPFLAGS		= $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
 ASFLAGS			= -x -a -l -o -s
 
@@ -66,26 +78,6 @@ ASMEXT			= .asm
 OBJEXT			= .o
 LIBEXT			= .lib
 EXEEXT			= .cmd
-
-define PREPROCESS
-	@echo "CPP: $1->$2"
-	@$(CPP) $(CPPFLAGS) $1 -o $2
-endef
-
-define COMPILE
-	@echo "CC: $1"
-	@$(CC) -c $(CFLAGS) $1 -o $2
-endef
-
-define ASSEMBLE
-	@echo "AS: $1"
-	@$(AS) $(ASFLAGS) $2 $1
-endef
-
-define ARCHIVE
-	echo "AR: $2"; \
-	$(AR) $1 $2 || { echo "$(AR) $1 $2 FAILED!" ; exit 1 ; }
-endef
 
 define CLEAN
 	@rm -f *.o *.asm *.rel *.lst *.rst *.sym *.adb *.lnk *.map *.mem *.hex

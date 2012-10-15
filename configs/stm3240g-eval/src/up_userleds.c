@@ -1,6 +1,6 @@
 /****************************************************************************
- * configs/stm3240g_eval/src/up_leds.c
- * arch/arm/src/board/up_leds.c
+ * configs/stm3240g_eval/src/up_userleds.c
+ * arch/arm/src/board/up_userleds.c
  *
  *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>

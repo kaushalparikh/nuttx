@@ -33,6 +33,9 @@
  *
  ************************************************************************************/
 
+#ifndef __CONFIGS_OLIMEX_STM32_P107_INCLUDE_BOARD_H
+#define __CONFIGS_OLIMEX_STM32_P107_INCLUDE_BOARD_H 1
+
 /************************************************************************************
  * Included Files
  ************************************************************************************/
@@ -50,16 +53,23 @@
  * Pre-processor Definitions
  ************************************************************************************/
 
-#define BOARD_CFGR_MCO_SOURCE    RCC_CFGR_PLL3CLK
-
 /* Clocking *************************************************************************/
 
 /* On-board crystal frequency is 25MHz (HSE) */
 
 #define STM32_BOARD_XTAL        25000000ul
-#define STM32_PLL_FREQUENCY     (72000000)
-#define STM32_SYSCLK_FREQUENCY  STM32_PLL_FREQUENCY
 
+/* PLL ouput is 72MHz */
+
+#define STM32_PLL_PREDIV2       RCC_CFGR2_PREDIV2d5   /* 25MHz / 5 => 5MHz */
+#define STM32_PLL_PLL2MUL       RCC_CFGR2_PLL2MULx8   /* 5MHz * 8  => 40MHz */
+#define STM32_PLL_PREDIV1       RCC_CFGR2_PREDIV1d5   /* 40MHz / 5 => 8MHz */
+#define STM32_PLL_PLLMUL        RCC_CFGR_PLLMUL_CLKx9 /* 8MHz * 9  => 72Mhz */
+#define STM32_PLL_FREQUENCY     (72000000)
+
+/* SYCLLK and HCLK are the PLL frequency */
+
+#define STM32_SYSCLK_FREQUENCY  STM32_PLL_FREQUENCY
 #define STM32_HCLK_FREQUENCY    STM32_PLL_FREQUENCY
 #define STM32_BOARD_HCLK        STM32_HCLK_FREQUENCY  /* same as above, to satisfy compiler */
 
@@ -88,6 +98,30 @@
 #define STM32_APB1_TIM6_CLKIN   (STM32_PCLK1_FREQUENCY)
 #define STM32_APB1_TIM7_CLKIN   (STM32_PCLK1_FREQUENCY)
 
+/* MCO output driven by PLL3. From above, we already have PLL3 input frequency as:
+ *
+ *  STM32_PLL_PREDIV2 = 5, 25MHz / 5 => 5MHz 
+ */
+ 
+#if defined(CONFIG_STM32_MII_MCO) || defined(CONFIG_STM32_RMII_MCO)
+#  define BOARD_CFGR_MCO_SOURCE RCC_CFGR_PLL3CLK      /* Source: PLL3 */
+#  define STM32_PLL_PLL3MUL     RCC_CFGR2_PLL3MULx10  /* MCO 5MHz * 10 = 50MHz */
+#endif
+
+/************************************************************************************
+ * Public Data
+ ************************************************************************************/
+
+#ifndef __ASSEMBLY__
+
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
+
 /************************************************************************************
  * Public Function Prototypes
  ************************************************************************************/
@@ -101,41 +135,12 @@
  *
  ************************************************************************************/
 
-void stm32_boardinitialize(void);
+EXTERN void stm32_boardinitialize(void);
 
-/************************************************************************************
- * Name: stm32_board_clockconfig
- *
- * Description:
- *   Any STM32 board may replace the "standard" board clock configuration logic with
- *   its own, custom clock cofiguration logic.
- *
- ************************************************************************************/
-
-#ifdef CONFIG_ARCH_BOARD_STM32_CUSTOM_CLOCKCONFIG
-void stm32_board_clockconfig(void);
+#undef EXTERN
+#if defined(__cplusplus)
+}
 #endif
 
-/************************************************************************************
- * Name: stm32_selectrmii
- *
- * Description:
- *   Selects the RMII inteface.
- *
- * Input Parameters:
- *   None
- *
- * Returned Value:
- *   None
- *
- ************************************************************************************/
-
-static inline void stm32_selectrmii(void)
-{
-  uint32_t regval;
-
-  regval = getreg32(STM32_AFIO_MAPR);
-  regval |= AFIO_MAPR_MII_RMII_SEL;
-  putreg32(regval, STM32_AFIO_MAPR);
-}
-
+#endif /* __ASSEMBLY__ */
+#endif /* __CONFIGS_OLIMEX_STM32_P107_INCLUDE_BOARD_H */

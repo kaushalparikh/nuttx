@@ -185,7 +185,7 @@ NuttX buildroot Toolchain
   different from the default in your PATH variable).
 
   If you have no Cortex-M3 toolchain, one can be downloaded from the NuttX
-  SourceForge download site (https://sourceforge.net/project/showfiles.php?group_id=189573).
+  SourceForge download site (https://sourceforge.net/projects/nuttx/files/buildroot/).
   This GNU toolchain builds and executes in the Linux or Cygwin environment.
 
   1. You must have already configured Nuttx in <some-dir>/nuttx.
@@ -370,7 +370,7 @@ There are two version of the FPU support built into the STM32 port.
    CONFIG_ARCH_FPU=y
    CONFIG_ARMV7M_CMNVECTOR=y
 
-   You will probably also changes to the ld.script in if this option is selected.
+   You will probably also changes to the scripts/ld.script in if this option is selected.
    This should work:
 
    -ENTRY(_stext)
@@ -451,7 +451,7 @@ The on-board SRAM can be configured by setting
   CONFIG_STM32_FSMC=y
   CONFIG_STM32_FSMC_SRAM=y
   CONFIG_HEAP2_BASE=0x64000000
-  CONFIG_HEAP2_END=(0x64000000+(2*1024*1024))
+  CONFIG_HEAP2_SIZE=2097152
   CONFIG_MM_REGIONS=2 (or =3, see below)
 
 Configuration Options
@@ -472,7 +472,7 @@ present in the NuttX configuration file:
                                FSMC (as opposed to an LCD or FLASH).
   CONFIG_HEAP2_BASE          : The base address of the SRAM in the FSMC
                                address space
-  CONFIG_HEAP2_END           : The end (+1) of the SRAM in the FSMC
+  CONFIG_HEAP2_SIZE          : The size of the SRAM in the FSMC
                                address space
   CONFIG_MM_REGIONS          : Must be set to a large enough value to
                                include the FSMC SRAM
@@ -591,9 +591,9 @@ STM3240G-EVAL-specific Configuration Options
     CONFIG_STM32_FSMC_SRAM - Indicates that SRAM is available via the
       FSMC (as opposed to an LCD or FLASH).
 
-    CONFIG_HEAP2_BASE - The base address of the SRAM in the FSMC address space
+    CONFIG_HEAP2_BASE - The base address of the SRAM in the FSMC address space (hex)
 
-    CONFIG_HEAP2_END - The end (+1) of the SRAM in the FSMC address space
+    CONFIG_HEAP2_END - The size of the SRAM in the FSMC address space (decimal)
 
     CONFIG_ARCH_IRQPRIO - The STM3240xxx supports interrupt prioritization
 
@@ -853,7 +853,7 @@ STM3240G-EVAL-specific Configuration Options
      want to do that?
    CONFIG_STM32_USBHOST_REGDEBUG - Enable very low-level register access
      debug.  Depends on CONFIG_DEBUG.
-    CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
+   CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
      packets. Depends on CONFIG_DEBUG.
 
 Configurations
@@ -879,6 +879,28 @@ Where <subdir> is one of the following:
     course, are configurable).
 
     CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+
+  discover:
+  --------
+    This configuration exercises netutils/discover utility using
+    apps/exmaples/discover.  This example initializes and starts the UDP
+    discover daemon. This daemon is useful for discovering devices in
+    local networks, especially with DHCP configured devices.  It listens
+    for UDP broadcasts which also can include a device class so that
+    groups of devices can be discovered. It is also possible to address all
+    classes with a kind of broadcast discover.
+
+    Configuration settings that you may need to change for your
+    environment:
+
+      CONFIG_STM32_CODESOURCERYL=y    - CodeSourcery for Linux
+      CONFIG_EXAMPLE_DISCOVER_DHCPC=y - DHCP Client
+      CONFIG_EXAMPLE_DISCOVER_IPADDR  - (not defined)
+      CONFIG_EXAMPLE_DISCOVER_DRIPADDR - Router IP address
+
+    NOTE:  This configuration uses to the mconf configuration tool to control
+    the configuration.  See the section entitled "NuttX Configuration Tool"
+    in the top-level README.txt file.
 
   nettest:
   -------
@@ -1023,13 +1045,72 @@ Where <subdir> is one of the following:
 
     8. USB OTG FS Device or Host Support
  
-       CONFIG_USBDEV          - Enable USB device support
+       CONFIG_USBDEV          - Enable USB device support, OR
        CONFIG_USBHOST         - Enable USB host support
        CONFIG_STM32_OTGFS     - Enable the STM32 USB OTG FS block
        CONFIG_STM32_SYSCFG    - Needed
        CONFIG_SCHED_WORKQUEUE - Worker thread support is required
- 
-    9. This configuration requires that jumper JP22 be set to enable RS-232
+
+    9. USB OTG FS Host Support.  The following changes will enable support for
+       a USB host on the STM32F4Discovery, including support for a mass storage
+       class driver:
+
+       CONFIG_USBDEV=n          - Make sure tht USB device support is disabled
+       CONFIG_USBHOST=y         - Enable USB host support
+       CONFIG_STM32_OTGFS=y     - Enable the STM32 USB OTG FS block
+       CONFIG_STM32_SYSCFG=y    - Needed for all USB OTF FS support
+       CONFIG_SCHED_WORKQUEUE=y - Worker thread support is required for the mass
+                                  storage class driver.
+       CONFIG_NSH_ARCHINIT=y    - Architecture specific USB initialization
+                                  is needed for NSH
+       CONFIG_FS_FAT=y          - Needed by the USB host mass storage class.
+
+       With those changes, you can use NSH with a FLASH pen driver as shown
+       belong.  Here NSH is started with nothing in the USB host slot:
+
+       NuttShell (NSH) NuttX-x.yy
+       nsh> ls /dev
+       /dev:
+        console
+        null
+        ttyS0
+
+       After inserting the FLASH drive, the /dev/sda appears and can be
+       mounted like this:
+
+       nsh> ls /dev
+       /dev:
+        console
+        null
+        sda
+        ttyS0
+       nsh> mount -t vfat /dev/sda /mnt/stuff
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+
+       And files on the FLASH can be manipulated to standard interfaces:
+
+       nsh> echo "This is a test" >/mnt/stuff/atest.txt
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+        -rw-rw-rw-      16 atest.txt
+       nsh> cat /mnt/stuff/atest.txt
+       This is a test
+       nsh> cp /mnt/stuff/filea.c fileb.c
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+        -rw-rw-rw-      16 atest.txt
+        -rw-rw-rw-   16236 fileb.c
+
+       To prevent data loss, don't forget to un-mount the FLASH drive
+       before removing it:
+
+       nsh> umount /mnt/stuff
+
+    11. This configuration requires that jumper JP22 be set to enable RS-232
        operation.
 
   nsh2:
@@ -1145,21 +1226,22 @@ Where <subdir> is one of the following:
     This is a special configuration setup for the NxWM window manager
     UnitTest.  The NxWM window manager can be found here:
 
-      trunk/NxWidgets/nxwm
+      nuttx-code/NxWidgets/nxwm
 
     The NxWM unit test can be found at:
 
-      trunk/NxWidgets/UnitTests/nxwm
+      nuttx-code/NxWidgets/UnitTests/nxwm
 
     Documentation for installing the NxWM unit test can be found here:
 
-      trunk/NxWidgets/UnitTests/README.txt
+      nuttx-code/NxWidgets/UnitTests/README.txt
 
-    Here is the quick summary of the build steps:
+    Here is the quick summary of the build steps (Assuming that all of
+    the required packages are available in a directory ~/nuttx-code):
 
     1. Intall the nxwm configuration
 
-       $ cd ~/nuttx/trunk/nuttx/tools
+       $ cd ~/nuttx-code/nuttx/tools
        $ ./configure.sh stm3240g-eval/nxwm
 
     2. Make the build context (only)
@@ -1171,27 +1253,27 @@ Where <subdir> is one of the following:
 
     3. Install the nxwm unit test
 
-       $ cd ~/nuttx/trunk/NxWidgets
-       $ tools/install.sh ~/nuttx/trunk/apps nxwm
+       $ cd ~/nuttx-code/NxWidgets
+       $ tools/install.sh ~/nuttx-code/apps nxwm
        Creating symbolic link
-        - To ~/nuttx/trunk/NxWidgets/UnitTests/nxwm
-        - At ~/nuttx/trunk/apps/external
+        - To ~/nuttx-code/NxWidgets/UnitTests/nxwm
+        - At ~/nuttx-code/apps/external
 
     4. Build the NxWidgets library
 
-       $ cd ~/nuttx/trunk/NxWidgets/libnxwidgets
-       $ make TOPDIR=~/nuttx/trunk/nuttx
+       $ cd ~/nuttx-code/NxWidgets/libnxwidgets
+       $ make TOPDIR=~/nuttx-code/nuttx
        ...
 
     5. Build the NxWM library
 
-       $ cd ~/nuttx/trunk/NxWidgets/nxwm
-       $ make TOPDIR=~//nuttx/trunk/nuttx
+       $ cd ~/nuttx-code/NxWidgets/nxwm
+       $ make TOPDIR=~/nuttx-code/nuttx
        ...
 
     6. Built NuttX with the installed unit test as the application
 
-       $ cd ~/nuttx/trunk/nuttx
+       $ cd ~/nuttx-code/nuttx
        $ make
 
   ostest:
@@ -1239,3 +1321,11 @@ Where <subdir> is one of the following:
     use NSH, then you don't care about this.  This test is good for
     testing the Telnet daemon only because it works in a simpler
     environment than does the nsh configuration.
+
+  xmlrpc
+  ------
+
+    An example configuration for the Embeddable Lightweight XML-RPC
+    Server at apps/examples/xmlrpc. See http://www.drdobbs.com/web-development/\
+    an-embeddable-lightweight-xml-rpc-server/184405364 for more info.
+    Contributed by Max Holtzberg.

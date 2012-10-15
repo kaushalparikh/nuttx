@@ -8,7 +8,7 @@
  * This is part of the NuttX RTOS and based on the LPC2148 port:
  *
  *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,19 +61,19 @@
 
 /* PORT and SLOT number probably depend on the board configuration */
 
-#undef CONFIG_NSH_HAVEUSBDEV
-#undef CONFIG_NSH_HAVEMMCSD
+#undef NSH_HAVEUSBDEV
+#undef NSH_HAVEMMCSD
 
 /* Can't support USB features if USB is not enabled */
 
 #ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 /* Can't support MMC/SD features if mountpoints are disabled */
 
 #if defined(CONFIG_DISABLE_MOUNTPOINT)
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEMMCSD
 #endif
 
 #ifndef CONFIG_NSH_MMCSDMINOR

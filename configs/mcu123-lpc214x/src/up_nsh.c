@@ -3,7 +3,7 @@
  * arch/arm/src/board/up_nsh.c
  *
  *   Copyright (C) 2008-2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,8 +56,8 @@
 /* PORT and SLOT number probably depend on the board configuration */
 
 #ifdef CONFIG_ARCH_BOARD_MCU123
-#  define CONFIG_NSH_HAVEUSBDEV 1
-#  define CONFIG_NSH_HAVEMMCSD  1
+#  define NSH_HAVEUSBDEV 1
+#  define NSH_HAVEMMCSD  1
 #  if !defined(CONFIG_NSH_MMCSDSPIPORTNO) || CONFIG_NSH_MMCSDSPIPORTNO != 1
 #    error "The LPC214x MMC/SD is on SPI1"
 #    undef CONFIG_NSH_MMCSDSPIPORTNO
@@ -71,20 +71,20 @@
 #else
    /* Add configuration for new LPC214x boards here */
 #  error "Unrecognized LPC214x board"
-#  undef CONFIG_NSH_HAVEUSBDEV
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEUSBDEV
+#  undef NSH_HAVEMMCSD
 #endif
 
 /* Can't support USB features if USB is not enabled */
 
 #ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 /* Can't support MMC/SD features if mountpoints are disabled */
 
 #if defined(CONFIG_DISABLE_MOUNTPOINT)
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEMMCSD
 #endif
 
 #ifndef CONFIG_NSH_MMCSDMINOR

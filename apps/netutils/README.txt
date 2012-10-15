@@ -1,5 +1,5 @@
-netutils
-^^^^^^^^
+netutils README.txt
+^^^^^^^^^^^^^^^^^^^
 
 Contents
 --------
@@ -14,8 +14,8 @@ uIP Applications
 
 This directory contains most of the network applications contained
 under the uIP-1.0 apps directory.  As the uIP apps/README says,
-these applications "are not all heavily tested."  These uIP apps
-include:
+these applications "are not all heavily tested."  These uIP-based
+apps include:
 
   dhcpc     - Dynamic Host Configuration Protocol (DHCP) client.  See
               apps/include/netutils/dhcpc.h for interface information.
@@ -29,7 +29,9 @@ include:
               for interface information.
 
 You may find additional information on these apps in the uIP forum
-accessible through: http://www.sics.se/~adam/uip/index.php/Main_Page 
+accessible through: http://www.sics.se/~adam/uip/index.php/Main_Page .
+Some of these (such as the uIP web server) have grown some additional
+functionality due primarily to NuttX user contributions.
 
 Other Network Applications
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -39,6 +41,12 @@ highly influenced by uIP) include:
 
   dhcpd     - Dynamic Host Configuration Protocol (DHCP) server.  See
               apps/include/netutils/dhcpd.h for interface information.
+  discover  - This daemon is useful for discovering devices in local
+              networks, especially with DHCP configured devices.  It
+              listens for UDP broadcasts which also can include a
+              device class so that groups of devices can be discovered.
+              It is also possible to address all classes with a kind of
+              broadcast discover. (Contributed by Max Holtzberg).
   tftpc     - TFTP client.  See apps/include/netutils/tftp.h
               for interface information.
   telnetd   - TELNET server.  This is the Telnet logic adapted from
@@ -60,6 +68,8 @@ highly influenced by uIP) include:
 
                CONFIGURED_APPS += uiplib
                CONFIGURED_APPS += thttpd
+  xmlrpc    - The Embeddable Lightweight XML-RPC Server discussed at
+              http://www.drdobbs.com/web-development/an-embeddable-lightweight-xml-rpc-server/184405364
 
 Tips for Using Telnetd
 ^^^^^^^^^^^^^^^^^^^^^^

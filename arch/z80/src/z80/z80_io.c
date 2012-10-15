@@ -1,8 +1,8 @@
 /****************************************************************************
  * arch/z80/src/z80/z80_io.c
  *
- *   Copyright (C) 2008-2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2008-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,8 +44,22 @@
 #include "up_internal.h"
 
 /****************************************************************************
- * Private Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
+
+#undef ASM
+#undef ENDASM
+#undef NAKED
+
+#ifdef CONFIG_SDCC_OLD
+#  define ASM    _asm
+#  define ENDASM _endasm
+#  define NAKED
+#else
+#  define ASM    __asm
+#  define ENDASM __endasm
+#  define NAKED  __naked
+#endif
 
 /****************************************************************************
  * Private Data
@@ -69,11 +83,11 @@
 
 void outp(char p, char c)
 {
-  _asm
+  ASM
 	ld      c, 4(ix)	; port
 	ld      a, 5(ix)	; value
 	out     (c), a
-  _endasm;
+  ENDASM;
 }
 
 
@@ -85,10 +99,10 @@ void outp(char p, char c)
  *
  ****************************************************************************/
 
-char inp(char p)
+char inp(char p) NAKED
 {
-  _asm
+  ASM
 	ld      c, 4(ix)	;port
 	in      l, (c)
-  _endasm;
+  ENDASM;
 }

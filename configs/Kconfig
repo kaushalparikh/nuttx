@@ -23,6 +23,9 @@ config ARCH_BOARD_AMBER
 config ARCH_BOARD_AVR32DEV1
 	bool "Atmel AVR32DEV1 board"
 	depends on ARCH_CHIP_AT32UC3B0256
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		This is a port of NuttX to the Atmel AVR32DEV1 board.  That board is
 		based on the Atmel AT32UC3B0256 MCU and uses a specially patched
@@ -34,6 +37,7 @@ config ARCH_BOARD_AVR32DEV1
 config ARCH_BOARD_C5471EVM
 	bool "Spectrum Digital C5471 evaluation board"
 	depends on ARCH_CHIP_C5471
+	select ARCH_HAVE_LEDS
 	---help---
 		This is a port to the Spectrum Digital C5471 evaluation board.  The
 		TMS320C5471 is a dual core processor from TI with an ARM7TDMI general
@@ -62,6 +66,8 @@ config ARCH_BOARD_COMPALE99
 config ARCH_BOARD_DEMOS92S12NEC64
 	bool "Freescale DMO9S12NE64 board"
 	depends on ARCH_CHIP_MCS92S12NEC64
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 	Freescale DMO9S12NE64 board based on the MC9S12NE64 hcs12 cpu.  This
 	port uses the m9s12x GCC toolchain.  STATUS:  (Still) under development; it
@@ -70,6 +76,8 @@ config ARCH_BOARD_DEMOS92S12NEC64
 config ARCH_BOARD_EA3131
 	bool "Embedded Artists EA3131 Development board"
 	depends on ARCH_CHIP_LPC3131
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		Embedded Artists EA3131 Development board.  This board is based on the 
 		an NXP LPC3131 MCU. This OS is built with the arm-elf toolchain*.
@@ -78,6 +86,8 @@ config ARCH_BOARD_EA3131
 config ARCH_BOARD_EA3152
 	bool "Embedded Artists EA3152 Development board"
 	depends on ARCH_CHIP_LPC3152
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		Embedded Artists EA3152 Development board.  This board is based on the 
 		an NXP LPC3152 MCU. This OS is built with the arm-elf toolchain*.
@@ -87,6 +97,7 @@ config ARCH_BOARD_EA3152
 config ARCH_BOARD_EAGLE100
 	bool "Micromint Eagle-100 Development board"
 	depends on ARCH_CHIP_LM3S6918
+	select ARCH_HAVE_LEDS
 	---help---
 		Micromint Eagle-100 Development board.  This board is based on the 
 		an ARM Cortex-M3 MCU, the Luminary LM3S6918. This OS is built with the
@@ -95,6 +106,7 @@ config ARCH_BOARD_EAGLE100
 config ARCH_BOARD_EKK_LM3S9B96
 	bool "TI/Stellaris EKK-LM3S9B96"
 	depends on ARCH_CHIP_LM3S9B96
+	select ARCH_HAVE_LEDS
 	---help---
 		TI/Stellaris EKK-LM3S9B96 board.  This board is based on the 
 		an EKK-LM3S9B96 which is a Cortex-M3.
@@ -102,6 +114,7 @@ config ARCH_BOARD_EKK_LM3S9B96
 config ARCH_BOARD_EZ80F910200KITG
 	bool "ZiLOG ez80f0910200kitg development kit"
 	depends on ARCH_CHIP_EZ80F91
+	select ARCH_HAVE_LEDS
 	---help---
 		ez80Acclaim! Microcontroller.  This port use the ZiLOG ez80f0910200kitg
 		development kit, eZ80F091 part, and the Zilog ZDS-II Windows command line
@@ -110,14 +123,29 @@ config ARCH_BOARD_EZ80F910200KITG
 config ARCH_BOARD_EZ80F910200ZCO
 	bool "ZiLOG ez80f0910200zco development kit"
 	depends on ARCH_CHIP_EZ80F91
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		ez80Acclaim! Microcontroller.  This port use the Zilog ez80f0910200zco
 		development kit, eZ80F091 part, and the Zilog ZDS-II Windows command line
 		tools.  The development environment is Cygwin under WinXP.
 
+config ARCH_BOARD_FIRE_STM32
+	bool "M3 Wildfire STM3 board (v2 or v3)"
+	depends on ARCH_CHIP_STM32F103VET6
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		A configuration for the M3 Wildfile board.  This board is based on the
+		STM32F103VET6 chip.  See http://firestm32.taobao.com
+
 config ARCH_BOARD_HYMINI_STM32V
 	bool "HY-Mini STM32v board"
 	depends on ARCH_CHIP_STM32F103VCT
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		A configuration for the HY-Mini STM32v board.  This board is based on the
 		STM32F103VCT chip.
@@ -125,12 +153,18 @@ config ARCH_BOARD_HYMINI_STM32V
 config ARCH_BOARD_LINCOLN60
 	bool "Micromint Lincoln 60 board"
 	depends on ARCH_CHIP_LPC1769
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		Micromint Lincoln 60 board using the NXP LPC1769 MCU.
 
 config ARCH_BOARD_KWIKSTIK_K40
 	bool "FreeScale KwikStik-K40 development board"
 	depends on ARCH_CHIP_MK40X256VLQ100
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		Kinetis K40 Cortex-M4 MCU.  This port uses the FreeScale KwikStik-K40
 		development board.
@@ -138,6 +172,7 @@ config ARCH_BOARD_KWIKSTIK_K40
 config ARCH_BOARD_LM3S6432S2E
 	bool "Stellaris RDK-S2E Reference Design Kit"
 	depends on ARCH_CHIP_LM3S6432
+	select ARCH_HAVE_LEDS
 	---help---
 		Stellaris RDK-S2E Reference Design Kit and the MDL-S2E Ethernet to
 		Serial module.
@@ -145,6 +180,7 @@ config ARCH_BOARD_LM3S6432S2E
 config ARCH_BOARD_LM3S6965EK
 	bool "Stellaris LM3S6965 Evaluation Kit"
 	depends on ARCH_CHIP_LM3S6965
+	select ARCH_HAVE_LEDS
 	---help---
 		Stellaris LM3S6965 Evaluation Kit.  This board is based on the 
 		an ARM Cortex-M3 MCU, the Luminary/TI LM3S6965. This OS is built with the
@@ -153,6 +189,7 @@ config ARCH_BOARD_LM3S6965EK
 config ARCH_BOARD_LM3S8962EK
 	bool "Stellaris LMS38962 Evaluation Kit"
 	depends on ARCH_CHIP_LM3S8962
+	select ARCH_HAVE_LEDS
 	---help---
 		Stellaris LMS38962 Evaluation Kit.
 
@@ -166,6 +203,9 @@ config ARCH_BOARD_LPCXPRESSO
 config ARCH_BOARD_LPC4330_XPLORER
 	bool "NXG LPC4330-Xplorer"
 	depends on ARCH_CHIP_LPC4330FET100
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		NXG Technologoies LPC4330 Xplorer board.  This board is based on the
 		LPC4330FET100.  The Code Red toolchain is used by default.
@@ -181,6 +221,7 @@ config ARCH_BOARD_M68332EVB
 config ARCH_BOARD_MBED
 	bool "mbed LCP1768"
 	depends on ARCH_CHIP_LPC1768
+	select ARCH_HAVE_LEDS
 	---help---
 		The configurations in this directory support the mbed board (http://mbed.org)
 		that features the NXP LPC1768 microcontroller. This OS is also built
@@ -189,6 +230,7 @@ config ARCH_BOARD_MBED
 config ARCH_BOARD_MCU123
 	bool "mcu123.com LPC2148 Development Board"
 	depends on ARCH_CHIP_LPC2148
+	select ARCH_HAVE_LEDS
 	---help---
 		This port is for the NXP LPC2148 as provided on the mcu123.com
 		lpc214x development board. This OS is also built with the arm-elf
@@ -205,6 +247,7 @@ config ARCH_BOARD_MICROPENDOUS3
 config ARCH_BOARD_MX1ADS
 	bool "Motorola MX1ADS development board"
 	depends on ARCH_CHIP_IMX1
+	select ARCH_HAVE_LEDS
 	---help---
 		This is a port to the Motorola MX1ADS development board.  That board
 		is based on the Freescale i.MX1 processor.  The i.MX1 is an ARM920T.
@@ -214,6 +257,8 @@ config ARCH_BOARD_MX1ADS
 config ARCH_BOARD_NE64BADGE
 	bool "FEG NE64 /PoE Badge board"
 	depends on ARCH_CHIP_MCS92S12NEC64
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		Future Electronics Group NE64 /PoE Badge board based on the
 		MC9S12NE64 hcs12 cpu.  This port uses the m9s12x GCC toolchain.
@@ -223,6 +268,7 @@ config ARCH_BOARD_NE64BADGE
 config ARCH_BOARD_NTOSD_DM320
 	bool "Neuros OSD v1.0 Dev Board"
 	depends on ARCH_CHIP_DM320
+	select ARCH_HAVE_LEDS
 	---help---
 		This port uses the Neuros OSD v1.0 Dev Board with a GNU arm-elf
 		toolchain*: see
@@ -241,6 +287,7 @@ config ARCH_BOARD_NTOSD_DM320
 config  ARCH_BOARD_NUCLEUS2G
 	bool "Nucleus 2G board"
 	depends on ARCH_CHIP_LPC1768
+	select ARCH_HAVE_LEDS
 	---help---
 		This port uses the Nucleus 2G board (with Babel CAN board).  This board
 		features an NXP LPC1768 processor.  See the 2G website (http://www.2g-eng.com/)
@@ -249,6 +296,9 @@ config  ARCH_BOARD_NUCLEUS2G
 config ARCH_BOARD_LPC1766STK
 	bool "Olimex LPC1766-STK board"
 	depends on ARCH_CHIP_LPC1766
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		This port uses the Olimex LPC1766-STK board and a GNU GCC toolchain* under
 		Linux or Cygwin.  STATUS: Complete and mature.
@@ -256,6 +306,7 @@ config ARCH_BOARD_LPC1766STK
 config ARCH_BOARD_MIRTOO
 	bool "Mirtoo PIC32 Module from Dimitech"
 	depends on ARCH_CHIP_PIC32MX250F128D
+	select ARCH_HAVE_LEDS
 	---help---
 		This is the port to the DTX1-4000L "Mirtoo" module.  This module uses MicroChip
 		PIC32MX250F128D.  See http://www.dimitech.com/ for further information.
@@ -263,6 +314,7 @@ config ARCH_BOARD_MIRTOO
 config ARCH_BOARD_OLIMEXLPC2378
 	bool "Olimex-lpc2378 board"
 	depends on ARCH_CHIP_LPC2378
+	select ARCH_HAVE_LEDS
 	---help---
 		This port uses the Olimex-lpc2378 board and a GNU arm-elf toolchain* under
 		Linux or Cygwin.  STATUS: ostest and NSH configurations available.
@@ -271,11 +323,21 @@ config ARCH_BOARD_OLIMEXLPC2378
 config ARCH_BOARD_OLIMEX_STRP711
 	bool "Olimex STR-P711 board"
 	depends on ARCH_CHIP_STR71X
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		This port uses the Olimex STR-P711 board and a GNU arm-elf toolchain* under
 		Linux or Cygwin. See the http://www.olimex.com/dev/str-p711.html" for
 		further information.  STATUS: Configurations for the basic OS test and NSH
 		are complete and verified.
+
+config ARCH_BOARD_OLIMEX_STM32P107
+	bool "Olimex STM32 P107 board"
+	depends on ARCH_CHIP_STM32F107VC
+	---help---
+		This port uses the Olimex STM32 P107 board and a GNU arm-elf toolchain* under
+		Linux or Cygwin. See the http://www.olimex.com for further information. This
+		board features the STMicro STM32F107VC MCU
 
 config ARCH_BOARD_PCBLOGICPIC32MX
 	bool "PIC32MX board from PCB Logic Design Co"
@@ -291,6 +353,7 @@ config ARCH_BOARD_PCBLOGICPIC32MX
 config ARCH_BOARD_PIC32_STARTERKIT
 	bool "Microchip PIC32 Ethernet Starter Kit (DM320004)"
 	depends on ARCH_CHIP_PIC32MX795F512L
+	select ARCH_HAVE_LEDS
 	---help---
 		This is the port of NuttX to the Microchip PIC32 Ethernet Starter Kit
 		(DM320004) with the Multimedia Expansion Board (MEB, DM320005).
@@ -299,6 +362,7 @@ config ARCH_BOARD_PIC32_STARTERKIT
 config ARCH_BOARD_PIC32_PIC32MX7MMB
 	bool "Mikroelektronika PIC32MX7 MMB"
 	depends on ARCH_CHIP_PIC32MX795F512L
+	select ARCH_HAVE_LEDS
 	---help---
 		This is the port NuttX to the Mikroelektronika PIC32MX7 Multimedia Board
 		(MMB).  See http://www.mikroe.com/ for further information.
@@ -306,13 +370,14 @@ config ARCH_BOARD_PIC32_PIC32MX7MMB
 config ARCH_BOARD_PJRC_87C52
 	bool "PJRC 87C52 development system"
 	depends on ARCH_CHIP_8052
+	select ARCH_HAVE_LEDS
 	---help---
 		8051 Microcontroller.  This port uses the PJRC 87C52 development system
 		and the SDCC toolchain.   This port is not quite ready for prime time.
 
 config ARCH_BOARD_QEMU_I486
 	bool "Qemu i486 Mode"
-	depends on ARCH_QEMU
+	depends on ARCH_X86 || ARCH_I486
 	---help---
 		Port of NuttX to QEMU in i486 mode.  This port will also run on real i486
 		hardwared (Google the Bifferboard).
@@ -333,12 +398,28 @@ config ARCH_BOARD_RGMP
 config ARCH_BOARD_SAM3UEK
 	bool "Atmel SAM3U-EK development board"
 	depends on ARCH_CHIP_AT91SAM3U4E
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		The port of NuttX to the Atmel SAM3U-EK development board.
+
+config ARCH_BOARD_SHENZHOU
+	bool "Shenzhou STM32F107 board"
+	depends on ARCH_CHIP_STM32F107VC
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		This port uses the Shenzhou STM32 F107 board and a GNU arm-elf toolchain* under
+		Linux or Cygwin. See the http://www.armjishu.com for further information. This
+		board features the STMicro STM32F107VC MCU
 
 config ARCH_BOARD_SKP16C26
 	bool "Renesas SKP16C26 StarterKit"
 	depends on ARCH_CHIP_M30262F8
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		Renesas M16C processor on the Renesas SKP16C26 StarterKit.  This port
 		uses the GNU m32c toolchain.  STATUS:  The port is complete but untested
@@ -347,6 +428,9 @@ config ARCH_BOARD_SKP16C26
 config ARCH_BOARD_STM3210E_EVAL
 	bool "STMicro STM3210E-EVAL development board"
 	depends on ARCH_CHIP_STM32F103ZET6
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		STMicro STM3210E-EVAL development board based on the STMicro STM32F103ZET6
 		microcontroller (ARM Cortex-M3).  This port uses the GNU Cortex-M3
@@ -355,6 +439,9 @@ config ARCH_BOARD_STM3210E_EVAL
 config ARCH_BOARD_STM3220G_EVAL
 	bool "STMicro STM3220G-EVAL development board"
 	depends on ARCH_CHIP_STM32F207IG
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		STMicro STM3220G-EVAL development board based on the STMicro STM32F407IG
 		microcontroller (ARM Cortex-M3).
@@ -362,6 +449,9 @@ config ARCH_BOARD_STM3220G_EVAL
 config ARCH_BOARD_STM3240G_EVAL
 	bool "STMicro STM3240G-EVAL development board"
 	depends on ARCH_CHIP_STM32F407IG
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		STMicro STM3240G-EVAL development board based on the STMicro STM32F103ZET6
 		microcontroller (ARM Cortex-M4 with FPU).  This port uses a GNU Cortex-M4
@@ -370,12 +460,18 @@ config ARCH_BOARD_STM3240G_EVAL
 config ARCH_BOARD_STM32F4_DISCOVERY
 	bool "STMicro STM32F4-Discovery board"
 	depends on ARCH_CHIP_STM32F407VG
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		STMicro STM32F4-Discovery board boased on the STMIcro STM32F407VGT6 MCU.
 
 config ARCH_BOARD_SUREPIC32MX
 	bool "Sure PIC32MX boards"
 	depends on ARCH_CHIP_PIC32MX440F512H
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		The "Advanced USB Storage Demo Board," Model DB-DP11215, from Sure
 		Electronics (http://www.sureelectronics.net/).  This board features
@@ -386,6 +482,7 @@ config ARCH_BOARD_SUREPIC32MX
 config ARCH_BOARD_TEENSY
 	bool "PJRC Teensy++ 2.0 board"
 	depends on ARCH_CHIP_AT90USB1286
+	select ARCH_HAVE_LEDS
 	---help---
 		This is the port of NuttX to the PJRC Teensy++ 2.0 board.  This board is
 		developed by http://pjrc.com/teensy/.  The Teensy++ 2.0 is based
@@ -394,6 +491,9 @@ config ARCH_BOARD_TEENSY
 config ARCH_BOARD_TWR_K60N512
 	bool "FreeScale TWR-K60N512d evelopment board"
 	depends on ARCH_CHIP_MK60N512VMD100
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		Kinetis K60 Cortex-M4 MCU.  This port uses the FreeScale TWR-K60N512
 		development board.
@@ -401,6 +501,9 @@ config ARCH_BOARD_TWR_K60N512
 config ARCH_BOARD_UBW32
 	bool "UBW32 v2.4 board from Sparkfun"
 	depends on ARCH_CHIP_PIC32MX460F512L
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		This is the port to the Sparkfun UBW32 board.  This port uses the original v2.4
 		board which is based on the MicroChip PIC32MX460F512L.  See
@@ -411,6 +514,7 @@ config ARCH_BOARD_UBW32
 config ARCH_BOARD_US7032EVB1
 	bool "Hitachi SH-1/US7032EVB1 board"
 	depends on ARCH_CHIP_SH7032
+	select ARCH_HAVE_LEDS
 	---help---
 		This is a port of the Hitachi SH-1 on the Hitachi SH-1/US7032EVB1 board.
 		STATUS:  Work has just began on this port.
@@ -418,6 +522,8 @@ config ARCH_BOARD_US7032EVB1
 config ARCH_BOARD_VSN
 	bool "SOTEL NetClamps VSN sensor network platform"
 	depends on ARCH_CHIP_STM32F103RET6
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
 	---help---
 		ISOTEL NetClamps VSN V1.2 ready2go sensor network platform based on the
 		STMicro STM32F103RET6.  Contributed by Uros Platise.  See
@@ -434,6 +540,7 @@ config ARCH_BOARD_XTRS
 config ARCH_BOARD_Z16F2800100ZCOG
 	bool "Zilog Z16F2800100ZCOG Development Kit"
 	depends on ARCH_CHIP_Z16F281
+	select ARCH_HAVE_LEDS
 	---help---
 		z16f Microcontroller.  This port use the ZiLIG z16f2800100zcog
 		development kit and the Zilog ZDS-II Windows command line tools.  The
@@ -445,13 +552,14 @@ config ARCH_BOARD_Z80SIM
 	---help---
 		z80 Microcontroller.  This port uses a Z80 instruction set simulator.
 		That simulator can be found in the NuttX SVN at
-		http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/misc/sims/z80sim.
+		http://svn.code.sf.net/p/nuttx/code/trunk/misc/sims/z80sim.
 		This port also uses the SDCC toolchain (http://sdcc.sourceforge.net/")
 		(verified with version 2.6.0).
 
 config ARCH_BOARD_Z8ENCORE000ZCO
 	bool "ZiLOG z8encore000zco Development Kit"
 	depends on ARCH_CHIP_Z8F6403
+	select ARCH_HAVE_LEDS
 	---help---
 		z8Encore! Microcontroller.  This port use the ZiLOG z8encore000zco
 		development kit, Z8F6403 part, and the Zilog ZDS-II Windows command line
@@ -460,6 +568,7 @@ config ARCH_BOARD_Z8ENCORE000ZCO
 config ARCH_BOARD_Z8F64200100KI
 	bool "ZiLOG Z8F64200100KIT Development Kit"
 	depends on ARCH_CHIP_Z8F642X
+	select ARCH_HAVE_LEDS
 	---help---
 		z8Encore! Microcontroller.  This port use the Zilog z8f64200100kit
 		development kit, Z8F6423 part, and the Zilog ZDS-II Windows command line
@@ -498,6 +607,7 @@ config ARCH_BOARD
 	default "ekk-lm3s9b96"       if ARCH_BOARD_EKK_LM3S9B96
 	default "ez80f0910200kitg"   if ARCH_BOARD_EZ80F910200KITG
 	default "ez80f0910200zco"    if ARCH_BOARD_EZ80F910200ZCO
+	default "fire-stm32v2"       if ARCH_BOARD_FIRE_STM32
 	default "hymini-stm32v"      if ARCH_BOARD_HYMINI_STM32V
 	default "kwikstik-k40"       if ARCH_BOARD_KWIKSTIK_K40
 	default "lincoln60"          if ARCH_BOARD_LINCOLN60
@@ -517,6 +627,7 @@ config ARCH_BOARD
 	default "nucleus2g"          if ARCH_BOARD_NUCLEUS2G
 	default "olimex-lpc1766stk"  if ARCH_BOARD_LPC1766STK
 	default "olimex-lpc2378"     if ARCH_BOARD_OLIMEXLPC2378
+	default "olimex-stm32-p107"  if ARCH_BOARD_OLIMEX_STM32P107
 	default "olimex-strp711"     if ARCH_BOARD_OLIMEX_STRP711
 	default "pcblogic-pic32mx"   if ARCH_BOARD_PCBLOGICPIC32MX
 	default "pic32-starterkit"   if ARCH_BOARD_PIC32_STARTERKIT
@@ -525,6 +636,7 @@ config ARCH_BOARD
 	default "qemu-i486"          if ARCH_BOARD_QEMU_I486
 	default "rgmp"               if ARCH_BOARD_RGMP
 	default "sam3u-ek"           if ARCH_BOARD_SAM3UEK
+	default "shenzhou"           if ARCH_BOARD_SHENZHOU
 	default "skp16c26"           if ARCH_BOARD_SKP16C26
 	default "stm3210e-eval"      if ARCH_BOARD_STM3210E_EVAL
 	default "stm3220g-eval"      if ARCH_BOARD_STM3220G_EVAL
@@ -543,6 +655,61 @@ config ARCH_BOARD
 	default "z8f64200100kit"     if ARCH_BOARD_Z8F64200100KI
 	default "sim"                if ARCH_BOARD_SIM
 	default ""                   if ARCH_BOARD_CUSTOM
+
+comment "Common Board Options"
+
+config ARCH_HAVE_LEDS
+	bool
+
+config ARCH_LEDS
+	bool "Board LEDs support"
+	default y
+	depends on ARCH_HAVE_LEDS
+	---help---
+		Use board LEDs to show NuttX execution status state. Unique to boards that have LEDs
+
+config ARCH_HAVE_BUTTONS
+	bool
+
+config ARCH_BUTTONS
+	bool "Board button support"
+	default n
+	depends on ARCH_HAVE_BUTTONS
+	---help---
+		"Support interfaces to use buttons provided by the board."
+
+config ARCH_HAVE_IRQBUTTONS
+	bool
+
+config ARCH_IRQBUTTONS
+	bool "Button interrupt support"
+	default n
+	depends on ARCH_BUTTONS && ARCH_HAVE_IRQBUTTONS
+	---help---
+		"Support interrupts on button presses and releases."
+
+config NSH_MMCSDMINOR
+	int "MMC/SD minor number"
+	default 0
+	depends on NSH_LIBRARY && MMCSD
+	---help---
+		If board-specific NSH start-up logic needs to mount an MMC/SD device, then the setting should be provided to identify the MMC/SD minor device number (i.e., the N in /dev/mmcsdN).  Default 0
+
+config NSH_MMCSDSLOTNO
+	int "MMC/SD slot number"
+	default 0
+	depends on NSH_LIBRARY && MMCSD
+	---help---
+		If board-specific NSH start-up supports more than one MMC/SD slot, then this setting should be provided to indicate which slot should be used.  Default: 0.
+
+config NSH_MMCSDSPIPORTNO
+	int "MMC/SD SPI device number"
+	default 0
+	depends on NSH_LIBRARY && MMCSD && SPI
+	---help---
+		If board-specif NSH start-up logic will mount an SPI-based MMC/SD volume, then this setting may be needed to tell the board logic which SPI bus to use.  Default: 0 (meaning is board-specific).
+
+comment "Board-Specific Options"
 
 if ARCH_BOARD_AMBER
 source "configs/amber/Kconfig"
@@ -579,6 +746,9 @@ source "configs/ez80f910200kitg/Kconfig"
 endif
 if ARCH_BOARD_EZ80F910200ZCO
 source "configs/ez80f910200zco/Kconfig"
+endif
+if ARCH_BOARD_FIRE_STM32
+source "configs/fire-stm32v2/Kconfig"
 endif
 if ARCH_BOARD_HYMINI_STM32V
 source "configs/hymini-stm32v/Kconfig"
@@ -637,6 +807,9 @@ endif
 if ARCH_BOARD_OLIMEXLPC2378
 source "configs/olimex-lpc2378/Kconfig"
 endif
+if ARCH_BOARD_OLIMEX_STM32P107
+source "configs/olimex-stm32-p107/Kconfig"
+endif
 if ARCH_BOARD_OLIMEX_STRP711
 source "configs/olimex-strp711/Kconfig"
 endif
@@ -660,6 +833,9 @@ source "configs/rgmp/Kconfig"
 endif
 if ARCH_BOARD_SAM3UEK
 source "configs/sam3u-ek/Kconfig"
+endif
+if ARCH_BOARD_SHENZHOU
+source "configs/shenzhou/Kconfig"
 endif
 if ARCH_BOARD_SKP16C26
 source "configs/skp16c26/Kconfig"

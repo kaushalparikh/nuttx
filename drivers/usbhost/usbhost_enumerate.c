@@ -468,7 +468,7 @@ int usbhost_enumerate(FAR struct usbhost_class_s *devclass)
       udbg("failed to set address\n");
       goto errout;
     }
-  up_mdelay(2);
+  usleep(2*1000);
 
   /* And reconfigure EP0 */
 

@@ -2,7 +2,7 @@
  * examples/nxflat/nxflat_main.c
  *
  *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -145,10 +145,10 @@ static inline void testheader(FAR const char *progname)
  ****************************************************************************/
 
 /****************************************************************************
- * Name: user_start
+ * Name: nxflat_main
  ****************************************************************************/
 
-int user_start(int argc, char *argv[])
+int nxflat_main(int argc, char *argv[])
 {
   struct binary_s bin;
   int ret;

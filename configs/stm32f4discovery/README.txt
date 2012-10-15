@@ -182,7 +182,7 @@ NuttX buildroot Toolchain
   different from the default in your PATH variable).
 
   If you have no Cortex-M3 toolchain, one can be downloaded from the NuttX
-  SourceForge download site (https://sourceforge.net/project/showfiles.php?group_id=189573).
+  SourceForge download site (https://sourceforge.net/projects/nuttx/files/buildroot/).
   This GNU toolchain builds and executes in the Linux or Cygwin environment.
 
   1. You must have already configured Nuttx in <some-dir>/nuttx.
@@ -445,13 +445,13 @@ present in the NuttX configuration file:
 
   CONFIG_STM32_FSMC=y        : Enables the FSMC
   CONFIG_STM32_FSMC_SRAM=y   : Indicates that SRAM is available via the
-    FSMC (as opposed to an LCD or FLASH).
+                               FSMC (as opposed to an LCD or FLASH).
   CONFIG_HEAP2_BASE          : The base address of the SRAM in the FSMC
-    address space
-  CONFIG_HEAP2_END           : The end (+1) of the SRAM in the FSMC
-    address space
+                               address space
+  CONFIG_HEAP2_SIZE          : The size of the SRAM in the FSMC
+                               address space
   CONFIG_MM_REGIONS          : Must be set to a large enough value to
-    include the FSMC SRAM 
+                               include the FSMC SRAM 
 
 SRAM Configurations
 -------------------
@@ -704,9 +704,9 @@ STM32F4Discovery-specific Configuration Options
     CONFIG_STM32_FSMC_SRAM - Indicates that SRAM is available via the
       FSMC (as opposed to an LCD or FLASH).
 
-    CONFIG_HEAP2_BASE - The base address of the SRAM in the FSMC address space
+    CONFIG_HEAP2_BASE - The base address of the SRAM in the FSMC address space (hex)
 
-    CONFIG_HEAP2_END - The end (+1) of the SRAM in the FSMC address space
+    CONFIG_HEAP2_SIZE - The size of the SRAM in the FSMC address space (decimal)
 
     CONFIG_ARCH_IRQPRIO - The STM32F4Discovery supports interrupt prioritization
 
@@ -906,7 +906,7 @@ STM32F4Discovery-specific Configuration Options
      want to do that?
    CONFIG_STM32_USBHOST_REGDEBUG - Enable very low-level register access
      debug.  Depends on CONFIG_DEBUG.
-    CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
+   CONFIG_STM32_USBHOST_PKTDUMP - Dump all incoming and outgoing USB
      packets. Depends on CONFIG_DEBUG.
 
 Configurations
@@ -1065,6 +1065,65 @@ Where <subdir> is one of the following:
         NOTE 3: /dev/console still exists and still refers to the serial port. So
         you can still use certain kinds of debug output (see include/debug.h, all
         of the interfaces based on lib_lowprintf will work in this configuration).
+
+    6. USB OTG FS Host Support.  The following changes will enable support for
+       a USB host on the STM32F4Discovery, including support for a mass storage
+       class driver:
+ 
+       CONFIG_USBDEV=n          - Make sure tht USB device support is disabled
+       CONFIG_USBHOST=y         - Enable USB host support
+       CONFIG_STM32_OTGFS=y     - Enable the STM32 USB OTG FS block
+       CONFIG_STM32_SYSCFG=y    - Needed for all USB OTF FS support
+       CONFIG_SCHED_WORKQUEUE=y - Worker thread support is required for the mass
+                                  storage class driver.
+       CONFIG_NSH_ARCHINIT=y    - Architecture specific USB initialization
+                                  is needed for NSH
+       CONFIG_FS_FAT=y          - Needed by the USB host mass storage class.
+
+       With those changes, you can use NSH with a FLASH pen driver as shown
+       belong.  Here NSH is started with nothing in the USB host slot:
+
+       NuttShell (NSH) NuttX-x.yy
+       nsh> ls /dev
+       /dev:
+        console
+        null
+        ttyS0
+
+       After inserting the FLASH drive, the /dev/sda appears and can be
+       mounted like this:
+
+       nsh> ls /dev
+       /dev:
+        console
+        null
+        sda
+        ttyS0
+       nsh> mount -t vfat /dev/sda /mnt/stuff
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+
+       And files on the FLASH can be manipulated to standard interfaces:
+
+       nsh> echo "This is a test" >/mnt/stuff/atest.txt
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+        -rw-rw-rw-      16 atest.txt
+       nsh> cat /mnt/stuff/atest.txt
+       This is a test
+       nsh> cp /mnt/stuff/filea.c fileb.c
+       nsh> ls /mnt/stuff
+       /mnt/stuff:
+        -rw-rw-rw-   16236 filea.c
+        -rw-rw-rw-      16 atest.txt
+        -rw-rw-rw-   16236 fileb.c
+
+       To prevent data loss, don't forget to un-mount the FLASH drive
+       before removing it:
+
+       nsh> umount /mnt/stuff
 
   nxlines:
   ------

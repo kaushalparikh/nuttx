@@ -2,7 +2,7 @@
  * examples/udp/nettest.c
  *
  *   Copyright (C) 2007, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,10 +59,10 @@
  ****************************************************************************/
 
 /****************************************************************************
- * user_start
+ * udp_main
  ****************************************************************************/
 
-int user_start(int argc, char *argv[])
+int udp_main(int argc, char *argv[])
 {
   struct in_addr addr;
 

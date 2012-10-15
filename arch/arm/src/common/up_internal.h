@@ -40,7 +40,10 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/config.h>
+
 #ifndef __ASSEMBLY__
+#  include <nuttx/compiler.h>
 #  include <sys/types.h>
 #  include <stdint.h>
 #endif
@@ -223,7 +226,7 @@ extern void up_boot(void);
 extern void up_copystate(uint32_t *dest, uint32_t *src);
 extern void up_decodeirq(uint32_t *regs);
 extern int  up_saveusercontext(uint32_t *saveregs);
-extern void up_fullcontextrestore(uint32_t *restoreregs) __attribute__ ((noreturn));
+extern void up_fullcontextrestore(uint32_t *restoreregs) noreturn_function;
 extern void up_switchcontext(uint32_t *saveregs, uint32_t *restoreregs);
 
 /* Signal handling **********************************************************/
@@ -236,6 +239,10 @@ extern void up_sigdeliver(void);
 extern void up_pminitialize(void);
 #else
 #  define up_pminitialize()
+#endif
+
+#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+extern void up_systemreset(void) noreturn_function;
 #endif
 
 /* Interrupt handling *******************************************************/

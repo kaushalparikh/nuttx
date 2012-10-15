@@ -3,7 +3,7 @@
  * arch/arm/src/board/up_nsh.c
  *
  *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,9 +75,9 @@
 /* PORT and SLOT number probably depend on the board configuration */
 
 #ifdef CONFIG_ARCH_BOARD_STM3210E_EVAL
-#  define CONFIG_NSH_HAVEUSBDEV 1
+#  define NSH_HAVEUSBDEV 1
 #  define CONFIG_NSH_HAVEUSBHOST 1
-#  define CONFIG_NSH_HAVEMMCSD  1
+#  define NSH_HAVEMMCSD  1
 #  if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
 #    error "Only one MMC/SD slot"
 #    undef CONFIG_NSH_MMCSDSLOTNO
@@ -95,15 +95,15 @@
 #else
    /* Add configuration for new STM32 boards here */
 #  error "Unrecognized STM32 board"
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #  undef CONFIG_NSH_HAVEUSBHOST
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEMMCSD
 #endif
 
 /* Can't support USB features if USB is not enabled */
 
 #ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 #ifndef CONFIG_USBHOST
@@ -115,7 +115,7 @@
  */
 
 #if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_STM32_SDIO)
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEMMCSD
 #endif
 
 #ifndef CONFIG_NSH_MMCSDMINOR
@@ -175,7 +175,7 @@ int nsh_archinitialize(void)
   FAR struct spi_dev_s *spi;
   FAR struct mtd_dev_s *mtd;
 #endif
-#ifdef CONFIG_NSH_HAVEMMCSD
+#ifdef NSH_HAVEMMCSD
   FAR struct sdio_dev_s *sdio;
   int ret;
 #endif
@@ -214,7 +214,7 @@ int nsh_archinitialize(void)
 
   /* Mount the SDIO-based MMC/SD block driver */
 
-#ifdef CONFIG_NSH_HAVEMMCSD
+#ifdef NSH_HAVEMMCSD
   /* First, get an instance of the SDIO interface */
 
   message("nsh_archinitialize: Initializing SDIO slot %d\n",

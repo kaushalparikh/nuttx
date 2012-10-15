@@ -45,7 +45,7 @@
 #include <debug.h>
 #include <errno.h>
 
-#ifdef CONFIG_LPC31XX_MCI
+#ifdef CONFIG_LPC31_MCI
 #  include <nuttx/sdio.h>
 #  include <nuttx/mmcsd.h>
 #endif
@@ -61,8 +61,8 @@
 /* PORT and SLOT number probably depend on the board configuration */
 
 #ifdef CONFIG_ARCH_BOARD_EA3152
-#  define CONFIG_NSH_HAVEUSBDEV 1
-#  define CONFIG_NSH_HAVEMMCSD  1
+#  define NSH_HAVEUSBDEV 1
+#  define NSH_HAVEMMCSD  1
 #  if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
 #    error "Only one MMC/SD slot"
 #    undef CONFIG_NSH_MMCSDSLOTNO
@@ -74,22 +74,22 @@
    /* Add configuration for new LPC31XX boards here */
 
 #  error "Unrecognized LPC31XX board"
-#  undef CONFIG_NSH_HAVEUSBDEV
-#  undef CONFIG_NSH_HAVEMMCSD
+#  undef NSH_HAVEUSBDEV
+#  undef NSH_HAVEMMCSD
 #endif
 
 /* Can't support USB features if USB is not enabled */
 
 #ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 /* Can't support MMC/SD features if mountpoints are disabled or if SDIO support
  * is not enabled.
  */
 
-#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_LPC31XX_MCI)
-#  undef CONFIG_NSH_HAVEMMCSD
+#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_LPC31_MCI)
+#  undef NSH_HAVEMMCSD
 #endif
 
 #ifndef CONFIG_NSH_MMCSDMINOR
@@ -126,7 +126,7 @@
 
 int nsh_archinitialize(void)
 {
-#ifdef CONFIG_NSH_HAVEMMCSD
+#ifdef NSH_HAVEMMCSD
   FAR struct sdio_dev_s *sdio;
   int ret;
 

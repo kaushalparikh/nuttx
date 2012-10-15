@@ -9,8 +9,7 @@
   <tr align="center" bgcolor="#e4e4e4">
     <td>
       <h1><big><font color="#3c34ec"><i>NXFLAT</i></font></big></h1>
-      <h2><font color="#dc143c">&gt;&gt;&gt; Under Construction &lt;&lt;&lt;</font></h2>
-      <p>Last Updated: June 29, 2012</p>
+      <p>Last Updated: September 1, 2012</p>
     </td>
   </tr>
 </table>
@@ -90,7 +89,13 @@
 <tr>
   <td><br></td>
   <td>
-    <a href="#making">1.4 Making an NXFLAT module</a>
+    <a href="#mksymtab">1.4 mksymtab</a>
+  </td>
+</tr>
+<tr>
+  <td><br></td>
+  <td>
+    <a href="#making">1.5 Making an NXFLAT module</a>
   </td>
 </tr>
 <tr>
@@ -122,7 +127,7 @@
     <a name="overview"><h1>1.0 Overview</h1></a>
   </td>
   </tr>
-</table>f
+</table>
 
 <a name="functionality"><h2>1.1 Functionality</h2></a>
 
@@ -152,14 +157,14 @@
 <ul>
   <li>
     A dynamic loader that is built into the NuttX core
-   (See <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/nuttx/binfmt/">SVN</a>).
+   (See <a href="http://svn.code.sf.net/p/nuttx/code/trunk/nuttx/binfmt/">SVN</a>).
   </li>
   <li>
     Minor changes to RTOS to support position independent code, and
   </li>
   <li>
     A linker to bind ELF binaries to produce the NXFLAT binary format
-    (See <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/misc/buildroot/toolchain/nxflat/">SVN).
+    (See <a href="http://svn.code.sf.net/p/nuttx/code/trunk/misc/buildroot/toolchain/nxflat/">SVN).
   </li>
 </ul>
 
@@ -279,7 +284,7 @@
   The initial release of NXFLAT was made in NuttX version 0.4.9.
   Testing is limited to the tests found under <code>apps/examples/nxflat</code> in the source tree.
   Some known problems exist
-  (see the <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/nuttx/TODO?view=log">TODO</a> list).
+  (see the <a href="http://svn.code.sf.net/p/nuttx/code/trunk/nuttx/TODO?view=log">TODO</a> list).
   As such, NXFLAT is currently in an early alpha phase.
 </p>
 
@@ -297,7 +302,7 @@
   In order to use NXFLAT, you must use special NXFLAT tools to create the binary module in FLASH.
   To do this, you will need to download the buildroot package and build it on your Linux or Cygwin machine.
   The buildroot can be downloaded from 
-  <a https://sourceforge.net/project/showfiles.php?group_id=189573&package_id=224585">Sourceforge</a>.
+  <a https://sourceforge.net/projects/nuttx/files/">Sourceforge</a>.
   You will need version 0.1.7 or later.
 </p>
 <p>
@@ -386,11 +391,45 @@ any following arguments.
      debug output is enabled [Default: no verbose output].
 </pre></ul>
 
-<a name="making"><h2>1.4 Making an NXFLAT module</h2></a>
+<a name="mksymtab"><h2>1.4 mksymtab</h2></a>
+
+<p>
+  There is a small helper program available in <code>nuttx/tools</code> call <code>mksymtab</code>.
+  <code>mksymtab</code> can be sued to generate symbol tables for the NuttX base code that would be usable by the typical NXFLAT application.
+  <code>mksymtab</code> builds symbol tables from common-separated value (CSV) files.
+  In particular, the CSV files:
+</p>
+<ol>
+  <li>
+    <code>nuttx/syscall/syscall.csv</code> that describes the NuttX RTOS interface, and
+  </li>
+  <li>
+    <code>nuttx/lib/lib/csv</code> that describes the NuttX C library interface.
+  </li>
+</ol>
+<ul><pre>
+USAGE: ./mksymtab &lt;cvs-file&gt; &lt;symtab-file&gt;
+
+Where:
+
+  &lt;cvs-file&gt;   : The path to the input CSV file
+  &lt;symtab-file&gt;: The path to the output symbol table file
+  -d           : Enable debug output
+</pre></ul>
+<p>
+  For example,
+</p>
+<ul><pre>
+cd nuttx/tools
+cat ../syscall/syscall.csv ../lib/lib.csv | sort >tmp.csv
+./mksymtab.exe tmp.csv tmp.c
+</pre></ul>
+
+<a name="making"><h2>1.5 Making an NXFLAT module</h2></a>
 
 <p>
   Below is a snippet from an NXFLAT make file (simplified from NuttX
-  <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/apps/examples/nxflat/tests/hello/Makefile?view=log">
+  <a href="http://svn.code.sf.net/p/nuttx/code/trunk/apps/examples/nxflat/tests/hello/Makefile?view=log">
   Hello, World!</a> example.
 <p>
 <ul><table width="50%">
@@ -496,18 +535,18 @@ any following arguments.
 <ul>
   <li>
     The interface to the binary loader is described in the header file 
-    <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/nuttx/include/nuttx/binfmt.h?view=log">
+    <a href="http://svn.code.sf.net/p/nuttx/code/trunk/nuttx/include/nuttx/binfmt.h?view=log">
     <code>include/nuttx/binfmt.h</code></a>.
     A brief summary of the APIs prototyped in that header file are listed below.
   </li>
   <li>
     NXFLAT APIs needed to register NXFLAT as a binary loader appear in the header file
-    <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/nuttx/include/nuttx/nxflat.h?view=log">
+    <a href="http://svn.code.sf.net/p/nuttx/code/trunk/nuttx/include/nuttx/nxflat.h?view=log">
     <code>include/nuttx/nxflat.h</code></a>.
   </li>
   <li>
     The format of an NXFLAT object itself is described in the header file:
-    <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/nuttx/include/nuttx/nxflat.h?view=log">
+    <a href="http://svn.code.sf.net/p/nuttx/code/trunk/nuttx/include/nuttx/nxflat.h?view=log">
     <code>include/nuttx/nxflat.h</code></a>.
   </li>
 </ul>
@@ -639,8 +678,7 @@ any following arguments.
 <p>
 <ul><pre>
         ldr     r1, .L0         <-- Fetch the offset to 'x'
-        ldr     r0, [r10, r1]   <-- Load the value of 'x' with PIC
-                                offset
+        ldr     r0, [r10, r1]   <-- Load the value of 'x' with PIC offset`
         ...
 .L0:    .word   x               <-- Offset to 'x'
 </pre></ul>
@@ -652,8 +690,7 @@ any following arguments.
 
 <ul><pre>
         ldr     r1, .L0         <-- Fetch the offset to the GOT entry
-        ldr     r1, [r10,r1]    <-- Fetch the (relocated) address
-                                of 'x' from the GOT
+        ldr     r1, [r10,r1]    <-- Fetch the (relocated) address of 'x' from the GOT
         ldr     r0, [r1, #0]    <-- Fetch the value of 'x'
         ...
 .L1     .word   x(GOT)          <-- Offset to entry in the GOT
@@ -667,9 +704,9 @@ any following arguments.
   execution time.
 </p>
 <p>
-  NXFLAT (like <a href="http://xflat.sourceforge.net/">XFLAT</a>) can work even better with
+  NXFLAT (like <a href="http://xflat.sourceforge.net/">XFLAT</a>) can work even better without
   the GOT.
-  Patches again older version of GCC exist to eliminate the GOT indirections.
+  Patches against older version of GCC exist to eliminate the GOT indirections.
   Several are available <a href="http://xflat.cvs.sourceforge.net/viewvc/xflat/xflat/gcc/">here</a>
   if you are inspired to port them to a new GCC version.
 </p>
@@ -735,7 +772,7 @@ any following arguments.
   <a href="http://xflat.cvs.sourceforge.net/viewvc/*checkout*/xflat/xflat/gcc/README?revision=1.1.1.1">XFLAT discussion</a>.
 </p>
 <p>
-  Patches again older version of GCC exist to correct this GCC behavior.
+  Patches against older version of GCC exist to correct this GCC behavior.
   Several are available <a href="http://xflat.cvs.sourceforge.net/viewvc/xflat/xflat/gcc/">here</a>
   if you are inspired to port them to a new GCC version.
 </p>

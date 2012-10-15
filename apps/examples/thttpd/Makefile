@@ -2,7 +2,7 @@
 # apps/examples/thttpd/Makefile
 #
 #   Copyright (C) 2009-2011 Gregory Nutt. All rights reserved.
-#   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+#   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ include $(APPDIR)/Make.defs
 # THTTPD Web Server Example
 
 ASRCS		=
-CSRCS		= main.c
+CSRCS		= thttpd_main.c
 
 AOBJS		= $(ASRCS:.S=$(OBJEXT))
 COBJS		= $(CSRCS:.c=$(OBJEXT))

@@ -1,8 +1,8 @@
 /****************************************************************************
  * netutils/webserver/httpd.h
  *
- *   Copyright (C) 2007, 2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2007, 2009, 2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Based on uIP which also has a BSD style license:
  *
@@ -46,73 +46,34 @@
 
 #include <nuttx/config.h>
 #include <stdint.h>
-#include <nuttx/net/uip/uip.h>
 #include <nuttx/net/uip/uipopt.h>
-
-/****************************************************************************
- * Pre-processor Definitions
- ****************************************************************************/
-
-/* As threads are created to handle each request, a stack must be allocated
- * for the thread.  Use a default if the user provided no stacksize.
- */
-
-#ifndef  CONFIG_NETUTILS_HTTPDSTACKSIZE
-# define CONFIG_NETUTILS_HTTPDSTACKSIZE 4096
-#endif
-
-#undef  CONFIG_NETUTILS_HTTPDFSSTATS
-#define CONFIG_NETUTILS_HTTPDFSSTATS 1
-
-#ifndef  CONFIG_NET_STATISTICS
-#  undef CONFIG_NETUTILS_HTTPDNETSTATS
-#endif
-
-/* For efficiency reasons, the size of the IO buffer should be a multiple
- * of the TCP MSS value.  Also, the current design requires that the IO
- * buffer be sufficiently large to contain the entire GET request.
- */
-
-#define HTTPD_IOBUFFER_SIZE (3*UIP_TCP_MSS)
-
-/* this is the maximum size of a file path */
-
-#define HTTPD_MAX_FILENAME  20
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
 
-struct httpd_fs_file
-{
-  char *data;
-  int len;
-};
-
-struct httpd_state
-{
-  char     ht_buffer[HTTPD_IOBUFFER_SIZE];  /* recv()/send() buffer */
-  char     ht_filename[HTTPD_MAX_FILENAME]; /* filename from GET command */
-  struct httpd_fs_file ht_file;             /* Fake file data to send */
-  int      ht_sockfd;                       /* The socket descriptor from accept() */
-  char    *ht_scriptptr;
-  uint16_t ht_scriptlen;
-  uint16_t ht_sndlen;
-};
-
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
 
-#ifdef CONFIG_NETUTILS_HTTPDFSSTATS
-#if CONFIG_NETUTILS_HTTPDFSSTATS == 1
-extern uint16_t httpd_fs_count(char *name);
-#endif /* CONFIG_NETUTILS_HTTPDFSSTATS */
-#endif /* CONFIG_NETUTILS_HTTPDFSSTATS */
+/* 'file' must be allocated by caller and will be filled in by the function. */
 
-/* file must be allocated by caller and will be filled in by the function. */
+#if defined(CONFIG_NETUTILS_HTTPD_SENDFILE)
+
+int httpd_sendfile_open(const char *name, struct httpd_fs_file *file);
+int httpd_sendfile_close(struct httpd_fs_file *file);
+int httpd_sendfile_send(int outfd, struct httpd_fs_file *file);
+
+#elif defined(CONFIG_NETUTILS_HTTPD_MMAP)
+
+int  httpd_mmap_open(const char *name, struct httpd_fs_file *file);
+int  httpd_mmap_close(struct httpd_fs_file *file);
+
+#else
 
 int  httpd_fs_open(const char *name, struct httpd_fs_file *file);
 void httpd_fs_init(void);
+
+#endif
 
 #endif /* _NETUTILS_WEBSERVER_HTTPD_H */

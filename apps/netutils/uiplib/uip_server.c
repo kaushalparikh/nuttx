@@ -2,7 +2,7 @@
  * netutils/uiplib/uip_server.c
  *
  *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,12 +41,14 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <errno.h>
 #include <debug.h>
+
 #include <netinet/in.h>
 
 #include <apps/netutils/uiplib.h>
@@ -87,74 +89,46 @@ void uip_server(uint16_t portno, pthread_startroutine_t handler, int stacksize)
   socklen_t addrlen;
   int listensd;
   int acceptsd;
-#ifdef CONFIG_NET_HAVE_REUSEADDR
-  int optval;
-#endif
+  int ret;
 
   /* Create a new TCP socket to use to listen for connections */
 
-  listensd = socket(PF_INET, SOCK_STREAM, 0);
+  listensd = uip_listenon(portno);
   if (listensd < 0)
     {
-      ndbg("socket failure: %d\n", errno);
       return;
     }
 
-  /* Set socket to reuse address */
+  /* Begin serving connections */
 
-#ifdef CONFIG_NET_HAVE_REUSEADDR
-  optval = 1;
-  if (setsockopt(listensd, SOL_SOCKET, SO_REUSEADDR, (void*)&optval, sizeof(int)) < 0)
-    {
-      ndbg("setsockopt SO_REUSEADDR failure: %d\n", errno);
-      goto errout_with_socket;
-    }
-#endif
-
-  /* Bind the socket to a local address */
-
-  myaddr.sin_family      = AF_INET;
-  myaddr.sin_port        = portno;
-  myaddr.sin_addr.s_addr = INADDR_ANY;
-
-  if (bind(listensd, (struct sockaddr*)&myaddr, sizeof(struct sockaddr_in)) < 0)
-    {
-      ndbg("bind failure: %d\n", errno);
-      goto errout_with_socket;
-    }
-
-  /* Listen for connections on the bound TCP socket */
-
-  if (listen(listensd, 5) < 0)
-    {
-      ndbg("listen failure %d\n", errno);
-      goto errout_with_socket;
-    }
-
-  /* Begin accepting connections */
-
-  nvdbg("Accepting connections on port %d\n", ntohs(portno));
   for (;;)
     {
+      /* Accept the next connectin */
+ 
       addrlen = sizeof(struct sockaddr_in);
       acceptsd = accept(listensd, (struct sockaddr*)&myaddr, &addrlen);
       if (acceptsd < 0)
         {
           ndbg("accept failure: %d\n", errno);
-          break;;
+          break;
         }
+
       nvdbg("Connection accepted -- spawning sd=%d\n", acceptsd);
 
-      /* Configure to "linger" until all data is sent when the socket is closed */
+      /* Configure to "linger" until all data is sent when the socket is
+       * closed.
+       */
 
 #ifdef CONFIG_NET_HAVE_SOLINGER
       ling.l_onoff  = 1;
       ling.l_linger = 30;     /* timeout is seconds */
-      if (setsockopt(acceptsd, SOL_SOCKET, SO_LINGER, &ling, sizeof(struct linger)) < 0)
+
+      ret = setsockopt(acceptsd, SOL_SOCKET, SO_LINGER, &ling, sizeof(struct linger));
+      if (ret < 0)
         {
           close(acceptsd);
           ndbg("setsockopt SO_LINGER failure: %d\n", errno);
-          break;;
+          break;
         }
 #endif
 
@@ -165,10 +139,26 @@ void uip_server(uint16_t portno, pthread_startroutine_t handler, int stacksize)
       (void)pthread_attr_init(&attr);
       (void)pthread_attr_setstacksize(&attr, stacksize);
 
-      if (pthread_create(&child, &attr, handler, (void*)acceptsd) != 0)
+      ret = pthread_create(&child, &attr, handler, (void*)acceptsd);
+      if (ret != 0)
         {
+          /* Close the connection */
+
           close(acceptsd);
-          ndbg("create_create failed\n");
+          ndbg("pthread_create failed\n");
+
+          if (ret == EAGAIN)
+            {
+              /* Lacked resources to create a new thread. This is a temporary
+               * condition, so we close this peer, but keep serving for
+               * other connections.
+               */
+
+              continue;
+            }
+
+          /* Something is very wrong... Break out and stop serving */
+
           break;
         }
 
@@ -179,6 +169,7 @@ void uip_server(uint16_t portno, pthread_startroutine_t handler, int stacksize)
       (void)pthread_detach(child);
     }
 
-errout_with_socket:
+  /* Close the listerner socket */
+
   close(listensd);
 }

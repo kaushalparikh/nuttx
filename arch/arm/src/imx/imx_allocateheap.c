@@ -3,7 +3,7 @@
  * arch/arm/src/chip/imx_allocateheap.c
  *
  *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -111,8 +111,8 @@ void up_addregion(void)
 
   /* Check for any additional memory regions */
 
-#if defined(CONFIG_HEAP2_BASE) && defined(CONFIG_HEAP2_END)
-  mm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_END - CONFIG_HEAP2_BASE);
+#if defined(CONFIG_HEAP2_BASE) && defined(CONFIG_HEAP2_SIZE)
+  mm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_SIZE);
 #endif
 }
 #endif

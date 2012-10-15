@@ -3,7 +3,7 @@
  * arch/arm/src/board/up_spi.c
  *
  *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -138,11 +138,11 @@ void stm32_spi1select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool sele
   spidbg("devid: %d CS: %s\n", (int)devid, selected ? "assert" : "de-assert");
 
   if (devid == SPIDEV_FLASH)
-  {
-    /* Set the GPIO low to select and high to de-select */
+    {
+      /* Set the GPIO low to select and high to de-select */
 
-    stm32_gpiowrite(GPIO_FLASH_CS, !selected);
-  }
+      stm32_gpiowrite(GPIO_FLASH_CS, !selected);
+    }
 }
 
 uint8_t stm32_spi1status(FAR struct spi_dev_s *dev, enum spi_dev_e devid)

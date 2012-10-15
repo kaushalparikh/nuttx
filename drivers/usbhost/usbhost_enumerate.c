@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 #include <debug.h>
@@ -430,7 +431,8 @@ int usbhost_enumerate(FAR struct usbhost_class_s *devclass)
   DEBUGASSERT(devclass != NULL &&
               devclass->drvr != NULL);
 
-  /* Allocate IN buffers for use in this function.
+  /* Allocate descriptor buffers for use in this function.  We will need two:
+   * One for the request and one for the data buffer.
    */
 
   ret = DRVR_ALLOC(devclass->drvr, &buffer, &maxlen);
@@ -553,9 +555,9 @@ int usbhost_enumerate(FAR struct usbhost_class_s *devclass)
         }
     }
 
-  /* Some devices may require this delay before initialization */
+  /* Some devices may require some delay before initialization */
 
-  up_mdelay(100);
+  usleep(100*1000);
 
   /* Parse the configuration descriptor and bind to the class instance for the
    * device.  This needs to be the last thing done because the class driver

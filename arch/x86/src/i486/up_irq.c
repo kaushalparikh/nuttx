@@ -3,7 +3,7 @@
  * arch/x86/src/chip/up_irq.c
  *
  *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <nuttx/compiler.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -62,7 +63,7 @@
  * Private Function Prototypes
  ****************************************************************************/
 
-static void idt_outb(uint8_t val, uint16_t addr) __attribute__((noinline));
+static void idt_outb(uint8_t val, uint16_t addr) noinline_function;
 static void up_remappic(void);
 static void up_idtentry(unsigned int index, uint32_t base, uint16_t sel,
                         uint8_t flags);

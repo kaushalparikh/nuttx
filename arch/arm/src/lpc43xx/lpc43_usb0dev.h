@@ -2,7 +2,7 @@
  * arch/arm/src/lpc43xx/lpc43_usbdev.h
  *
  *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +33,8 @@
  *
  ************************************************************************************/
 
-#ifndef __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H
-#define __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H
+#ifndef __ARCH_ARM_SRC_LPC43XX_LPC43_USB0DEV_H
+#define __ARCH_ARM_SRC_LPC43XX_LPC43_USB0DEV_H
 
 /************************************************************************************
  * Included Files
@@ -94,5 +94,5 @@ EXTERN void lpc43_usbsuspend(FAR struct usbdev_s *dev, bool resume);
 #endif
 
 #endif /* __ASSEMBLY__ */
-#endif /* __ARCH_ARM_SRC_LPC43XX_LPC32_USB0DEV_H */
+#endif /* __ARCH_ARM_SRC_LPC43XX_LPC43_USB0DEV_H */
 

@@ -2,7 +2,7 @@
  * examples/pashello/pashello.c
  *
  *   Copyright (C) 2008-2009, 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,10 +99,10 @@ static void prun(FAR struct pexec_s *st)
  ****************************************************************************/
 
 /****************************************************************************
- * user_start
+ * pashello_main
  ****************************************************************************/
 
-int user_start(int argc, FAR char *argv[])
+int pashello_main(int argc, FAR char *argv[])
 {
   FAR struct pexec_s *st;
 
@@ -115,11 +115,11 @@ int user_start(int argc, FAR char *argv[])
   st = pload("/dev/hello", CONFIG_PASHELLO_VARSTACKSIZE, CONFIG_PASHELLO_STRSTACKSIZE);
   if (!st)
     {
-      fprintf(stderr, "user_start: ERROR: Could not load /dev/hello\n");
+      fprintf(stderr, "pashello_main: ERROR: Could not load /dev/hello\n");
       exit(1);
     }
-  printf("user_start: /dev/hello Loaded\n");
-  printf("user_start: Interpreter started:\n");
+  printf("pashello_main: /dev/hello Loaded\n");
+  printf("pashello_main: Interpreter started:\n");
 
   /* And start program execution */
 
@@ -127,7 +127,7 @@ int user_start(int argc, FAR char *argv[])
 
   /* Clean up resources used by the interpreter */
 
-  printf("user_start: Interpreter terminated");
+  printf("pashello_main: Interpreter terminated");
   pexec_release(st);
   return 0;
 }

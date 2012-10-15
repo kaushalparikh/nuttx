@@ -38,7 +38,8 @@
 # Sub-directories
 
 ifeq ($(CONFIG_NET),y)
-SUBDIRS = uiplib dhcpc dhcpd ftpc ftpd resolv smtp telnetd webclient webserver tftpc thttpd
+SUBDIRS  = uiplib dhcpc dhcpd discover ftpc ftpd resolv smtp telnetd
+SUBDIRS += webclient webserver tftpc thttpd xmlrpc
 endif
 
 all: nothing

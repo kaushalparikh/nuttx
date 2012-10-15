@@ -1,8 +1,8 @@
 /****************************************************************************
  * arch/avr/src/avr32/up_internal.h
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,10 @@
  * Included Files
  ****************************************************************************/
 
+#include <nuttx/config.h>
+
 #ifndef __ASSEMBLY__
+#  include <nuttx/compiler.h>
 #  include <stdint.h>
 #endif
 
@@ -69,7 +72,7 @@
  * structure.  If is non-NULL only during interrupt processing.
  */
 
-extern volatile uint32_ *current_regs;
+extern volatile uint32_t *current_regs;
 
 /* This is the beginning of heap as provided from up_head.S. This is the first
  * address in DRAM after the loaded program+bss+idle stack.  The end of the
@@ -109,7 +112,7 @@ extern void up_copystate(uint32_t *dest, uint32_t *src);
  *
  ************************************************************************************/
 
-extern void up_fullcontextrestore(uint32_t *restoreregs) __attribute__ ((noreturn));
+extern void up_fullcontextrestore(uint32_t *restoreregs) noreturn_function;
 
 /************************************************************************************
  * Name:  up_switchcontext

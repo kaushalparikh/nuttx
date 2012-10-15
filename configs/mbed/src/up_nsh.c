@@ -3,7 +3,7 @@
  * arch/arm/src/board/up_nsh.c
  *
  *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
- *   Author: Gregory Nutt <spudmonkey@racsa.co.cr>
+ *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,16 +56,16 @@
 /* PORT and SLOT number probably depend on the board configuration */
 
 #ifdef CONFIG_ARCH_BOARD_MBED
-#  define CONFIG_NSH_HAVEUSBDEV 1
+#  define NSH_HAVEUSBDEV 1
 #else
 #  error "Unrecognized board"
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 /* Can't support USB features if USB is not enabled */
 
 #ifndef CONFIG_USBDEV
-#  undef CONFIG_NSH_HAVEUSBDEV
+#  undef NSH_HAVEUSBDEV
 #endif
 
 /* Debug ********************************************************************/

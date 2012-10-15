@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NuttX RTOS Porting Guide</i>
       </font></big></h1>
-      <p>Last Updated: July 8, 2012</p>
+      <p>Last Updated: August 28, 2012</p>
     </td>
   </tr>
 </table>
@@ -569,7 +569,7 @@
         The Z80 port was released in nuttx-0.3.6 has been verified using only a
         z80 instruction simulator.
         The set simulator  can be found in the NuttX SVN at
-        http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/misc/sims/z80sim.
+        http://svn.code.sf.net/p/nuttx/code/trunk/misc/sims/z80sim.
         This port also uses the SDCC toolchain (http://sdcc.sourceforge.net/")
         (verified with version 2.6.0 and 2.7.0).
       </li>
@@ -976,7 +976,7 @@
   <li><code>configs/z80sim</code>:
     z80 Microcontroller.  This port uses a Z80 instruction set simulator.
     That simulator can be found in the NuttX SVN
-    <a href="http://nuttx.svn.sourceforge.net/viewvc/nuttx/trunk/misc/sims/z80sim">here</a>.
+    <a href="http://svn.code.sf.net/p/nuttx/code/trunk/misc/sims/z80sim">here</a>.
     This port also the <a href="http://sdcc.sourceforge.net/">SDCC</a> toolchain
     under Linux or Cygwin(verified with version 2.6.0).
   </li>
@@ -3907,21 +3907,8 @@ build
   </li>
 </ul>
 
-<h2>General OS setup</h2>
+<h2>Memory Management</h2>
 <ul>
-  <li>
-    <code>CONFIG_ARCH_LOWPUTC</code>: architecture supports low-level, boot
-    time console output
-  </li>
-  <li>
-    <code>CONFIG_NUTTX_KERNEL</code>:
-      With most MCUs, NuttX is built as a flat, single executable image
-      containing the NuttX RTOS along with all application code.
-      The RTOS code and the application run in the same address space and at the same kernel-mode privileges.
-      If this option is selected, NuttX will be built separately as a monolithic, kernel-mode module and the applications
-      can be added as a separately built, user-mode module.
-      In this a system call layer will be built to support the user- to kernel-mode interface to the RTOS.
-  </li>
   <li>
     <code>CONFIG_MM_REGIONS</code>: If the architecture includes multiple
     regions of memory to allocate from, this specifies the
@@ -3938,6 +3925,57 @@ build
     of size less than or equal to 64K.  In this case, CONFIG_MM_SMALL
     can be defined so that those MCUs will also benefit from the
     smaller, 16-bit-based allocation overhead.
+  </li>
+  <li>
+    <code>CONFIG_HEAP2_BASE</code> and <code>CONFIG_HEAP2_SIZE</code>:
+      Some architectures use these settings to specify the size of
+      a second heap region.
+  </li>
+  <li>
+    <code>CONFIG_GRAN</code>:
+      Enable granual allocator support.  Allocations will be aligned to the
+      granule size; allocations will be in units of the granule size.
+      Larger granules will give better performance and less overhead but
+      more losses of memory due to alignment and quantization waste.
+      NOTE: The current implementation also restricts the maximum
+      allocation size to 32 granaules.  That restriction could be
+      eliminated with some additional coding effort.
+  </li>
+  <li>
+    <code>CONFIG_GRAN_SINGLE</code>:
+      Select if there is only one instance of the granule allocator (i.e.,
+      gran_initialize will be called only once. In this case, (1) there
+      are a few optimizations that can can be done and (2) the GRAN_HANDLE
+      is not needed.
+  </li>
+  <li>
+    <code>CONFIG_GRAN_INTR</code>:
+      Normally mutual exclusive access to granule allocator data is assured using a semaphore.
+      If this option is set then, instead, mutual exclusion logic will disable interrupts.
+      While this options is more invasive to system performance, it will also support use of the
+      granule allocator from interrupt level logic.
+  </li>
+  <li>
+    <code>CONFIG_DEBUG_GRAM</code>:
+      Just like <code>CONFIG_DEBUG_MM</code>, but only generates ouput from the gran
+      allocation logic.
+  </li>
+</ul>
+
+<h2>General OS setup</h2>
+<ul>
+  <li>
+    <code>CONFIG_ARCH_LOWPUTC</code>: architecture supports low-level, boot
+    time console output
+  </li>
+  <li>
+    <code>CONFIG_NUTTX_KERNEL</code>:
+      With most MCUs, NuttX is built as a flat, single executable image
+      containing the NuttX RTOS along with all application code.
+      The RTOS code and the application run in the same address space and at the same kernel-mode privileges.
+      If this option is selected, NuttX will be built separately as a monolithic, kernel-mode module and the applications
+      can be added as a separately built, user-mode module.
+      In this a system call layer will be built to support the user- to kernel-mode interface to the RTOS.
   </li>
   <li>
     <code>CONFIG_MSEC_PER_TICK</code>: The default system timer is 100Hz
@@ -4005,6 +4043,9 @@ build
     This may be set to zero if priority inheritance is disabled OR if you
     are only using semaphores as mutexes (only one holder) OR if no more
     than two threads participate using a counting semaphore.
+    If defined, then this should be a relatively large number because this
+    is the total number of counts on the total number of semaphores (like
+    64 or 100).
   </li>
   <li>
     <code>CONFIG_SEM_NNESTPRIO</code>: If priority inheritance is enabled,
@@ -4012,6 +4053,8 @@ build
     1) than can be waiting for another thread to release a count on a semaphore.
     This value may be set to zero if no more than one thread is expected to
     wait for a semaphore.
+    If defined, then this should be a relatively small number because this the
+    number of maximumum of waiters on one semaphore (like 4 or 8).
   </li>
   <li>
     <code>CONFIG_FDCLONE_DISABLE</code>: Disable cloning of all file descriptors
@@ -4064,6 +4107,20 @@ build
     the worker thread.  Default: 4
   </li>
   <li>
+    <code>CONFIG_SCHED_LPWORK</code>: If CONFIG_SCHED_WORKQUEUE</code> is defined, then a single work queue is created by default.
+    If <code>CONFIG_SCHED_LPWORK</code> is also defined then an additional, lower-priority work queue will also be created.
+    This lower priority work queue is better suited for more extended processing  (such as file system clean-up operations)
+  </li>
+  <li>
+    <code>CONFIG_SCHED_LPWORKPRIORITY</code>: The execution priority of the lower priority worker thread.  Default: 50
+  </li>
+  <li>
+    <code>CONFIG_SCHED_LPWORKPERIOD</code>:  How often the lower priority worker thread checks for work in units of microseconds.  Default: 50*1000 (50 MS).
+  </li>
+  <li>
+    <code>CONFIG_SCHED_LPWORKSTACKSIZE - The stack size allocated for the lower priority worker thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
+  </li>
+  <li>
     <code>CONFIG_SCHED_WAITPID</code>: Enables the <a href="NuttxUserGuide.html#waitpid"><code>waitpid()</code><a> API
   </li>
   <li>
@@ -4079,6 +4136,14 @@ build
   <li>
     <code>CONFIG_SCHED_ONEXIT_MAX</code>:  By default if <code>CONFIG_SCHED_ONEXIT</code> is selected, only a single <code>on_exit()</code> function is supported.
     That number can be increased by defined this setting to the number that you require.
+  </li>
+  <li>
+    <code>CONFIG_USER_ENTRYPOINT</code>: The name of the entry point for user
+    applications.
+    For the example applications this is of the form <code>app_main</code>
+    where <code>app</code> is the application name.
+    If not defined, <code>CONFIG_USER_ENTRYPOINT</code> defaults to
+    <code>user_start</code>.
   </li>
 </ul>
 
@@ -4157,7 +4222,7 @@ build
   <li>
     <code>CONFIG_PAGING</code>: If set =y in your configation file, this setting will
           enable the on-demand paging feature as described in
-          <a href="http://www.nuttx.org/NuttXDemandPaging.html">http://www.nuttx.org/NuttXDemandPaging.html</a>.
+          <a href="http://nuttx.sourceforge.net/NuttXDemandPaging.html">NuttXDemandPaging.html</a>.
   </li>
 </ul>
 
@@ -4345,6 +4410,26 @@ build
     <code>CONFIG_LIBC_FLOATINGPOINT</code>: By default, floating point
     support in <code>printf</code>, <code>sscanf</code>, etc. is disabled.
   </li>
+  <li>
+    <code>CONFIG_LIBC_STRERROR</code>:
+    <code>strerror()</code> is useful because it decodes <code>errno</code>  values into a human readable strings.
+    But it can also require a lot of memory to store the strings.
+    If this option is selected, <code>strerror()</code> will still exist in the build but it will not decode error values.
+    This option should be used by other logic to decide if it should use <code>strerror()</code> or not.
+    For example, the NSH application will not use <code>strerror()</code> if this option is not selected;
+    <code>perror(</code>) will not use strerror() is this option is not selected (see also <code>CONFIG_NSH_STRERROR</code>).
+  </li>
+  <li>
+    <code>CONFIG_LIBC_STRERROR_SHORT</code>:
+    If this option is selected, then <code>strerror()</code> will use a shortened string when it decodes the error.
+    Specifically, <code>strerror()</code> is simply use the string that is the common name for the error.
+    For example, the <code>errno</code> value of 2 will produce the string &quot;No such file or directory&quot; if <code>CONFIG_LIBC_STRERROR_SHORT</code> is not defined but the string &quot;ENOENT&quot; if <code>CONFIG_LIBC_STRERROR_SHORT</code> is defined.
+  </li>
+  <li>
+    <code>CONFIG_LIBC_PERROR_STDOUT</code>:
+    POSIX requires that <code>perror()</code> provide its output on <code>stderr</code>.
+    This option may be defined, however, to provide <code>perror()</code> output that is serialized with other <code>stdout</code> messages.
+  </li>
 </ul>
 
 <h2>Allow for architecture optimized implementations</h2>
@@ -4530,9 +4615,6 @@ build
 <ul>
   <li>
     <code>CONFIG_FS_FAT</code>: Enable FAT file system support.
-  </li>
-  <li>
-    <code>CONFIG_FAT_SECTORSIZE</code>: Max supported sector size.
   </li>
   <li>
     <code>CONFIG_FAT_LCNAMES</code>: Enable use of the NT-style upper/lower case 8.3 file name support.
@@ -4919,7 +5001,7 @@ build
 <h3>ENC28J60 Ethernet Driver Configuration Settings</h3>
 <ul>
   <li>
-    <code>CONFIG_NET_ENC28J60</code>: Enabled ENC28J60 support
+    <code>CONFIG_ENC28J60</code>: Enabled ENC28J60 support
   </li>
   <li>
     <code>CONFIG_ENC28J60_SPIMODE</code>: Controls the SPI mode
@@ -4990,7 +5072,12 @@ build
     <code>CONFIG_NET_TCP_READAHEAD_BUFSIZE</code>: Size of TCP read-ahead buffers
   </li>
   <li>
-    <code>CONFIG_NET_NTCP_READAHEAD_BUFFERS</code>: Number of TCP read-ahead buffers (may be zero)
+    <code>CONFIG_NET_NTCP_READAHEAD_BUFFERS</code>: Number of TCP read-ahead buffers (may be zero to disable TCP/IP read-ahead buffering)
+  </li>
+  <li>
+    <code>CONFIG_NET_TCP_RECVDELAY</code>: Delay (in deciseconds) after a TCP/IP packet is received.
+     This delay may allow catching of additional packets when TCP/IP read-ahead is disabled.
+     Default: 0
   </li>
   <li>
     <code>CONFIG_NET_MAX_LISTENPORTS</code>: Maximum number of listening TCP ports (all tasks).
@@ -5045,9 +5132,6 @@ build
   </li>
   <li>
     <code>CONFIG_NET_MULTICAST</code>: Outgoing multi-cast address support
-  </li>
-  <li>
-    <code>CONFIG_NET_FWCACHE_SIZE</code>: number of packets to remember when looking for duplicates
   </li>
 </ul>
 
@@ -5752,23 +5836,20 @@ build
     some functions into RAM, either for better performance or for errata workarounds.
   </li>
   <li>
-    <code>CONFIG_STACK_POINTER</code>: The initial stack pointer (may not be supported
-    in all architectures).
-  </li>
-  <li>
     <code>CONFIG_STACK_ALIGNMENT</code>: Set if the your application has specific
     stack alignment requirements (may not be supported in all architectures).
   </li>
   <li>
     <code>CONFIG_IDLETHREAD_STACKSIZE</code>: The size of the initial stack.
     This is the thread that (1) performs the initial boot of the system up
-    to the point where user_start() is spawned, and (2) there after is the
-    IDLE thread that executes only when there is no other thread ready to
-    run.
+    to the point where <code>CONFIG_USER_ENTRYPOINT</code>() is spawned,
+    and (2) there after is the IDLE thread that executes only when there
+    is no other thread ready to run.
   </li>
   <li>
     <code>CONFIG_USERMAIN_STACKSIZE</code>: The size of the stack to allocate
-    for the main user thread that begins at the user_start() entry point.
+    for the main user thread that begins at the <code>CONFIG_USER_ENTRYPOINT</code>()
+    entry point.
   </li>
   <li>
     <code>CONFIG_PTHREAD_STACK_MIN</code>: Minimum pthread stack size

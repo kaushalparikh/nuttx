@@ -102,11 +102,32 @@
 #endif
 
 #ifdef CONFIG_STM32_MII
-#  if !defined(CONFIG_STM32_MII_MCO1) && !defined(CONFIG_STM32_MII_MCO2)
-#    warning "Neither CONFIG_STM32_MII_MCO1 nor CONFIG_STM32_MII_MCO2 defined"
+#  if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#    if !defined(CONFIG_STM32_MII_MCO1) && !defined(CONFIG_STM32_MII_MCO2) && !defined(CONFIG_STM32_MII_EXTCLK)
+#      warning "Neither CONFIG_STM32_MII_MCO1, CONFIG_STM32_MII_MCO2, nor CONFIG_STM32_MII_EXTCLK defined"
+#    endif
+#    if defined(CONFIG_STM32_MII_MCO1) && defined(CONFIG_STM32_MII_MCO2)
+#      error "Both CONFIG_STM32_MII_MCO1 and CONFIG_STM32_MII_MCO2 defined"
+#    endif
+#  elif defined(CONFIG_STM32_CONNECTIVITYLINE)
+#    if !defined(CONFIG_STM32_MII_MCO) && !defined(CONFIG_STM32_MII_EXTCLK)
+#      warning "Neither CONFIG_STM32_MII_MCO nor CONFIG_STM32_MII_EXTCLK defined"
+#    endif
 #  endif
-#  if defined(CONFIG_STM32_MII_MCO1) && defined(CONFIG_STM32_MII_MCO2)
-#    error "Both CONFIG_STM32_MII_MCO1 and CONFIG_STM32_MII_MCO2 defined"
+#endif
+
+#ifdef CONFIG_STM32_RMII
+#  if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
+#    if !defined(CONFIG_STM32_RMII_MCO1) && !defined(CONFIG_STM32_RMII_MCO2) && !defined(CONFIG_STM32_RMII_EXTCLK)
+#      warning "Neither CONFIG_STM32_RMII_MCO1, CONFIG_STM32_RMII_MCO2, nor CONFIG_STM32_RMII_EXTCLK defined"
+#    endif
+#    if defined(CONFIG_STM32_RMII_MCO1) && defined(CONFIG_STM32_RMII_MCO2)
+#      error "Both CONFIG_STM32_RMII_MCO1 and CONFIG_STM32_RMII_MCO2 defined"
+#    endif
+#  elif defined(CONFIG_STM32_CONNECTIVITYLINE)
+#    if !defined(CONFIG_STM32_RMII_MCO) && !defined(CONFIG_STM32_RMII_EXTCLK)
+#      warning "Neither CONFIG_STM32_RMII_MCO nor CONFIG_STM32_RMII_EXTCLK defined"
+#    endif
 #  endif
 #endif
 
@@ -114,17 +135,35 @@
 #  ifndef CONFIG_STM32_PHYSR
 #    error "CONFIG_STM32_PHYSR must be defined in the NuttX configuration"
 #  endif
-#  ifndef CONFIG_STM32_PHYSR_SPEED
-#    error "CONFIG_STM32_PHYSR_SPEED must be defined in the NuttX configuration"
-#  endif
-#  ifndef CONFIG_STM32_PHYSR_100MBPS
-#    error "CONFIG_STM32_PHYSR_100MBPS must be defined in the NuttX configuration"
-#  endif
-#  ifndef CONFIG_STM32_PHYSR_MODE
-#    error "CONFIG_STM32_PHYSR_MODE must be defined in the NuttX configuration"
-#  endif
-#  ifndef CONFIG_STM32_PHYSR_FULLDUPLEX
-#    error "CONFIG_STM32_PHYSR_FULLDUPLEX must be defined in the NuttX configuration"
+#  ifdef CONFIG_STM32_PHYSR_ALTCONFIG
+#    ifndef CONFIG_STM32_PHYSR_ALTMODE
+#      error "CONFIG_STM32_PHYSR_ALTMODE must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_10HD
+#      error "CONFIG_STM32_PHYSR_10HD must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_100HD
+#      error "CONFIG_STM32_PHYSR_100HD must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_10FD
+#      error "CONFIG_STM32_PHYSR_10FD must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_100FD
+#      error "CONFIG_STM32_PHYSR_100FD must be defined in the NuttX configuration"
+#    endif
+#  else
+#    ifndef CONFIG_STM32_PHYSR_SPEED
+#      error "CONFIG_STM32_PHYSR_SPEED must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_100MBPS
+#      error "CONFIG_STM32_PHYSR_100MBPS must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_MODE
+#      error "CONFIG_STM32_PHYSR_MODE must be defined in the NuttX configuration"
+#    endif
+#    ifndef CONFIG_STM32_PHYSR_FULLDUPLEX
+#      error "CONFIG_STM32_PHYSR_FULLDUPLEX must be defined in the NuttX configuration"
+#    endif
 #  endif
 #endif
 
@@ -147,10 +186,12 @@
 #endif
 
 /* Add 4 to the configured buffer size to account for the 2 byte checksum
- * memory needed at the end of the maximum size packet.
+ * memory needed at the end of the maximum size packet.  Buffer sizes must
+ * be an even multiple of 4, 8, or 16 bytes (depending on buswidth).  We
+ * will use the 16-byte alignment in all cases.
  */
 
-#define OPTIMAL_ETH_BUFSIZE (CONFIG_NET_BUFSIZE+4)
+#define OPTIMAL_ETH_BUFSIZE ((CONFIG_NET_BUFSIZE + 4 + 15) & ~15)
 
 #ifndef CONFIG_STM32_ETH_BUFSIZE
 #  define CONFIG_STM32_ETH_BUFSIZE OPTIMAL_ETH_BUFSIZE
@@ -158,6 +199,10 @@
 
 #if CONFIG_STM32_ETH_BUFSIZE > ETH_TDES1_TBS1_MASK
 #  error "CONFIG_STM32_ETH_BUFSIZE is too large"
+#endif
+
+#if (CONFIG_STM32_ETH_BUFSIZE & 15) != 0
+#  error "CONFIG_STM32_ETH_BUFSIZE must be aligned"
 #endif
 
 #if CONFIG_STM32_ETH_BUFSIZE != OPTIMAL_ETH_BUFSIZE
@@ -244,14 +289,22 @@
  * ETH_MACCR_IFG   Bits 17-19: Interframe gap
  * ETH_MACCR_JD    Bit 22: Jabber disable
  * ETH_MACCR_WD    Bit 23: Watchdog disable
- * ETH_MACCR_CSTF  Bits 25: CRC stripping for Type frames
+ * ETH_MACCR_CSTF  Bits 25: CRC stripping for Type frames (F2/F4 only)
  */
 
+#if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
 #define MACCR_CLEAR_BITS \
- ( ETH_MACCR_RE | ETH_MACCR_TE | ETH_MACCR_DC | ETH_MACCR_BL_MASK | \
+  (ETH_MACCR_RE | ETH_MACCR_TE | ETH_MACCR_DC | ETH_MACCR_BL_MASK | \
    ETH_MACCR_APCS | ETH_MACCR_RD | ETH_MACCR_IPCO | ETH_MACCR_DM | \
    ETH_MACCR_LM | ETH_MACCR_ROD | ETH_MACCR_FES | ETH_MACCR_CSD | \
-   ETH_MACCR_IFG_MASK | ETH_MACCR_JD | ETH_MACCR_WD | ETH_MACCR_CSTF )
+   ETH_MACCR_IFG_MASK | ETH_MACCR_JD | ETH_MACCR_WD | ETH_MACCR_CSTF)
+#else
+#define MACCR_CLEAR_BITS \
+  (ETH_MACCR_RE | ETH_MACCR_TE | ETH_MACCR_DC | ETH_MACCR_BL_MASK | \
+   ETH_MACCR_APCS | ETH_MACCR_RD | ETH_MACCR_IPCO | ETH_MACCR_DM | \
+   ETH_MACCR_LM | ETH_MACCR_ROD | ETH_MACCR_FES | ETH_MACCR_CSD | \
+   ETH_MACCR_IFG_MASK | ETH_MACCR_JD | ETH_MACCR_WD)
+#endif
 
 /* The following bits are set or left zero unconditionally in all modes.
  *
@@ -268,7 +321,7 @@
  * ETH_MACCR_IFG   Interframe gap                 0 (96 bits)
  * ETH_MACCR_JD    Jabber disable                 0 (enabled)
  * ETH_MACCR_WD    Watchdog disable               0 (enabled)
- * ETH_MACCR_CSTF  CRC stripping for Type frames  0 (disabled)
+ * ETH_MACCR_CSTF  CRC stripping for Type frames  0 (disabled, F2/F4 only)
  *
  * The following are set conditioinally based on mode and speed.
  *
@@ -423,13 +476,20 @@
  * ETH_DMABMR_USP   Bit 23: Use separate PBL
  * ETH_DMABMR_FPM   Bit 24: 4xPBL mode
  * ETH_DMABMR_AAB   Bit 25: Address-aligned beats
- * ETH_DMABMR_MB    Bit 26: Mixed burst
+ * ETH_DMABMR_MB    Bit 26: Mixed burst (F2/F4 only)
  */
 
+#if defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
 #define DMABMR_CLEAR_MASK \
   (ETH_DMABMR_SR | ETH_DMABMR_DA | ETH_DMABMR_DSL_MASK | ETH_DMABMR_EDFE | \
    ETH_DMABMR_PBL_MASK | ETH_DMABMR_RTPR_MASK | ETH_DMABMR_FB | ETH_DMABMR_RDP_MASK | \
    ETH_DMABMR_USP | ETH_DMABMR_FPM | ETH_DMABMR_AAB | ETH_DMABMR_MB)
+#else
+#define DMABMR_CLEAR_MASK \
+  (ETH_DMABMR_SR | ETH_DMABMR_DA | ETH_DMABMR_DSL_MASK | ETH_DMABMR_EDFE | \
+   ETH_DMABMR_PBL_MASK | ETH_DMABMR_RTPR_MASK | ETH_DMABMR_FB | ETH_DMABMR_RDP_MASK | \
+   ETH_DMABMR_USP | ETH_DMABMR_FPM | ETH_DMABMR_AAB)
+#endif
 
 /* The following bits are set or left zero unconditionally in all modes.
  *
@@ -445,7 +505,7 @@
  * ETH_DMABMR_USP   Use separate PBL                   1 (enabled)
  * ETH_DMABMR_FPM   4xPBL mode                         0 (disabled)
  * ETH_DMABMR_AAB   Address-aligned beats              1 (enabled)
- * ETH_DMABMR_MB    Mixed burst                        0 (disabled)
+ * ETH_DMABMR_MB    Mixed burst                        0 (disabled, F2/F4 only)
  */
 
 #ifdef CONFIG_STM32_ETH_ENHANCEDDESC
@@ -604,10 +664,19 @@ static void stm32_rxdescinit(FAR struct stm32_ethmac_s *priv);
 
 static int  stm32_phyread(uint16_t phydevaddr, uint16_t phyregaddr, uint16_t *value);
 static int  stm32_phywrite(uint16_t phydevaddr, uint16_t phyregaddr, uint16_t value);
+#ifdef CONFIG_PHY_DM9161
+static inline int stm32_dm9161(FAR struct stm32_ethmac_s *priv);
+#endif
 static int  stm32_phyinit(FAR struct stm32_ethmac_s *priv);
 
 /* MAC/DMA Initialization */
 
+#ifdef CONFIG_STM32_MII
+static inline void stm32_selectmii(void);
+#endif
+#ifdef CONFIG_STM32_RMII
+static inline void stm32_selectrmii(void);
+#endif
 static inline void stm32_ethgpioconfig(FAR struct stm32_ethmac_s *priv);
 static void stm32_ethreset(FAR struct stm32_ethmac_s *priv);
 static int  stm32_macconfig(FAR struct stm32_ethmac_s *priv);
@@ -1410,9 +1479,6 @@ static int stm32_recvframe(FAR struct stm32_ethmac_s *priv)
         { 
           priv->segments++;
 
-          nllvdbg("rxhead: %p rxcurr: %p segments: %d\n",
-              priv->rxhead, priv->rxcurr, priv->segments);
-
           /* Check if the there is only one segment in the frame */
 
           if (priv->segments == 1)
@@ -1423,6 +1489,9 @@ static int stm32_recvframe(FAR struct stm32_ethmac_s *priv)
             {
               rxcurr = priv->rxcurr;
             }
+
+          nllvdbg("rxhead: %p rxcurr: %p segments: %d\n",
+              priv->rxhead, priv->rxcurr, priv->segments);
 
           /* Check if any errors are reported in the frame */
 
@@ -1956,7 +2025,7 @@ static int stm32_ifup(struct uip_driver_s *dev)
 
   ndbg("Bringing up: %d.%d.%d.%d\n",
        dev->d_ipaddr & 0xff, (dev->d_ipaddr >> 8) & 0xff,
-       (dev->d_ipaddr >> 16) & 0xff, dev->d_ipaddr >> 24 );
+       (dev->d_ipaddr >> 16) & 0xff, dev->d_ipaddr >> 24);
 
   /* Configure the Ethernet interface for DMA operation. */
 
@@ -2197,7 +2266,7 @@ static void stm32_txdescinit(FAR struct stm32_ethmac_s *priv)
     
       /* Initialize the next descriptor with the Next Descriptor Polling Enable */
 
-      if( i < (CONFIG_STM32_ETH_NTXDESC-1))
+      if (i < (CONFIG_STM32_ETH_NTXDESC-1))
         {
           /* Set next descriptor address register with next descriptor base
            * address
@@ -2276,7 +2345,7 @@ static void stm32_rxdescinit(FAR struct stm32_ethmac_s *priv)
     
       /* Initialize the next descriptor with the Next Descriptor Polling Enable */
 
-      if( i < (CONFIG_STM32_ETH_NRXDESC-1))
+      if (i < (CONFIG_STM32_ETH_NRXDESC-1))
         {
           /* Set next descriptor address register with next descriptor base
            * address
@@ -2414,6 +2483,72 @@ static int stm32_phywrite(uint16_t phydevaddr, uint16_t phyregaddr, uint16_t val
 }
 
 /****************************************************************************
+ * Function: stm32_dm9161
+ *
+ * Description:
+ *   Special workaround for the Davicom DM9161 PHY is required.  On power,
+ *   up, the PHY is not usually configured correctly but will work after
+ *   a powered-up reset.  This is really a workaround for some more
+ *   fundamental issue with the PHY clocking initialization, but the
+ *   root cause has not been studied (nor will it be with this workaround).
+ *
+ * Parameters:
+ *   priv - A reference to the private driver state structure
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_PHY_DM9161
+static inline int stm32_dm9161(FAR struct stm32_ethmac_s *priv)
+{
+  uint16_t phyval;
+  int ret;
+
+  /* Read the PHYID1 register;  A failure to read the PHY ID is one
+   * indication that check if the DM9161 PHY CHIP is not ready.
+   */
+
+  ret = stm32_phyread(CONFIG_STM32_PHYADDR, MII_PHYID1, &phyval);
+  if (ret < 0)
+    {
+      ndbg("Failed to read the PHY ID1: %d\n", ret);
+      return ret;
+    }
+
+  /* If we failed to read the PHY ID1 register, the reset the MCU to recover */
+
+  else if (phyval == 0xffff)
+    {
+      up_systemreset();
+    }
+
+  nvdbg("PHY ID1: 0x%04X\n", phyval);
+
+  /* Now check the "DAVICOM Specified Configuration Register (DSCR)", Register 16 */
+
+  ret = stm32_phyread(CONFIG_STM32_PHYADDR, 16, &phyval);
+  if (ret < 0)
+    {
+      ndbg("Failed to read the PHY Register 0x10: %d\n", ret);
+      return ret;
+    }
+
+  /* Bit 8 of the DSCR register is zero, the the DM9161 has not selected RMII.
+   * If RMII is not selected, then reset the MCU to recover.
+   */
+ 
+  else if ((phyval & (1 << 8)) == 0)
+    {
+      up_systemreset();
+    }
+
+  return OK;
+}
+#endif
+
+/****************************************************************************
  * Function: stm32_phyinit
  *
  * Description:
@@ -2458,6 +2593,16 @@ static int stm32_phyinit(FAR struct stm32_ethmac_s *priv)
     }
   up_mdelay(PHY_RESET_DELAY);
 
+  /* Special workaround for the Davicom DM9161 PHY is required. */
+
+#ifdef CONFIG_PHY_DM9161
+  ret = stm32_dm9161(priv);
+  if (ret < 0)
+    {
+      return ret;
+    }
+#endif
+
   /* Perform auto-negotion if so configured */
 
 #ifdef CONFIG_STM32_AUTONEG
@@ -2479,7 +2624,7 @@ static int stm32_phyinit(FAR struct stm32_ethmac_s *priv)
 
   if (timeout >= PHY_RETRY_TIMEOUT)
     {
-      ndbg("Timed out waiting for link status\n");
+      ndbg("Timed out waiting for link status: %04x\n", phyval);
       return -ETIMEDOUT;
     }
 
@@ -2525,6 +2670,46 @@ static int stm32_phyinit(FAR struct stm32_ethmac_s *priv)
 
   /* Remember the selected speed and duplex modes */
 
+  nvdbg("PHYSR[%d]: %04x\n", CONFIG_STM32_PHYSR, phyval);
+
+  /* Different PHYs present speed and mode information in different ways.  IF
+   * This CONFIG_STM32_PHYSR_ALTCONFIG is selected, this indicates that the PHY
+   * represents speed and mode information are combined, for example, with
+   * separate bits for 10HD, 100HD, 10FD and 100FD.
+   */
+
+#ifdef CONFIG_STM32_PHYSR_ALTCONFIG
+  switch (phyval & CONFIG_STM32_PHYSR_ALTMODE)
+    {
+      default:
+      case CONFIG_STM32_PHYSR_10HD:
+        priv->fduplex = 0;
+        priv->mbps100 = 0;
+        break;
+
+      case CONFIG_STM32_PHYSR_100HD:
+        priv->fduplex = 0;
+        priv->mbps100 = 1;
+        break;
+
+      case CONFIG_STM32_PHYSR_10FD:
+        priv->fduplex = 1;
+        priv->mbps100 = 0;
+        break;
+
+      case CONFIG_STM32_PHYSR_100FD:
+        priv->fduplex = 1;
+        priv->mbps100 = 1;
+        break;
+    }
+
+  /* Different PHYs present speed and mode information in different ways.  Some
+   * will present separate information for speed and mode (this is the default).
+   * Those PHYs, for example, may provide a 10/100 Mbps indication and a separate
+   * full/half duplex indication.
+   */
+
+#else
   if ((phyval & CONFIG_STM32_PHYSR_MODE) == CONFIG_STM32_PHYSR_FULLDUPLEX)
     {
       priv->fduplex = 1;
@@ -2534,6 +2719,7 @@ static int stm32_phyinit(FAR struct stm32_ethmac_s *priv)
     {
       priv->mbps100 = 1;
     }
+#endif
 
 #else /* Auto-negotion not selected */
 
@@ -2568,6 +2754,66 @@ static int stm32_phyinit(FAR struct stm32_ethmac_s *priv)
        priv->mbps100 ? 100 : 10);
 
   return OK;
+}
+
+/************************************************************************************
+ * Name: stm32_selectmii
+ *
+ * Description:
+ *   Selects the MII inteface.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None
+ *
+ ************************************************************************************/
+
+#ifdef CONFIG_STM32_MII
+static inline void stm32_selectmii(void)
+{
+  uint32_t regval;
+
+#ifdef CONFIG_STM32_CONNECTIVITYLINE
+  regval  = getreg32(STM32_AFIO_MAPR);
+  regval &= ~AFIO_MAPR_MII_RMII_SEL;
+  putreg32(regval, STM32_AFIO_MAPR);
+#else
+  regval  = getreg32(STM32_SYSCFG_PMC);
+  regval &= ~SYSCFG_PMC_MII_RMII_SEL;
+  putreg32(regval, STM32_SYSCFG_PMC);
+#endif
+}
+#endif
+
+/************************************************************************************
+ * Name: stm32_selectrmii
+ *
+ * Description:
+ *   Selects the RMII inteface.
+ *
+ * Input Parameters:
+ *   None
+ *
+ * Returned Value:
+ *   None
+ *
+ ************************************************************************************/
+
+static inline void stm32_selectrmii(void)
+{
+  uint32_t regval;
+
+#ifdef CONFIG_STM32_CONNECTIVITYLINE
+  regval  = getreg32(STM32_AFIO_MAPR);
+  regval |= AFIO_MAPR_MII_RMII_SEL;
+  putreg32(regval, STM32_AFIO_MAPR);
+#else
+  regval  = getreg32(STM32_SYSCFG_PMC);
+  regval |= SYSCFG_PMC_MII_RMII_SEL;
+  putreg32(regval, STM32_SYSCFG_PMC);
+#endif
 }
 
 /****************************************************************************
@@ -2605,7 +2851,7 @@ static inline void stm32_ethgpioconfig(FAR struct stm32_ethmac_s *priv)
 
   stm32_selectmii();
 
-  /* Provide clocking via MCO1 or MCO2:
+  /* Provide clocking via MCO, MCO1 or MCO2:
    *
    * "MCO1 (microcontroller clock output), used to output HSI, LSE, HSE or PLL
    *  clock (through a configurable prescaler) on PA8 pin."
@@ -2614,7 +2860,7 @@ static inline void stm32_ethgpioconfig(FAR struct stm32_ethmac_s *priv)
    *  PLLI2S clock (through a configurable prescaler) on PC9 pin."
    */
 
-#  if defined(CONFIG_STM32_MII_MCO1)
+# if defined(CONFIG_STM32_MII_MCO1)
   /* Configure MC01 to drive the PHY.  Board logic must provide MC01 clocking
    * info.
    */
@@ -2622,14 +2868,20 @@ static inline void stm32_ethgpioconfig(FAR struct stm32_ethmac_s *priv)
   stm32_configgpio(GPIO_MCO1);
   stm32_mco1config(BOARD_CFGR_MC01_SOURCE, BOARD_CFGR_MC01_DIVIDER);
 
-#  elif defined(CONFIG_STM32_MII_MCO2)
+# elif defined(CONFIG_STM32_MII_MCO2)
   /* Configure MC02 to drive the PHY.  Board logic must provide MC02 clocking
    * info.
    */
 
   stm32_configgpio(GPIO_MCO2);
   stm32_mco2config(BOARD_CFGR_MC02_SOURCE, BOARD_CFGR_MC02_DIVIDER);
-#  endif
+
+# elif defined(CONFIG_STM32_MII_MCO)
+  /* Setup MCO pin for alternative usage */
+
+  stm32_configgpio(GPIO_MCO);
+  stm32_mcoconfig(BOARD_CFGR_MCO_SOURCE);
+# endif
 
   /* MII interface pins (17):  
    *
@@ -2657,16 +2909,41 @@ static inline void stm32_ethgpioconfig(FAR struct stm32_ethmac_s *priv)
 
 #elif defined(CONFIG_STM32_RMII)
 
-  /* Setup MCO pin for alternative usage */
-
-#if defined(CONFIG_STM32_RMII_MCO)
-  stm32_configgpio(GPIO_MCO);
-  stm32_mcoconfig(BOARD_CFGR_MCO_SOURCE);
-#endif
-
   /* Select the RMII interface */
 
   stm32_selectrmii();
+
+  /* Provide clocking via MCO, MCO1 or MCO2:
+   *
+   * "MCO1 (microcontroller clock output), used to output HSI, LSE, HSE or PLL
+   *  clock (through a configurable prescaler) on PA8 pin."
+   *
+   * "MCO2 (microcontroller clock output), used to output HSE, PLL, SYSCLK or
+   *  PLLI2S clock (through a configurable prescaler) on PC9 pin."
+   */
+
+# if defined(CONFIG_STM32_RMII_MCO1)
+  /* Configure MC01 to drive the PHY.  Board logic must provide MC01 clocking
+   * info.
+   */
+
+  stm32_configgpio(GPIO_MCO1);
+  stm32_mco1config(BOARD_CFGR_MC01_SOURCE, BOARD_CFGR_MC01_DIVIDER);
+
+# elif defined(CONFIG_STM32_RMII_MCO2)
+  /* Configure MC02 to drive the PHY.  Board logic must provide MC02 clocking
+   * info.
+   */
+
+  stm32_configgpio(GPIO_MCO2);
+  stm32_mco2config(BOARD_CFGR_MC02_SOURCE, BOARD_CFGR_MC02_DIVIDER);
+
+# elif defined(CONFIG_STM32_RMII_MCO)
+  /* Setup MCO pin for alternative usage */
+
+  stm32_configgpio(GPIO_MCO);
+  stm32_mcoconfig(BOARD_CFGR_MCO_SOURCE);
+# endif
 
   /* RMII interface pins (7):
    *
@@ -2736,7 +3013,7 @@ static void stm32_ethreset(FAR struct stm32_ethmac_s *priv)
    * reset all the registers holds their reset values.
    */
 
-  regval = stm32_getreg(STM32_ETH_DMABMR);
+  regval  = stm32_getreg(STM32_ETH_DMABMR);
   regval |= ETH_DMABMR_SR;
   stm32_putreg(regval, STM32_ETH_DMABMR);
 

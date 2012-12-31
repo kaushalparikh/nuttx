@@ -30,12 +30,7 @@ config LIB_HOMEDIR
 	---help---
 		The home directory to use with operations like such as 'cd ~'
 
-config HAVE_LIBM
-	bool "Architecture-specific libm.a"
-	default n
-	---help---
-		Architecture specific logic provides an implementation of libm.a
-		and a math.h header file that can be found at include/arch/math.h.
+source lib/math/Kconfig
 
 config NOPRINTF_FIELDWIDTH
 	bool "Disable sprintf support fieldwidth"
@@ -153,42 +148,128 @@ config ARCH_OPTIMIZED_FUNCTIONS
 
 if ARCH_OPTIMIZED_FUNCTIONS
 config ARCH_MEMCPY
-	bool "memcpy"
+	bool "memcpy()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of memcpy().
+
+config MEMCPY_VIK
+	bool "Vik memcpy()"
+	default n
+	depends on !ARCH_MEMCPY
+	---help---
+		Select this option to use the optimized memcpy() function by Daniel Vik.
+		Select this option for improved performance at the expense of increased
+		size. See licensing information in the top-level COPYING file.
+
+if MEMCPY_VIK
+config MEMCPY_PRE_INC_PTRS
+	bool "Pre-increment pointers"
+	default n
+	---help---
+		Use pre-increment of pointers. Default is post increment of pointers.
+
+config MEMCPY_INDEXED_COPY
+	bool "Array indexing"
+	default y
+	---help---
+		Copying data using array indexing. Using this option, disables the
+		MEMCPY_PRE_INC_PTRS option.
+
+config MEMCPY_64BIT
+	bool "64-bit memcpy()"
+	default n
+	---help---
+		Compiles memcpy() for architectures that suppport 64-bit operations
+		efficiently.
+
+endif
 
 config ARCH_MEMCMP
-	bool "memcmp"
+	bool "memcmp()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of memcmp().
 
 config ARCH_MEMMOVE
-	bool "memmove"
+	bool "memmove()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of memmove().
 
 config ARCH_MEMSET
-	bool "memset"
+	bool "memset()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of memset().
+
+config MEMSET_OPTSPEED
+	bool "Optimize memset() for speed"
+	default n
+	depends on !ARCH_MEMSET
+	---help---
+		Select this option to use a version of memcpy() optimized for speed.
+		Default: memcpy() is optimized for size.
+
+config MEMSET_64BIT
+	bool "64-bit memset()"
+	default n
+	depends on MEMSET_OPTSPEED
+	---help---
+		Compiles memset() for architectures that suppport 64-bit operations
+		efficiently.
+
+config ARCH_STRCHR
+	bool "strchr()"
+	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strchr().
 
 config ARCH_STRCMP
-	bool "strcmp"
+	bool "strcmp()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strcmp().
 
 config ARCH_STRCPY
-	bool "strcpy"
+	bool "strcpy()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strcpy().
 
 config ARCH_STRNCPY
-	bool "strncpy"
+	bool "strncpy()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strncpy().
 
 config ARCH_STRLEN
 	bool "strlen"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strlen().
 
 config ARCH_STRNLEN
-	bool "strlen"
+	bool "strlen()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of strnlen().
 
 config ARCH_BZERO
-	bool "bzero"
+	bool "bzero()"
 	default n
+	---help---
+		Select this option if the architecture provides an optimized version
+		of bzero().
+
 endif

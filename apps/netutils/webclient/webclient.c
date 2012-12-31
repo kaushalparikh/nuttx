@@ -56,6 +56,7 @@
 
 #include <sys/socket.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
@@ -69,8 +70,33 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
+#include <nuttx/version.h>
 #include <apps/netutils/uiplib.h>
 #include <apps/netutils/webclient.h>
+
+#if defined(CONFIG_NETUTILS_CODECS)
+#  if defined(CONFIG_CODECS_URLCODE)
+#    define WGET_USE_URLENCODE 1
+#    include <apps/netutils/urldecode.h>
+#  endif
+#  if defined(CONFIG_CODECS_BASE64)
+#    include <apps/netutils/base64.h>
+#  endif
+#else
+#  undef CONFIG_CODECS_URLCODE
+#  undef CONFIG_CODECS_BASE64
+#endif
+
+#ifndef CONFIG_NSH_WGET_USERAGENT
+#  if CONFIG_VERSION_MAJOR != 0 || CONFIG_VERSION_MINOR != 0
+#    define CONFIG_NSH_WGET_USERAGENT \
+     "NuttX/" CONFIG_VERSION_STRING " (; http://www.nuttx.org/)"
+#  else
+#    define CONFIG_NSH_WGET_USERAGENT \
+    "NuttX/6.xx.x (; http://www.nuttx.org/)"
+#  endif
+#endif
 
 /****************************************************************************
  * Definitions
@@ -92,6 +118,9 @@
 #define ISO_cr                     0x0d
 #define ISO_space                  0x20
 
+#define WGET_MODE_GET              0
+#define WGET_MODE_POST             1
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -110,7 +139,7 @@ struct wget_s
   FAR char *buffer;  /* user-provided buffer */
   int buflen;        /* Length of the user provided buffer */
   int offset;        /* Offset to the beginning of interesting data */
-  int datend;        /* Offset+1 to the last valid byte of data in the buffer */  
+  int datend;        /* Offset+1 to the last valid byte of data in the buffer */
 
   /* Buffer HTTP header data and parse line at a time */
 
@@ -136,16 +165,24 @@ static const char g_httpcontenttype[] = "content-type: ";
 static const char g_httphost[]        = "host: ";
 static const char g_httplocation[]    = "location: ";
 static const char g_httpget[]         = "GET ";
+static const char g_httppost[]        = "POST ";
 
 static const char g_httpuseragentfields[] =
   "Connection: close\r\n"
-  "User-Agent: NuttX/0.4.x (; http://www.nuttx.org/)\r\n\r\n";
+  "User-Agent: "
+  CONFIG_NSH_WGET_USERAGENT
+  "\r\n\r\n";
 
 static const char g_http200[]         = "200 ";
 static const char g_http301[]         = "301 ";
 static const char g_http302[]         = "302 ";
 
 static const char g_httpcrnl[]        = "\r\n";
+
+static const char g_httpform[]        = "Content-Type: application/x-www-form-urlencoded";
+static const char g_httpcontsize[]    = "Content-Length: ";
+//static const char g_httpconn[]      = "Connection: Keep-Alive";
+//static const char g_httpcache[]     = "Cache-Control: no-cache";
 
 /****************************************************************************
  * Private Functions
@@ -162,64 +199,27 @@ static const char g_httpcrnl[]        = "\r\n";
 static char *wget_strcpy(char *dest, const char *src)
 {
   int len = strlen(src);
+
   memcpy(dest, src, len);
   dest[len] = '\0';
   return dest + len;
 }
 
 /****************************************************************************
- * Name: wget_resolvehost
+ * Name: wget_urlencode_strcpy
  ****************************************************************************/
 
-static inline int wget_resolvehost(const char *hostname, in_addr_t *ipaddr)
+#ifdef WGET_USE_URLENCODE
+static char *wget_urlencode_strcpy(char *dest, const char *src)
 {
-#ifdef CONFIG_HAVE_GETHOSTBYNAME
+  int len = strlen(src);
+  int d_len;
 
-  struct hostent *he;
-
-  nvdbg("Getting address of %s\n", hostname);
-  he = gethostbyname(hostname);
-  if (!he)
-    {
-      ndbg("gethostbyname failed: %d\n", h_errno);
-      return ERROR;
-    }
-
-  nvdbg("Using IP address %04x%04x\n", (uint16_t)he->h_addr[1], (uint16_t)he->h_addr[0]);
-  memcpy(ipaddr, he->h_addr, sizeof(in_addr_t));
-  return OK;
-
-#else
-
-# ifdef CONFIG_NET_IPv6
-  struct sockaddr_in6 addr;
-# else
-  struct sockaddr_in addr;
-# endif
-
-  /* First check if the host is an IP address. */
-
-  if (!uiplib_ipaddrconv(hostname, (uint8_t*)ipaddr))
-    {
-      /* 'host' does not point to a valid address string.  Try to resolve
-       *  the host name to an IP address.
-       */
- 
-      if (resolv_query(hostname, &addr) < 0)
-        {
-          /* Needs to set the errno here */
-
-          return ERROR;
-        }
-
-      /* Save the host address -- Needs fixed for IPv6 */
-
-      *ipaddr = addr.sin_addr.s_addr;
-  }
-  return OK;
-
-#endif
+  d_len = urlencode_len(src, len);
+  urlencode(src, len, dest, &d_len);
+  return dest + d_len;
 }
+#endif
 
 /****************************************************************************
  * Name: wget_parsestatus
@@ -374,11 +374,7 @@ exit:
 }
 
 /****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
- * Name: wget
+ * Name: wget_base
  *
  * Description:
  *   Obtain the requested file from an HTTP server using the GET method.
@@ -398,22 +394,24 @@ exit:
  *   buflen   - The size of the user provided buffer
  *   callback - As data is obtained from the host, this function is
  *              to dispose of each block of file data as it is received.
+ *   mode     - Indicates GET or POST modes
  *
  * Returned Value:
  *   0: if the GET operation completed successfully;
- *  -1: On a failure with errno set appropriately 
+ *  -1: On a failure with errno set appropriately
  *
  ****************************************************************************/
- 
-int wget(FAR const char *url, FAR char *buffer, int buflen,
-         wget_callback_t callback, FAR void *arg)
+
+static int wget_base(FAR const char *url, FAR char *buffer, int buflen,
+                     wget_callback_t callback, FAR void *arg,
+                     FAR const char *posts, uint8_t mode)
 {
   struct sockaddr_in server;
   struct wget_s ws;
   bool redirected;
-  char *dest;
+  char *dest,post_size[8];
   int sockfd;
-  int len;
+  int len,post_len;
   int ret = OK;
 
   /* Initialize the state structure */
@@ -434,6 +432,7 @@ int wget(FAR const char *url, FAR char *buffer, int buflen,
       set_errno(-ret);
       return ERROR;
     }
+
   nvdbg("hostname='%s' filename='%s'\n", ws.hostname, ws.filename);
 
   /* The following sequence may repeat indefinitely if we are redirected */
@@ -465,7 +464,7 @@ int wget(FAR const char *url, FAR char *buffer, int buflen,
 
       server.sin_family = AF_INET;
       server.sin_port   = htons(ws.port);
-      ret = wget_resolvehost(ws.hostname, &server.sin_addr.s_addr);
+      ret = dns_gethostip(ws.hostname, &server.sin_addr.s_addr);
       if (ret < 0)
         {
           /* Could not resolve host (or malformed IP address) */
@@ -489,19 +488,53 @@ int wget(FAR const char *url, FAR char *buffer, int buflen,
 
       /* Send the GET request */
 
-      dest   = ws.buffer;
-      dest   = wget_strcpy(dest, g_httpget);
-      dest   = wget_strcpy(dest, ws.filename);
-     *dest++ = ISO_space;
-      dest   = wget_strcpy(dest, g_http10);
-      dest   = wget_strcpy(dest, g_httpcrnl);
-      dest   = wget_strcpy(dest, g_httphost);
-      dest   = wget_strcpy(dest, ws.hostname);
-      dest   = wget_strcpy(dest, g_httpcrnl);
-      dest   = wget_strcpy(dest, g_httpuseragentfields);
-      len    = dest - buffer;
+      dest = ws.buffer;
+      if (mode == WGET_MODE_POST)
+        {
+          dest = wget_strcpy(dest, g_httppost);
+        }
+      else
+        {
+          dest = wget_strcpy(dest, g_httpget);
+        }
 
-      ret    = send(sockfd, buffer, len, 0);
+#ifndef WGET_USE_URLENCODE
+      dest = wget_strcpy(dest, ws.filename);
+#else
+    //dest = wget_urlencode_strcpy(dest, ws.filename);
+      dest = wget_strcpy(dest, ws.filename);
+#endif
+
+      *dest++ = ISO_space;
+      dest = wget_strcpy(dest, g_http10);
+      dest = wget_strcpy(dest, g_httpcrnl);
+      dest = wget_strcpy(dest, g_httphost);
+      dest = wget_strcpy(dest, ws.hostname);
+      dest = wget_strcpy(dest, g_httpcrnl);
+
+      if (mode == WGET_MODE_POST)
+        {
+          dest = wget_strcpy(dest, g_httpform);
+          dest = wget_strcpy(dest, g_httpcrnl);
+          dest = wget_strcpy(dest, g_httpcontsize);
+
+          /* Post content size */
+
+          post_len = strlen((char *)posts);
+          sprintf(post_size,"%d", post_len);
+          dest = wget_strcpy(dest, post_size);
+          dest = wget_strcpy(dest, g_httpcrnl);
+        }
+
+      dest = wget_strcpy(dest, g_httpuseragentfields);
+      if (mode == WGET_MODE_POST)
+        {
+          dest = wget_strcpy(dest, (char *)posts);
+        }
+
+      len = dest - buffer;
+
+      ret = send(sockfd, buffer, len, 0);
       if (ret < 0)
         {
           ndbg("send failed: %d\n", errno);
@@ -524,10 +557,10 @@ int wget(FAR const char *url, FAR char *buffer, int buflen,
               ret = ws.datend;
               goto errout_with_errno;
             }
-          else if (ret == 0)
+          else if (ws.datend == 0)
             {
               nvdbg("Connection lost\n");
-              close(sockfd);            
+              close(sockfd);
               break;
             }
 
@@ -567,7 +600,7 @@ int wget(FAR const char *url, FAR char *buffer, int buflen,
               else
                 {
                   redirected = true;
-                  close(sockfd);            
+                  close(sockfd);
                   break;
                 }
             }
@@ -581,4 +614,128 @@ errout_with_errno:
 errout:
   close(sockfd);
   return ERROR;
+}
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: web_post_str
+ ****************************************************************************/
+
+#ifdef WGET_USE_URLENCODE
+char *web_post_str(FAR char *buffer, int *size, FAR char *name,
+                   FAR char *value)
+{
+  char *dst=buffer;
+  buffer = wget_strcpy(buffer,name);
+  buffer = wget_strcpy(buffer, "=");
+  buffer = wget_urlencode_strcpy(buffer,value);
+  *size  = buffer - dst;
+  return dst;
+}
+#endif
+
+/****************************************************************************
+ * Name: web_post_strlen
+ ****************************************************************************/
+
+#ifdef WGET_USE_URLENCODE
+int web_post_strlen(FAR char *name, FAR char *value)
+{
+  return strlen(name) + urlencode_len(value,strlen(value)) + 1;
+}
+#endif
+
+/****************************************************************************
+ * Name: web_posts_str
+ ****************************************************************************/
+
+#ifdef WGET_USE_URLENCODE
+char *web_posts_str(FAR char *buffer, int *size, FAR char **name,
+                    FAR char **value, int len)
+{
+  char *dst=buffer;
+  int wlen;
+  int i;
+
+  for (i = 0; i < len; i++)
+    {
+      if (i > 0)
+        {
+          buffer = wget_strcpy(buffer,"&");
+        }
+
+      wlen    = *size;
+      buffer  = web_post_str(buffer, &wlen, name[i], value[i]);
+      buffer += wlen;
+    }
+
+  *size=buffer-dst;
+  return dst;
+}
+#endif
+
+/****************************************************************************
+ * Name: web_posts_strlen
+ ****************************************************************************/
+
+#ifdef WGET_USE_URLENCODE
+int web_posts_strlen(FAR char **name, FAR char **value, int len)
+{
+  int wlen = 0;
+  int i;
+
+  for (i = 0; i < len; i++)
+    {
+      wlen += web_post_strlen(name[i], value[i]);
+    }
+
+  return wlen + len - 1;
+}
+#endif
+
+/****************************************************************************
+ * Name: wget
+ *
+ * Description:
+ *   Obtain the requested file from an HTTP server using the GET method.
+ *
+ *   Note: If the function is passed a host name, it must already be in
+ *   the resolver cache in order for the function to connect to the web
+ *   server. It is therefore up to the calling module to implement the
+ *   resolver calls and the signal handler used for reporting a resolv
+ *   query answer.
+ *
+ * Input Parameters
+ *   url      - A pointer to a string containing either the full URL to
+ *              the file to get (e.g., http://www.nutt.org/index.html, or
+ *              http://192.168.23.1:80/index.html).
+ *   buffer   - A user provided buffer to receive the file data (also
+ *              used for the outgoing GET request
+ *   buflen   - The size of the user provided buffer
+ *   callback - As data is obtained from the host, this function is
+ *              to dispose of each block of file data as it is received.
+ *
+ * Returned Value:
+ *   0: if the GET operation completed successfully;
+ *  -1: On a failure with errno set appropriately
+ *
+ ****************************************************************************/
+
+int wget(FAR const char *url, FAR char *buffer, int buflen,
+         wget_callback_t callback, FAR void *arg)
+{
+  return wget_base(url, buffer, buflen, callback, arg, NULL, WGET_MODE_GET);
+}
+
+/****************************************************************************
+ * Name: wget_post
+ ****************************************************************************/
+
+int wget_post(FAR const char *url, FAR const char *posts, FAR char *buffer,
+              int buflen, wget_callback_t callback, FAR void *arg)
+{
+  return wget_base(url, buffer, buflen, callback, arg, posts, WGET_MODE_POST);
 }

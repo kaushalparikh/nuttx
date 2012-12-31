@@ -45,7 +45,7 @@ EXTRA_LIBS		= $(OSMODIR)/src/target/firmware/comm/libcomm.a \
 			# ^^^ Stupid hack! Why do I have to put it twice???
 endif
 
-CROSSDEV		= arm-elf-
+CROSSDEV		= arm-nuttx-elf-
 CC			= $(CROSSDEV)gcc
 CPP			= $(CROSSDEV)gcc -E
 LD			= $(CROSSDEV)ld
@@ -83,7 +83,7 @@ AFLAGS			= $(CFLAGS) -D__ASSEMBLY__
 
 NXFLATLDFLAGS1		= -r -d -warn-common
 NXFLATLDFLAGS2		= $(NXFLATLDFLAGS1) \
-			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld \
+			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld \
 			  -no-check-sections
 LDNXFLATFLAGS		= -e main -s 2048
 

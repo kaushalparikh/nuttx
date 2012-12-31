@@ -34,6 +34,10 @@
 #
 ############################################################################
 
+ifeq ($(CONFIG_NETUTILS_CODECS),y)
+CONFIGURED_APPS += netutils/codecs
+endif
+
 ifeq ($(CONFIG_NETUTILS_DHCPC),y)
 CONFIGURED_APPS += netutils/dhcpc
 endif
@@ -48,6 +52,10 @@ endif
 
 ifeq ($(CONFIG_NETUTILS_FTPD),y)
 CONFIGURED_APPS += netutils/ftpd
+endif
+
+ifeq ($(CONFIG_NETUTILS_JSON),y)
+CONFIGURED_APPS += netutils/json
 endif
 
 ifeq ($(CONFIG_NETUTILS_RESOLV),y)

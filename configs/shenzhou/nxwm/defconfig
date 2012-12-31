@@ -552,7 +552,6 @@ CONFIG_STDIO_BUFFER_SIZE=64
 CONFIG_STDIO_LINEBUFFER=y
 CONFIG_NUNGET_CHARS=2
 CONFIG_LIB_HOMEDIR="/"
-# CONFIG_HAVE_LIBM is not set
 # CONFIG_NOPRINTF_FIELDWIDTH is not set
 # CONFIG_LIBC_FLOATINGPOINT is not set
 # CONFIG_EOL_IS_CR is not set
@@ -794,7 +793,7 @@ CONFIG_NAMEDAPP=y
 #
 # UDP Discovery Daemon Example
 #
-# CONFIG_EXAMPLE_DISCOVER is not set
+# CONFIG_EXAMPLES_DISCOVER is not set
 
 #
 # uIP Web Server Example
@@ -1159,7 +1158,7 @@ CONFIG_NXWM_HEXCALCULATOR_FONTID=5
 #
 
 #
-# Custom free memory command
+# Custom Free Memory Command
 #
 # CONFIG_SYSTEM_FREE is not set
 
@@ -1173,19 +1172,27 @@ CONFIG_NXWM_HEXCALCULATOR_FONTID=5
 # CONFIG_SYSTEM_INSTALL is not set
 
 #
-# readline() support
+# readline()
 #
 CONFIG_SYSTEM_READLINE=y
 CONFIG_READLINE_ECHO=y
 
 #
-# VSN board Add-Ons
+# Power Off
 #
+# CONFIG_SYSTEM_POWEROFF is not set
 
 #
-# VSN board add-ons
+# RAMTRON
 #
-# CONFIG_VSN_POWEROFF is not set
-# CONFIG_VSN_RAMTRON is not set
-# CONFIG_VSN_SDCARD is not set
-# CONFIG_VSN_SYSINFO is not set
+# CONFIG_SYSTEM_RAMTRON is not set
+
+#
+# SD Card
+#
+# CONFIG_SYSTEM_SDCARD is not set
+
+#
+# Sysinfo
+#
+# CONFIG_SYSTEM_SYSINFO is not set

@@ -82,9 +82,14 @@ ifeq ($(CONFIG_STM32_RAISONANCE),y)
 endif
 ifeq ($(CONFIG_STM32_BUILDROOT),y)
   # NuttX buildroot under Linux or Cygwin
-  CROSSDEV = arm-elf-
-  ARCROSSDEV = arm-elf-
-  ARCHCPUFLAGS = -mtune=cortex-m3 -march=armv7-m -mfloat-abi=soft
+  # OABI
+  # CROSSDEV = arm-nuttx-elf-
+  # ARCROSSDEV = arm-nuttx-elf-
+  # ARCHCPUFLAGS = -mtune=cortex-m3 -march=armv7-m -mfloat-abi=soft
+  # EABI
+  CROSSDEV = arm-nuttx-eabi-
+  ARCROSSDEV = arm-nuttx-eabi-
+  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
   MAXOPTIMIZATION = -Os
 endif
 
@@ -146,14 +151,14 @@ CPPFLAGS = $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
 AFLAGS = $(CFLAGS) -D__ASSEMBLY__
 
 NXFLATLDFLAGS1 = -r -d -warn-common
-NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld -no-check-sections
+NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld -no-check-sections
 LDNXFLATFLAGS = -e main -s 2048
 
 OBJEXT = .o
 LIBEXT = .a
 EXEEXT =
 
-ifneq ($(CROSSDEV),arm-elf-)
+ifneq ($(CROSSDEV),arm-nuttx-eabi-)
   LDFLAGS += -nostartfiles -nodefaultlibs
 endif
 ifeq ($(CONFIG_DEBUG_SYMBOLS),y)

@@ -164,10 +164,19 @@
  *   Default: SCHED_PRIORITY_DEFAULT
  * CONFIG_NSH_TELNETD_DAEMONSTACKSIZE - Stack size allocated for the
  *   Telnet daemon. Default: 2048
- * CONFIG_NSH_TELNETD_CLIENTPRIO- Priority of the Telnet client.
+ * CONFIG_NSH_TELNETD_CLIENTPRIO - Priority of the Telnet client.
  *   Default: SCHED_PRIORITY_DEFAULT
  * CONFIG_NSH_TELNETD_CLIENTSTACKSIZE - Stack size allocated for the
  *   Telnet client. Default: 2048
+ * CONFIG_NSH_TELNET_LOGIN - Support a simple Telnet login.
+ *
+ * If CONFIG_NSH_TELNET_LOGIN is defined, then these additional
+ * options may be specified:
+ *
+ * CONFIG_NSH_TELNET_USERNAME - Login user name.  Default: "admin"
+ * CONFIG_NSH_TELNET_PASSWORD - Login password:  Default: "nuttx"
+ * CONFIG_NSH_TELNET_FAILCOUNT - Number of login retry attempts.
+ *   Default 3.
  */
 
 #ifndef CONFIG_NSH_TELNETD_PORT
@@ -188,6 +197,31 @@
 
 #ifndef CONFIG_NSH_TELNETD_CLIENTSTACKSIZE
 #  define CONFIG_NSH_TELNETD_CLIENTSTACKSIZE 2048
+#endif
+
+#ifdef CONFIG_NSH_TELNET_LOGIN
+
+#  ifndef CONFIG_NSH_TELNET_USERNAME
+#    define CONFIG_NSH_TELNET_USERNAME  "admin"
+#  endif
+
+#  ifndef CONFIG_NSH_TELNET_PASSWORD
+#    define CONFIG_NSH_TELNET_PASSWORD  "nuttx"
+#  endif
+
+#  ifndef CONFIG_NSH_TELNET_FAILCOUNT
+#    define CONFIG_NSH_TELNET_FAILCOUNT 3
+#  endif
+
+#endif /* CONFIG_NSH_TELNET_LOGIN */
+
+/* CONFIG_NSH_MAX_ROUNDTRIP - This is the maximum round trip for a response to
+ *   a ICMP ECHO request. It is in units of deciseconds.  The default is 20
+ *   (2 seconds).
+ */
+
+#ifndef CONFIG_NSH_MAX_ROUNDTRIP
+#  define CONFIG_NSH_MAX_ROUNDTRIP 20
 #endif
 
 /* Verify support for ROMFS /etc directory support options */
@@ -233,9 +267,35 @@
 #  undef CONFIG_NSH_ROMFSSECTSIZE
 #endif
 
-/* This is the maximum number of arguments that will be accepted for a command */
+/* This is the maximum number of arguments that will be accepted for a
+ * command.  Here we attempt to select the smallest number possible depending
+ * upon the of commands that are available.  Most commands use six or fewer
+ * arguments, but there are a few that require more.
+ *
+ * This value is also configurable with CONFIG_NSH_MAXARGUMENTS.  This
+ * configurability is necessary since there may also be external, "built-in"
+ * commands that require more commands than NSH is aware of.
+ */
 
-#define NSH_MAX_ARGUMENTS 6
+#ifndef CONFIG_NSH_MAXARGUMENTS
+#  define CONFIG_NSH_MAXARGUMENTS 6
+#endif
+
+#if CONFIG_NSH_MAXARGUMENTS < 11
+#  if defined(CONFIG_NET) && !defined(CONFIG_NSH_DISABLE_IFCONFIG)
+#    undef CONFIG_NSH_MAXARGUMENTS
+#    define CONFIG_NSH_MAXARGUMENTS 11
+#  endif
+#endif
+
+#if CONFIG_NSH_MAXARGUMENTS < 7
+#  if defined(CONFIG_NET_UDP) && CONFIG_NFILE_DESCRIPTORS > 0
+#    if !defined(CONFIG_NSH_DISABLE_GET) || !defined(CONFIG_NSH_DISABLE_PUT)
+#      undef CONFIG_NSH_MAXARGUMENTS
+#      define CONFIG_NSH_MAXARGUMENTS 7
+#    endif
+# endif
+#endif
 
 /* strerror() produces much nicer output but is, however, quite large and
  * will only be used if CONFIG_NSH_STRERROR is defined.  Note that the strerror
@@ -362,6 +422,14 @@ typedef int (*cmd_t)(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
  ****************************************************************************/
 
 extern const char g_nshgreeting[];
+#if defined(CONFIG_NSH_TELNET_LOGIN) && defined(CONFIG_NSH_TELNET)
+extern const char g_telnetgreeting[];
+extern const char g_userprompt[];
+extern const char g_passwordprompt[];
+extern const char g_loginsuccess[];
+extern const char g_badcredentials[];
+extern const char g_loginfailure[];
+#endif
 extern const char g_nshprompt[];
 extern const char g_nshsyntax[];
 extern const char g_fmtargrequired[];
@@ -560,6 +628,10 @@ void nsh_usbtrace(void);
 #  ifndef CONFIG_NSH_DISABLE_IFCONFIG
       int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #  endif
+#  ifndef CONFIG_NSH_DISABLE_IFUPDOWN
+      int cmd_ifup(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+      int cmd_ifdown(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
 #if defined(CONFIG_NET_UDP) && CONFIG_NFILE_DESCRIPTORS > 0
 #  ifndef CONFIG_NSH_DISABLE_GET
       int cmd_get(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
@@ -607,5 +679,29 @@ void nsh_usbtrace(void);
       int cmd_usleep(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #  endif
 #endif /* CONFIG_DISABLE_SIGNALS */
+
+#if defined(CONFIG_NETUTILS_CODECS) && defined(CONFIG_CODECS_BASE64)
+#  ifndef CONFIG_NSH_DISABLE_BASE64DEC
+      int cmd_base64decode(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
+#  ifndef CONFIG_NSH_DISABLE_BASE64ENC
+      int cmd_base64encode(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
+#endif
+
+#if defined(CONFIG_NETUTILS_CODECS) && defined(CONFIG_CODECS_HASH_MD5)
+#  ifndef CONFIG_NSH_DISABLE_MD5
+      int cmd_md5(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
+#endif
+
+#if defined(CONFIG_NETUTILS_CODECS) && defined(CONFIG_CODECS_URLCODE)
+#  ifndef CONFIG_NSH_DISABLE_URLDECODE
+      int cmd_urlencode(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
+#  ifndef CONFIG_NSH_DISABLE_URLENCODE
+      int cmd_urldecode(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#  endif
+#endif
 
 #endif /* __APPS_NSHLIB_NSH_H */

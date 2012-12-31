@@ -109,6 +109,15 @@ extern "C" {
 #define EXTERN extern
 #endif
 
+#ifdef WGET_USE_URLENCODE
+EXTERN char *web_post_str(FAR char *buffer, int *size, FAR char *name,
+                          FAR char *value);
+EXTERN char *web_posts_str(FAR char *buffer, int *size, FAR char **name,
+                           FAR char **value, int len);
+EXTERN int web_post_strlen(FAR char *name, FAR char *value);
+EXTERN int web_posts_strlen(FAR char **name, FAR char **value, int len);
+#endif
+
 /****************************************************************************
  * Name: wget
  *
@@ -140,6 +149,11 @@ extern "C" {
 
 EXTERN int wget(FAR const char *url, FAR char *buffer, int buflen,
                 wget_callback_t callback, FAR void *arg);
+
+
+EXTERN int wget_post(FAR const char *url, FAR const char *posts,
+                     FAR char *buffer, int buflen, wget_callback_t callback,
+                     FAR void *arg);
 
 #undef EXTERN
 #ifdef __cplusplus

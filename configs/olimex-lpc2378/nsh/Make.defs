@@ -61,7 +61,7 @@ ifeq ($(CONFIG_OLIMEX_LPC2378_DEVKITARM),y)
 endif
 ifeq ($(CONFIG_OLIMEX_LPC2378_BUILDROOT),y)
   # NuttX buildroot under Linux or Cygwin
-  CROSSDEV = arm-elf-
+  CROSSDEV = arm-nuttx-elf-
   MAXOPTIMIZATION = -Os
 endif
 
@@ -72,13 +72,13 @@ ifeq ($(WINTOOL),y)
   MKDEP = $(TOPDIR)/tools/mknulldeps.sh
   ARCHINCLUDES = -I. -isystem "${shell cygpath -w $(TOPDIR)/include}"
   ARCHXXINCLUDES = -I. -isystem "${shell cygpath -w $(TOPDIR)/include}" -isystem "${shell cygpath -w $(TOPDIR)/include/cxx}"
-  ARCHSCRIPT = -T "${shell cygpath -w $(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/nsh/ld.script}"
+  ARCHSCRIPT = -T "${shell cygpath -w $(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/scripts/ld.script}"
 else
   # Linux/Cygwin-native toolchain 
   MKDEP = $(TOPDIR)/tools/mkdeps.sh
   ARCHINCLUDES = -I. -isystem $(TOPDIR)/include
   ARCHXXINCLUDES = -I. -isystem $(TOPDIR)/include -isystem $(TOPDIR)/include/cxx
-  ARCHSCRIPT = -T$(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/nsh/ld.script
+  ARCHSCRIPT = -T$(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/scripts/ld.script
 endif
 
 CC = $(CROSSDEV)gcc
@@ -129,7 +129,7 @@ AFLAGS			= $(CFLAGS) -D__ASSEMBLY__
 
 NXFLATLDFLAGS1		= -r -d -warn-common
 NXFLATLDFLAGS2		= $(NXFLATLDFLAGS1) \
-			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld \
+			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld \
 			  -no-check-sections
 LDNXFLATFLAGS		= -e main -s 2048
 
@@ -137,7 +137,7 @@ OBJEXT			= .o
 LIBEXT			= .a
 EXEEXT			=
 
-ifneq ($(CROSSDEV),arm-elf-)
+ifneq ($(CROSSDEV),arm-nuttx-elf-)
   LDFLAGS		+= -nostartfiles -nodefaultlibs
 endif
 ifeq ($(CONFIG_DEBUG),y)

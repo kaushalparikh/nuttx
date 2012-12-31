@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NuttX RTOS Porting Guide</i>
       </font></big></h1>
-      <p>Last Updated: August 28, 2012</p>
+      <p>Last Updated: October 30, 2012</p>
     </td>
   </tr>
 </table>
@@ -768,7 +768,7 @@
     This is a port to the Spectrum Digital C5471 evaluation board.  The
     C5471 is a dual core processor from TI with an ARM7TDMI general purpose
     processor and a c54 DSP.  It is also known as TMS320DA180 or just DA180.
-    NuttX runs on the ARM core and is built with with a GNU arm-elf toolchain
+    NuttX runs on the ARM core and is built with with a GNU arm-nuttx-elf toolchain
     under Linux or Cygwin. This port is complete and verified.
   </li>
 
@@ -780,14 +780,14 @@
 
   <li><code>configs/ea3131</code>:
     Embedded Artists EA3131 Development bard.  This board is based on the 
-    an NXP LPC3131 MCU. This OS is built with the arm-elf toolchain.
+    an NXP LPC3131 MCU. This OS is built with the arm-nuttx-elf toolchain.
     STATUS:  This port is complete and mature.
   </li>
 
   <li><code>configs/eagle100</code>:
     Micromint Eagle-100 Development board.  This board is based on the 
     an ARM Cortex-M3 MCU, the Luminary LM3S6918. This OS is built with the
-    arm-elf toolchain.  STATUS:  This port is complete and mature.
+    arm-nuttx-elf toolchain.  STATUS:  This port is complete and mature.
   </li>
 
   <li><code>configs/ez80f0910200kitg</code>
@@ -805,7 +805,7 @@
   <li><code>configs/lm3s6965-ek</code>:
     Stellaris LM3S6965 Evaluation Kit.  This board is based on the 
     an ARM Cortex-M3 MCU, the Luminary/TI LM3S6965. This OS is built with the
-    arm-elf toolchain.  STATUS:  This port is complete and mature.
+    arm-nuttx-elf toolchain.  STATUS:  This port is complete and mature.
   </li>
 
   <li><code>configs/lm3s8962-ek</code>:
@@ -827,13 +827,13 @@
   <li><code>configs/mbed</code>:
     The configurations in this directory support the mbed board (http://mbed.org)
     that features the NXP LPC1768 microcontroller. This OS is also built
-    with the arm-elf toolchain.  STATUS:  Contributed.
+    with the arm-nuttx-elf toolchain.  STATUS:  Contributed.
   </li>
 
   <li><code>configs/mcu123-lpc214x</code>:
     This port is for the NXP LPC2148 as provided on the mcu123.com
     lpc214x development board.
-    This OS is also built with the arm-elf toolchain* under Linux or Cygwin.
+    This OS is also built with the arm-nuttx-elf toolchain* under Linux or Cygwin.
     The port supports serial, timer0, spi, and usb.
   </li>
 
@@ -858,7 +858,7 @@
   </li>
 
   <li><code>configs/ntosd-dm320</code>:
-    This port uses the Neuros OSD with a GNU arm-elf toolchain* under Linux or Cygwin.
+    This port uses the Neuros OSD with a GNU arm-nuttx-elf toolchain* under Linux or Cygwin.
     See <a href="http://wiki.neurostechnology.com/index.php/Developer_Welcome">Neuros Wiki</a>
     for further information.
     NuttX operates on the ARM9EJS of this dual core processor.
@@ -878,12 +878,12 @@
   </li>
 
   <li><code>configs/olimex-lpc2378</code>:
-    This port uses the Olimex-lpc2378 board and a GNU arm-elf toolchain under
+    This port uses the Olimex-lpc2378 board and a GNU arm-nuttx-elf toolchain under
     Linux or Cygwin.  STATUS: ostest and NSH configurations available.
   </li>
 
   <li><code>configs/olimex-strp711</code>:
-    This port uses the Olimex STR-P711 board arm-elf toolchain* under Linux or Cygwin.
+    This port uses the Olimex STR-P711 board arm-nuttx-elf toolchain* under Linux or Cygwin.
     See the <a href="http://www.olimex.com/dev/str-p711.html">Olimex</a> web site
     for further information.
     STATUS: Configurations for the basic OS test and NSH are complete and verified.
@@ -3719,9 +3719,6 @@ void (*notify)(FAR struct pm_callback_s *cb, enum pm_state_e pmstate);
     Make a raw binary format file used with many different loaders using the GNU objcopy program.
     This option  should not be selected if you are not using the GNU toolchain.
   </li>
-  <li><code>CONFIG_HAVE_LIBM</code>:
-    Toolchain supports libm.a
-  </li>
   <li><code>CONFIG_HAVE_CXX</code>:
     Toolchain supports C++ and <code>CXX</code>, <code>CXXFLAGS</code>, and <code>COMPILEXX</code>
     have been defined in the configurations <code>Make.defs</code> file.
@@ -4074,11 +4071,6 @@ build
     If set, all sockets will appear to be closed in the new task.
   </li>
   <li>
-    <code>CONFIG_NXFLAT</code>: Enable support for the NXFLAT binary format.
-    This format will support execution of NuttX binaries located
-    in a ROMFS file system (see <code>apps/examples/nxflat</code>).
-  </li>
-  <li>
     <code>CONFIG_SCHED_WORKQUEUE</code>: Create a dedicated "worker" thread to
     handle delayed processing from interrupt handlers.  This feature
     is required for some drivers but, if there are not complaints,
@@ -4144,6 +4136,54 @@ build
     where <code>app</code> is the application name.
     If not defined, <code>CONFIG_USER_ENTRYPOINT</code> defaults to
     <code>user_start</code>.
+  </li>
+</ul>
+
+<p>
+  Binary Loaders:
+</p>
+<ul>
+  <li>
+    <code>CONFIG_BINFMT_DISABLE</code>: By default, support for loadable binary formats is built.
+    This logic may be suppressed be defining this setting.
+  </li>
+  <li>
+    <code>CONFIG_BINFMT_CONSTRUCTORS</code>: Build in support for C++ constructors in loaded modules.
+  </li>
+  <li>
+    <code>CONFIG_SYMTAB_ORDEREDBYNAME</code>: Symbol tables are order by name (rather than value).
+  </li>
+  <li>
+    <code>CONFIG_NXFLAT</code>: Enable support for the NXFLAT binary format.
+    This format will support execution of NuttX binaries located
+    in a ROMFS file system (see <code>apps/examples/nxflat</code>).
+  </li>
+  <li>
+    <code>CONFIG_ELF</code>: Enable support for the ELF binary format.
+    This format will support execution of ELF binaries copied from a file system and relocated into RAM (see <code>apps/examples/elf</code>).
+  </li>
+  <p>
+    If <code>CONFIG_ELF</code> is selected, then these additional options are available:
+  </p>
+  <li>
+    <code>CONFIG_ELF_ALIGN_LOG2</code>: Align all sections to this Log2 value:  0->1, 1->2, 2->4, etc.
+  </li>
+  <li>
+    <code>CONFIG_ELF_STACKSIZE</code>: This is the default stack size that will will be used when starting ELF binaries.
+  </li>
+  <li>
+    <code>CONFIG_ELF_BUFFERSIZE</code>: This is an I/O buffer that is used to access the ELF file.  Variable length items will need to be read (such as symbol names).
+    This is really just this initial size of the buffer; it will be reallocated as necessary to hold large symbol names).
+    Default: 128
+  </li>
+  <li>
+    <code>CONFIG_ELF_BUFFERINCR</code>: This is an I/O buffer that is used to access the ELF file.  Variable length items will need to be read (such as symbol names).
+    This value specifies the size increment to use each time the buffer is reallocated.
+    Default: 32
+  </li>
+  <li>
+    <code>CONFIG_ELF_DUMPBUFFER</code>: Dump various ELF buffers for debug purposes.
+    This option requires <code>CONFIG_DEBUG</code> and <code>CONFIG_DEBUG_VERBOSE</code>.
   </li>
 </ul>
 
@@ -4222,7 +4262,7 @@ build
   <li>
     <code>CONFIG_PAGING</code>: If set =y in your configation file, this setting will
           enable the on-demand paging feature as described in
-          <a href="http://nuttx.sourceforge.net/NuttXDemandPaging.html">NuttXDemandPaging.html</a>.
+          <a href="http://www.nuttx.org/Documentation/NuttXDemandPaging.html">NuttXDemandPaging.html</a>.
   </li>
 </ul>
 
@@ -4445,6 +4485,53 @@ build
   <code>CONFIG_ARCH_BZERO</code>
 </p></ul>
 
+<p><li>
+  If <code>CONFIG_ARCH_MEMCPY</code> is <b>not</b> selected, then you make also select Daniel
+  Vik's optimized implementation of <code>memcpy()</code>:
+</p>
+<ul><li>
+  <code>CONFIG_MEMCPY_VIK</code>:
+  Select this option to use the optimized <code>memcpy()</code> function by Daniel Vik.
+  Select this option for improved performance at the expense of increased size. 
+  See licensing information in the top-level <code>COPYING</code> file.
+  Default: <code>n</code>.
+</li></ul>
+
+<p>
+  And if <code>CONFIG_MEMCPY_VIK</code> is selected, the following tuning options are available:
+</p>
+<ul><li>
+    <code>CONFIG_MEMCPY_PRE_INC_PTRS</code>:
+    Use pre-increment of pointers.
+    Default is post increment of pointers.
+</li>
+<li>
+    <code>CONFIG_MEMCPY_INDEXED_COPY</code>
+    Copying data using array indexing.
+    Using this option, disables the <code>CONFIG_MEMCPY_PRE_INC_PTRS</code> option.
+</li>
+<li>
+    <code>CONFIG_MEMCPY_64BIT</code>:
+    Compiles <code>memcpy()</code> for 64 bit architectures
+</li></ul>
+
+<p><li>
+  If <code>CONFIG_ARCH_MEMSET</code> is <b>not</b> selected, then the following option is also available:
+</p>
+<ul><li>
+  <code>CONFIG_MEMSET_OPTSPEED</code>:
+  Select this option to use a version of <code>memset()</code> optimized for speed.
+  Default: <code>memset()</code> is optimized for size.
+</li></ul>
+
+<p>
+  And if <code>CONFIG_MEMSET_OPTSPEED</code> is selected, the following tuning option is available:
+</p>
+<ul><li>
+  <code>CONFIG_MEMSET_64BIT</code>:
+  Compiles <code>memset()</code> for 64 bit architectures
+</li></ul>
+
 <li>
   <p>
     The architecture may provide custom versions of certain standard header files:
@@ -4491,6 +4578,14 @@ build
       </pre></ul>
       <p>
         So for the architectures that define <code>CONFIG_ARCH_MATH_H=y</code>,  <code>include/math.h</code> will be the redirecting <code>math.h</code> header file; for the architectures that don't select <code>CONFIG_ARCH_MATH_H</code>, the redirecting <code>math.h</code> header file will stay out-of-the-way in <code>include/nuttx/</code>.
+      </p>
+    </li>
+    <li><b><code>CONFIG_ARCH_FLOAT_H</code></b>.
+      <p>
+        If you enable the generic, built-in math library, then that math library will expect your toolchain to provide the standard <code>float.h</code> header file.
+        The <code>float.h</code> header file defines the properties of your floating point implementation.
+        It would always be best to use your toolchain's <code>float.h</code> header file but if none is avaiable, a default <code>float.h</code> header file will provided if this option is selected.
+        However, there is no assurance that the settings in this float.h are actually correct for your platform!
       </p>
     </li>
     <li><b><code>CONFIG_ARCH_STDARG_H</code></b>.
@@ -5179,6 +5274,11 @@ build
   </li>
   <li>
     <code>CONFIG_NET_RESOLV_ENTRIES</code>: Number of resolver entries
+  </li>
+  <li>
+    <code>CONFIG_NET_RESOLV_MAXRESPONSE</code>:
+    This setting determines the maximum size of response message that can be received by the DNS resolver.
+    The default is 96 but may need to be larger on enterprise networks (perhaps 176).
   </li>
 </ul>
 

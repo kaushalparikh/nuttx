@@ -10,7 +10,9 @@ Contents
   - Development Environment
   - GNU Toolchain Options
   - IDEs
-  - NuttX buildroot Toolchain
+  - NuttX EABI "buildroot" Toolchain
+  - NuttX OABI "buildroot" Toolchain
+  - NXFLAT Toolchain
   - LEDs
   - PWM
   - UARTs
@@ -174,8 +176,8 @@ IDEs
   one time from the Cygwin command line in order to obtain the pre-built
   startup object needed by RIDE.
 
-NuttX buildroot Toolchain
-=========================
+NuttX EABI "buildroot" Toolchain
+================================
 
   A GNU GCC-based toolchain is assumed.  The files */setenv.sh should
   be modified to point to the correct path to the Cortex-M3 GCC toolchain (if
@@ -198,7 +200,7 @@ NuttX buildroot Toolchain
 
   4. cd <some-dir>/buildroot
 
-  5. cp configs/cortexm3-defconfig-4.3.3 .config
+  5. cp configs/cortexm3-eabi-defconfig-4.6.3 .config
 
   6. make oldconfig
 
@@ -208,8 +210,66 @@ NuttX buildroot Toolchain
      the path to the newly built binaries.
 
   See the file configs/README.txt in the buildroot source tree.  That has more
-  detailed PLUS some special instructions that you will need to follow if you are
+  details PLUS some special instructions that you will need to follow if you are
   building a Cortex-M3 toolchain for Cygwin under Windows.
+
+  NOTE:  Unfortunately, the 4.6.3 EABI toolchain is not compatible with the
+  the NXFLAT tools.  See the top-level TODO file (under "Binary loaders") for
+  more information about this problem. If you plan to use NXFLAT, please do not
+  use the GCC 4.6.3 EABI toochain; instead use the GCC 4.3.3 OABI toolchain.
+  See instructions below.
+
+NuttX OABI "buildroot" Toolchain
+================================
+
+  The older, OABI buildroot toolchain is also available.  To use the OABI
+  toolchain:
+
+  1. When building the buildroot toolchain, either (1) modify the cortexm3-eabi-defconfig-4.6.3
+     configuration to use EABI (using 'make menuconfig'), or (2) use an exising OABI
+     configuration such as cortexm3-defconfig-4.3.3
+
+  2. Modify the Make.defs file to use the OABI conventions:
+
+    +CROSSDEV = arm-nuttx-elf-
+    +ARCHCPUFLAGS = -mtune=cortex-m3 -march=armv7-m -mfloat-abi=soft
+    +NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld -no-check-sections
+    -CROSSDEV = arm-nuttx-eabi-
+    -ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
+    -NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-pcrel.ld -no-check-sections
+
+NXFLAT Toolchain
+================
+
+  If you are *not* using the NuttX buildroot toolchain and you want to use
+  the NXFLAT tools, then you will still have to build a portion of the buildroot
+  tools -- just the NXFLAT tools.  The buildroot with the NXFLAT tools can
+  be downloaded from the NuttX SourceForge download site
+  (https://sourceforge.net/projects/nuttx/files/).
+ 
+  This GNU toolchain builds and executes in the Linux or Cygwin environment.
+
+  1. You must have already configured Nuttx in <some-dir>/nuttx.
+
+     cd tools
+     ./configure.sh lpcxpresso-lpc1768/<sub-dir>
+
+  2. Download the latest buildroot package into <some-dir>
+
+  3. unpack the buildroot tarball.  The resulting directory may
+     have versioning information on it like buildroot-x.y.z.  If so,
+     rename <some-dir>/buildroot-x.y.z to <some-dir>/buildroot.
+
+  4. cd <some-dir>/buildroot
+
+  5. cp configs/cortexm3-defconfig-nxflat .config
+
+  6. make oldconfig
+
+  7. make
+
+  8. Edit setenv.h, if necessary, so that the PATH variable includes
+     the path to the newly builtNXFLAT binaries.
 
 LEDs
 ====
@@ -922,43 +982,147 @@ can be selected as follow:
 
 Where <subdir> is one of the following:
 
+  cxxtest:
+  -------
+
+  The C++ standard libary test at apps/examples/cxxtest configuration.  This
+  test is used to verify the uClibc++ port to NuttX.  This configuration may
+  be selected as follows:
+
+    cd <nuttx-directory>/tools
+    ./configure.sh sim/cxxtest
+
+  NOTES:
+
+  1. Before you can use this example, you must first install the uClibc++
+     C++ library.  This is located outside of the NuttX source tree at
+     misc/uClibc++ in SVN.  See the README.txt file for instructions on
+     how to install uClibc++
+
+  2. This configuration uses the mconf-based configuration tool.  To
+     change this configuration using that tool, you should:
+
+     a. Build and install the mconf tool.  See nuttx/README.txt and
+        misc/tools/
+
+     b. Execute 'make menuconfig' in nuttx/ in order to start the
+        reconfiguration process.
+
+  3. Ideally, you should build with a toolchain based on GLIBC or
+     uClibc++.  It you use a toolchain based on newlib, you may see
+     an error like the following:
+
+     .../lib/libsupc++.a(vterminate.o): In function `__gnu_cxx::__verbose_terminate_handler()':
+     vterminate.cc:(....): undefined reference to `_impure_ptr'
+
+     Here is a quick'n'dirty fix:
+
+     1. Get the directory where you can find libsupc++:
+
+        arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -print-file-name=libsupc++.a
+
+     2. Go to that directory and save a copy of vterminate.o (in case you
+        want to restore it later:
+
+        cd <the-directory-containing-libsupc++.a>
+        arm-none-eabi-ar.exe -x libsupc++.a vterminate.o
+
+     3. Then remove vterminate.o from the library.  At build time, the
+        uClibc++ package will provide a usable replacement vterminate.o.
+
+     Steps 2 and 3 will require root privileges on most systems (not Cygwin).
+
+     Now NuttX should link with no problem.  If you want to restore the
+     vterminate.o that you removed from libsupc++, you can do that with:
+
+       arm-none-eabi-ar.exe rcs libsupc++.a vterminate.o
+        
+  4. Exceptions are enabled and workking (CONFIG_UCLIBCXX_EXCEPTIONS=y)
+
+  elf:
+  ---
+
+    This configuration derives from the ostest configuration.  It has
+    been modified to us apps/examples/elf in order to test the ELF
+    loader.
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the mconf tool.  See nuttx/README.txt and
+          misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default toolchain:
+
+       CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+
+    3. By default, this project assumes that you are *NOT* using the DFU
+       bootloader.
+ 
+    4. It appears that you cannot excute from CCM RAM.  This is why the
+       following definition appears in the defconfig file:
+
+       CONFIG_STM32_CCMEXCLUDE=y
+
+    5. This configuration requires that you have the genromfs tool installed
+       on your system and that you have the full path to the installed genromfs
+       executable in PATH variable (see apps/examples/README.txt)
+
   ostest:
   ------
     This configuration directory, performs a simple OS test using
-    examples/ostest.  By default, this project assumes that you are
-    using the DFU bootloader.
+    apps/examples/ostest.
 
-    Default toolchain:
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
 
-    CONFIG_STM32_CODESOURCERYL=y  : CodeSourcery under Linux / Mac OS X
+       a. Build and install the mconf tool.  See nuttx/README.txt and
+          misc/tools/
 
-    If you use the Atollic toolchain, then the FPU test can be enabled in the
-    examples/ostest by adding the following your NuttX configuration file:
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
 
-     -CONFIG_ARCH_FPU=n              : Enable FPU support
-     +CONFIG_ARCH_FPU=y
+    2. Default toolchain:
 
-     -CONFIG_STM32_CODESOURCERYW=y   : Disable the CodeSourcery toolchain
-     +CONFIG_STM32_CODESOURCERYW=n
+       CONFIG_STM32_CODESOURCERYL=y  : CodeSourcery under Linux / Mac OS X
 
-     -CONFIG_STM32_ATOLLIC_LITE=n   : Enable *one* the Atollic toolchains
-      CONFIG_STM32_ATOLLIC_PRO=n
-     -CONFIG_STM32_ATOLLIC_LITE=y   : The "Lite" version
-      CONFIG_STM32_ATOLLIC_PRO=n    : The "Pro" version
+    3. By default, this project assumes that you are *NOT* using the DFU
+       bootloader.
+ 
+    4. If you use the Atollic toolchain, then the FPU test can be enabled in the
+      examples/ostest by adding the following your NuttX configuration file:
 
-     -CONFIG_INTELHEX_BINARY=y       : Suppress generation FLASH download formats
-     +CONFIG_INTELHEX_BINARY=n       : (Only necessary with the "Lite" version)
+      -CONFIG_ARCH_FPU=n              : Enable FPU support
+      +CONFIG_ARCH_FPU=y
 
-     -CONFIG_HAVE_CXX=y              : Suppress generation of C++ code
-     +CONFIG_HAVE_CXX=n              : (Only necessary with the "Lite" version)
+      -CONFIG_STM32_CODESOURCERYW=y   : Disable the CodeSourcery toolchain
+      +CONFIG_STM32_CODESOURCERYW=n
 
-     -CONFIG_SCHED_WAITPID=y         : Enable the waitpid() API needed by the FPU test
-     +CONFIG_SCHED_WAITPID=n
+      -CONFIG_STM32_ATOLLIC_LITE=n   : Enable *one* the Atollic toolchains
+       CONFIG_STM32_ATOLLIC_PRO=n
+      -CONFIG_STM32_ATOLLIC_LITE=y   : The "Lite" version
+       CONFIG_STM32_ATOLLIC_PRO=n    : The "Pro" version
 
-    The FPU test also needs to know the size of the FPU registers save area in
-    bytes (see arch/arm/include/armv7-m/irq_lazyfpu.h):
+      -CONFIG_INTELHEX_BINARY=y       : Suppress generation FLASH download formats
+      +CONFIG_INTELHEX_BINARY=n       : (Only necessary with the "Lite" version)
 
-     -CONFIG_EXAMPLES_OSTEST_FPUSIZE=(4*33)
+      -CONFIG_HAVE_CXX=y              : Suppress generation of C++ code
+      +CONFIG_HAVE_CXX=n              : (Only necessary with the "Lite" version)
+
+      -CONFIG_SCHED_WAITPID=y         : Enable the waitpid() API needed by the FPU test
+      +CONFIG_SCHED_WAITPID=n
+
+      The FPU test also needs to know the size of the FPU registers save area in
+      bytes (see arch/arm/include/armv7-m/irq_lazyfpu.h):
+
+      -CONFIG_EXAMPLES_OSTEST_FPUSIZE=(4*33)
  
   nsh:
   ---

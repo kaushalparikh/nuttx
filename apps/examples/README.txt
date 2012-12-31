@@ -60,20 +60,20 @@ examples/buttons
   This is a simple configuration that may be used to test the board-
   specific button interfaces.  Configuration options:
 
-  CONFIG_ARCH_BUTTONS                - Must be defined for button support
-  CONFIG_EXAMPLE_BUTTONS_MIN         - Lowest button number (MIN=0)
-  CONFIG_EXAMPLE_BUTTONS_MAX         - Highest button number (MAX=7)
+  CONFIG_ARCH_BUTTONS                 - Must be defined for button support
+  CONFIG_EXAMPLES_BUTTONS_MIN         - Lowest button number (MIN=0)
+  CONFIG_EXAMPLES_BUTTONS_MAX         - Highest button number (MAX=7)
 
-  CONFIG_ARCH_IRQBUTTONS             - Must be defined for interrupting button support
-  CONFIG_EXAMPLE_IRQBUTTONS_MIN      - Lowest interrupting button number (MIN=0)
-  CONFIG_EXAMPLE_IRQBUTTONS_MAX      - Highest interrupting button number (MAX=7)
+  CONFIG_ARCH_IRQBUTTONS              - Must be defined for interrupting button support
+  CONFIG_EXAMPLES_IRQBUTTONS_MIN      - Lowest interrupting button number (MIN=0)
+  CONFIG_EXAMPLES_IRQBUTTONS_MAX      - Highest interrupting button number (MAX=7)
 
   Name strings for buttons:
   
-    CONFIG_EXAMPLE_BUTTONS_NAME0, CONFIG_EXAMPLE_BUTTONS_NAME1,
-    CONFIG_EXAMPLE_BUTTONS_NAME2, CONFIG_EXAMPLE_BUTTONS_NAME3,
-    CONFIG_EXAMPLE_BUTTONS_NAME4, CONFIG_EXAMPLE_BUTTONS_NAME5,
-    CONFIG_EXAMPLE_BUTTONS_NAME6, CONFIG_EXAMPLE_BUTTONS_NAME7,
+    CONFIG_EXAMPLES_BUTTONS_NAME0, CONFIG_EXAMPLES_BUTTONS_NAME1,
+    CONFIG_EXAMPLES_BUTTONS_NAME2, CONFIG_EXAMPLES_BUTTONS_NAME3,
+    CONFIG_EXAMPLES_BUTTONS_NAME4, CONFIG_EXAMPLES_BUTTONS_NAME5,
+    CONFIG_EXAMPLES_BUTTONS_NAME6, CONFIG_EXAMPLES_BUTTONS_NAME7,
 
   Additional architecture-/board- specific configuration settings may also
   be required.
@@ -239,6 +239,29 @@ examples/composite
   CONFIG_EXAMPLES_COMPOSITE_TRACEINTERRUPTS
     Show interrupt-related events.
 
+examples/cxxtest
+^^^^^^^^^^^^^^^^
+
+  This is a test of the C++ standard library.  At present a port of the uClibc++
+  C++ library is available.  Due to licensinging issues, the uClibc++ C++ library
+  is not included in the NuttX source tree by default, but must be installed
+  (see misc/uClibc++/README.txt for installation).
+
+  The  NuttX setting that are required include:
+
+    CONFIG_HAVE_CXX=y
+    CONFIG_HAVE_CXXINITIALIZE=y
+    CONFIG_UCLIBCXX=y
+
+  Additional uClibc++ settings may be required in your build environment.
+
+  The uClibc++ test includes simple test of:
+
+    - iostreams,
+    - STL,
+    - RTTI, and
+    - Exceptions
+
 examples/dhcpd
 ^^^^^^^^^^^^^^
 
@@ -260,10 +283,10 @@ examples/dhcpd
                                      configuration settings)
     CONFIG_NET_BROADCAST=y         - UDP broadcast support is needed.
 
-    CONFIG_EXAMPLE_DHCPD_NOMAC     - (May be defined to use software assigned MAC)
-    CONFIG_EXAMPLE_DHCPD_IPADDR    - Target IP address
-    CONFIG_EXAMPLE_DHCPD_DRIPADDR  - Default router IP addess
-    CONFIG_EXAMPLE_DHCPD_NETMASK   - Network mask
+    CONFIG_EXAMPLES_DHCPD_NOMAC     - (May be defined to use software assigned MAC)
+    CONFIG_EXAMPLES_DHCPD_IPADDR    - Target IP address
+    CONFIG_EXAMPLES_DHCPD_DRIPADDR  - Default router IP addess
+    CONFIG_EXAMPLES_DHCPD_NETMASK   - Network mask
 
   See also CONFIG_NETUTILS_DHCPD_* settings described elsewhere
   and used in netutils/dhcpd/dhcpd.c. These settings are required
@@ -291,11 +314,73 @@ examples/discover
 
   NuttX configuration settings:
 
-    CONFIG_EXAMPLE_DISCOVER_DHCPC - DHCP Client
-    CONFIG_EXAMPLE_DISCOVER_NOMAC - Use canned MAC address
-    CONFIG_EXAMPLE_DISCOVER_IPADDR - Target IP address
-    CONFIG_EXAMPLE_DISCOVER_DRIPADDR - Router IP address
-    CONFIG_EXAMPLE_DISCOVER_NETMASK - Network Mask
+    CONFIG_EXAMPLES_DISCOVER_DHCPC - DHCP Client
+    CONFIG_EXAMPLES_DISCOVER_NOMAC - Use canned MAC address
+    CONFIG_EXAMPLES_DISCOVER_IPADDR - Target IP address
+    CONFIG_EXAMPLES_DISCOVER_DRIPADDR - Router IP address
+    CONFIG_EXAMPLES_DISCOVER_NETMASK - Network Mask
+
+examples/elf
+^^^^^^^^^^^^
+
+  This example builds a small ELF loader test case.  This includes several
+  test programs under examples/elf tests.  These tests are build using
+  the relocatable ELF format and installed in a ROMFS file system.  At run time,
+  each program in the ROMFS file system is executed.  Requires CONFIG_ELF.
+  Other configuration options:
+
+    CONFIG_EXAMPLES_ELF_DEVMINOR - The minor device number of the ROMFS block.
+      For example, the N in /dev/ramN. Used for registering the RAM block driver
+      that will hold the ROMFS file system containing the ELF executables to be
+      tested.  Default: 0
+
+    CONFIG_EXAMPLES_ELF_DEVPATH - The path to the ROMFS block driver device.  This
+      must match EXAMPLES_ELF_DEVMINOR. Used for registering the RAM block driver
+      that will hold the ROMFS file system containing the ELF executables to be
+      tested.  Default: "/dev/ram0"
+
+  NOTES:
+
+  1. CFLAGS should be provided in CELFFLAGS.  RAM and FLASH memory regions
+     may require long allcs.  For ARM, this might be:
+
+       CELFFLAGS = $(CFLAGS) -mlong-calls
+
+     Similarly for C++ flags which must be provided in CXXELFFLAGS.
+
+  2. Your top-level nuttx/Make.defs file must alos include an approproate definition,
+     LDELFFLAGS, to generate a relocatable ELF object.  With GNU LD, this should
+     include '-r' and '-e main' (or _main on some platforms).
+
+       LDELFFLAGS = -r -e main
+
+     If you use GCC to link, you make also need to include '-nostdlib' or 
+     '-nostartfiles' and '-nodefaultlibs'.
+
+  3. This example also requires genromfs.  genromfs can be build as part of the
+     nuttx toolchain.  Or can built from the genromfs sources that can be found
+     at misc/tools/genromfs-0.5.2.tar.gz.  In any event, the PATH variable must
+     include the path to the genromfs executable.
+
+  4. ELF size:  The ELF files in this example are, be default, quite large
+     because they include a lot of "build garbage".  You can greatly reduce the
+     size of the ELF binaries are using the 'objcopy --strip-unneeded' command to
+     remove un-necessary information from the ELF files.
+
+  5. Simulator.  You cannot use this example with the the NuttX simulator on
+     Cygwin.  That is because the Cygwin GCC does not generate ELF file but
+     rather some Windows-native binary format.
+
+     If you really want to do this, you can create a NuttX x86 buildroot toolchain
+     and use that be build the ELF executables for the ROMFS file system.
+
+  6. Linker scripts.  You might also want to use a linker scripts to combine
+     sections better.  An example linker script is at nuttx/binfmt/libelf/gnu-elf.ld.
+     That example might have to be tuned for your particular linker output to
+     position additional sections correctly.  The GNU LD LDELFFLAGS then might
+     be:
+
+       LDELFFLAGS = -r -e main -T$(TOPDIR)/binfmt/libelf/gnu-elf.ld
 
 examples/ftpc
 ^^^^^^^^^^^^^
@@ -367,12 +452,12 @@ examples/ftpd
   If CONFIG_EXAMPLES_FTPD_NONETINIT is not defined, then the following may
   be specified to customized the network configuration:
 
-    CONFIG_EXAMPLE_FTPD_NOMAC - If the hardware has no MAC address of its
+    CONFIG_EXAMPLES_FTPD_NOMAC - If the hardware has no MAC address of its
       own, define this =y to provide a bogus address for testing.
-    CONFIG_EXAMPLE_FTPD_IPADDR - The target IP address.  Default 10.0.0.2
-    CONFIG_EXAMPLE_FTPD_DRIPADDR - The default router address. Default
+    CONFIG_EXAMPLES_FTPD_IPADDR - The target IP address.  Default 10.0.0.2
+    CONFIG_EXAMPLES_FTPD_DRIPADDR - The default router address. Default
       10.0.0.1
-    CONFIG_EXAMPLE_FTPD_NETMASK - The network mask.  Default: 255.255.255.0
+    CONFIG_EXAMPLES_FTPD_NETMASK - The network mask.  Default: 255.255.255.0
 
   Other required configuration settings:  Of course TCP networking support
   is required.  But here are a couple that are less obvious:
@@ -465,15 +550,15 @@ examples/igmp
   does not do much of value -- Much more is needed in order to verify
   the IGMP features!
 
-  * CONFIG_EXAMPLE_IGMP_NOMAC
+  * CONFIG_EXAMPLES_IGMP_NOMAC
       Set if the hardware has no MAC address; one will be assigned
-  * CONFIG_EXAMPLE_IGMP_IPADDR
+  * CONFIG_EXAMPLES_IGMP_IPADDR
       Target board IP address
-  * CONFIG_EXAMPLE_IGMP_DRIPADDR
+  * CONFIG_EXAMPLES_IGMP_DRIPADDR
       Default router address
-  * CONFIG_EXAMPLE_IGMP_NETMASK
+  * CONFIG_EXAMPLES_IGMP_NETMASK
       Network mask
-  * CONFIG_EXAMPLE_IGMP_GRPADDR
+  * CONFIG_EXAMPLES_IGMP_GRPADDR
       Multicast group address
 
   Applications using this example will need to provide an appconfig
@@ -481,6 +566,19 @@ examples/igmp
   like:
 
   CONFIGURED_APPS += uiplib
+
+examples/json
+^^^^^^^^^^^^^
+
+  This example exercises the cJSON implementation at apps/netutils/json.
+  This example contains logic taken from the cJSON project:
+
+    http://sourceforge.net/projects/cjson/
+
+  The example corresponds to SVN revision r42 (with lots of changes for
+  NuttX coding standards).  As of r42, the SVN repository was last updated
+  on 2011-10-10 so I presume that the code is stable and there is no risk
+  of maintaining duplicate logic in the NuttX repository.
 
 examples/lcdrw
 ^^^^^^^^^^^^^^
@@ -496,6 +594,11 @@ examples/lcdrw
   * CONFIG_EXAMPLES_LDCRW_YRES
       LCD Y resolution.  Default: 320
   
+  NOTE: This test exercises internal lcd driver interfaces.  As such, it
+  relies on internal OS interfaces that are not normally available to a
+  user-space program.  As a result, this example cannot be used if a
+  NuttX is built as a protected, supervisor kernel (CONFIG_NUTTX_KERNEL).
+
 examples/mm
 ^^^^^^^^^^^
 
@@ -1023,10 +1126,10 @@ examples/poll
   CONFIG_NSOCKET_DESCRIPTORS        - Defined to be greater than 0
   CONFIG_NET_NTCP_READAHEAD_BUFFERS - Defined to be greater than zero
 
-  CONFIG_EXAMPLE_POLL_NOMAC         - (May be defined to use software assigned MAC)
-  CONFIG_EXAMPLE_POLL_IPADDR        - Target IP address
-  CONFIG_EXAMPLE_POLL_DRIPADDR      - Default router IP addess
-  CONFIG_EXAMPLE_POLL_NETMASK       - Network mask
+  CONFIG_EXAMPLES_POLL_NOMAC         - (May be defined to use software assigned MAC)
+  CONFIG_EXAMPLES_POLL_IPADDR        - Target IP address
+  CONFIG_EXAMPLES_POLL_DRIPADDR      - Default router IP addess
+  CONFIG_EXAMPLES_POLL_NETMASK       - Network mask
 
   In order to for select to work with incoming connections, you
   must also select:
@@ -1110,17 +1213,28 @@ examples/qencoder
 
   Specific configuration options for this example include:
  
-  CONFIG_EXAMPLES_QENCODER_DEVPATH - The path to the QE device. Default:
-    /dev/qe0
-  CONFIG_EXAMPLES_QENCODER_NSAMPLES - If CONFIG_NSH_BUILTIN_APPS
-    is defined, then the number of samples is provided on the command line
-    and this value is ignored.  Otherwise, this number of samples is
-    collected and the program terminates.  Default:  Samples are collected
-    indefinitely.
-  CONFIG_EXAMPLES_QENCODER_DELAY - This value provides the delay (in
-    milliseonds) between each sample.  If CONFIG_NSH_BUILTIN_APPS
-    is defined, then this value is the default delay if no other delay is
-    provided on the command line.  Default:  100 milliseconds
+    CONFIG_EXAMPLES_QENCODER_DEVPATH - The path to the QE device. Default:
+      /dev/qe0
+    CONFIG_EXAMPLES_QENCODER_NSAMPLES - If CONFIG_NSH_BUILTIN_APPS
+      is defined, then the number of samples is provided on the command line
+      and this value is ignored.  Otherwise, this number of samples is
+      collected and the program terminates.  Default:  Samples are collected
+      indefinitely.
+    CONFIG_EXAMPLES_QENCODER_DELAY - This value provides the delay (in
+      milliseonds) between each sample.  If CONFIG_NSH_BUILTIN_APPS
+      is defined, then this value is the default delay if no other delay is
+      provided on the command line.  Default:  100 milliseconds
+
+examples/relays
+^^^^^^^^^^^^^^^
+
+  Requires CONFIG_ARCH_RELAYS.
+  Contributed by Darcy Gong.
+
+  NOTE: This test exercises internal relay driver interfaces.  As such, it
+  relies on internal OS interfaces that are not normally available to a
+  user-space program.  As a result, this example cannot be used if a
+  NuttX is built as a protected, supervisor kernel (CONFIG_NUTTX_KERNEL).
 
 examples/rgmp
 ^^^^^^^^^^^^^
@@ -1163,14 +1277,14 @@ examples/sendmail
 
  Settings unique to this example include:
 
-    CONFIG_EXAMPLE_SENDMAIL_NOMAC     - May be defined to use software assigned MAC (optional)
-    CONFIG_EXAMPLE_SENDMAIL_IPADDR    - Target IP address (required)
-    CONFIG_EXAMPLE_SENDMAIL_DRIPADDR  - Default router IP addess (required)
-    CONFIG_EXAMPLE_SENDMAILT_NETMASK  - Network mask (required)
-    CONFIG_EXAMPLE_SENDMAIL_RECIPIENT - The recipient of the email (required)
-    CONFIG_EXAMPLE_SENDMAIL_SENDER    - Optional. Default: "nuttx-testing@example.com"
-    CONFIG_EXAMPLE_SENDMAIL_SUBJECT   - Optional. Default: "Testing SMTP from NuttX"
-    CONFIG_EXAMPLE_SENDMAIL_BODY   -    Optional. Default: "Test message sent by NuttX"
+    CONFIG_EXAMPLES_SENDMAIL_NOMAC     - May be defined to use software assigned MAC (optional)
+    CONFIG_EXAMPLES_SENDMAIL_IPADDR    - Target IP address (required)
+    CONFIG_EXAMPLES_SENDMAIL_DRIPADDR  - Default router IP addess (required)
+    CONFIG_EXAMPLES_SENDMAILT_NETMASK  - Network mask (required)
+    CONFIG_EXAMPLES_SENDMAIL_RECIPIENT - The recipient of the email (required)
+    CONFIG_EXAMPLES_SENDMAIL_SENDER    - Optional. Default: "nuttx-testing@example.com"
+    CONFIG_EXAMPLES_SENDMAIL_SUBJECT   - Optional. Default: "Testing SMTP from NuttX"
+    CONFIG_EXAMPLES_SENDMAIL_BODY   -    Optional. Default: "Test message sent by NuttX"
 
   NOTE: This test has not been verified on the NuttX target environment.
   As of this writing, unit-tested in the Cygwin/Linux host environment.
@@ -1213,12 +1327,12 @@ examples/telnetd
       Default: SCHED_PRIORITY_DEFAULT
     CONFIG_EXAMPLES_TELNETD_CLIENTSTACKSIZE - Stack size allocated for the
       Telnet client. Default: 2048
-    CONFIG_EXAMPLE_TELNETD_NOMAC - If the hardware has no MAC address of its
+    CONFIG_EXAMPLES_TELNETD_NOMAC - If the hardware has no MAC address of its
       own, define this =y to provide a bogus address for testing.
-    CONFIG_EXAMPLE_TELNETD_IPADDR - The target IP address.  Default 10.0.0.2
-    CONFIG_EXAMPLE_TELNETD_DRIPADDR - The default router address. Default
+    CONFIG_EXAMPLES_TELNETD_IPADDR - The target IP address.  Default 10.0.0.2
+    CONFIG_EXAMPLES_TELNETD_DRIPADDR - The default router address. Default
       10.0.0.1
-    CONFIG_EXAMPLE_TELNETD_NETMASK - The network mask.  Default: 255.255.255.0
+    CONFIG_EXAMPLES_TELNETD_NETMASK - The network mask.  Default: 255.255.255.0
  
   The appconfig file (apps/.config) should include:
 
@@ -1240,9 +1354,9 @@ examples/thttpd
   CGI programs.  see configs/README.txt for most THTTPD settings.
   In addition to those, this example accepts:
 
-    CONFIG_EXAMPLE_THTTPD_NOMAC    - (May be defined to use software assigned MAC)
-    CONFIG_EXAMPLE_THTTPD_DRIPADDR - Default router IP addess
-    CONFIG_EXAMPLE_THTTPD_NETMASK  - Network mask
+    CONFIG_EXAMPLES_THTTPD_NOMAC    - (May be defined to use software assigned MAC)
+    CONFIG_EXAMPLES_THTTPD_DRIPADDR - Default router IP addess
+    CONFIG_EXAMPLES_THTTPD_NETMASK  - Network mask
 
   Applications using this example will need to provide an appconfig
   file in the configuration directory with instruction to build applications
@@ -1335,11 +1449,11 @@ examples/uip
   This is a port of uIP tiny webserver example application.  Settings
   specific to this example include:
 
-    CONFIG_EXAMPLE_UIP_NOMAC     - (May be defined to use software assigned MAC)
-    CONFIG_EXAMPLE_UIP_IPADDR    - Target IP address
-    CONFIG_EXAMPLE_UIP_DRIPADDR  - Default router IP addess
-    CONFIG_EXAMPLE_UIP_NETMASK   - Network mask
-    CONFIG_EXAMPLE_UIP_DHCPC     - Select to get IP address via DHCP
+    CONFIG_EXAMPLES_UIP_NOMAC     - (May be defined to use software assigned MAC)
+    CONFIG_EXAMPLES_UIP_IPADDR    - Target IP address
+    CONFIG_EXAMPLES_UIP_DRIPADDR  - Default router IP addess
+    CONFIG_EXAMPLES_UIP_NETMASK   - Network mask
+    CONFIG_EXAMPLES_UIP_DHCPC     - Select to get IP address via DHCP
 
   If you use DHCPC, then some special configuration network options are
   required.  These include:
@@ -1637,11 +1751,11 @@ examples/wget
   A simple web client example.  It will obtain a file from a server using the HTTP
   protocol.  Settings unique to this example include:
 
-    CONFIG_EXAMPLE_WGET_URL       - The URL of the file to get
-    CONFIG_EXAMPLE_WGET_NOMAC     - (May be defined to use software assigned MAC)
-    CONFIG_EXAMPLE_WGET_IPADDR    - Target IP address
-    CONFIG_EXAMPLE_WGET_DRIPADDR  - Default router IP addess
-    CONFIG_EXAMPLE_WGET_NETMASK   - Network mask
+    CONFIG_EXAMPLES_WGET_URL       - The URL of the file to get
+    CONFIG_EXAMPLES_WGET_NOMAC     - (May be defined to use software assigned MAC)
+    CONFIG_EXAMPLES_WGET_IPADDR    - Target IP address
+    CONFIG_EXAMPLES_WGET_DRIPADDR  - Default router IP addess
+    CONFIG_EXAMPLES_WGET_NETMASK   - Network mask
 
   This example uses netutils/webclient.  Additional configuration settings apply
   to that code as follows (but built-in defaults are probably OK):
@@ -1672,7 +1786,16 @@ examples/wget
     CONFIGURED_APPS += resolv
     CONFIGURED_APPS += webclient
 
+examples/wget
+^^^^^^^^^^^^^
+
+  Uses wget to get a JSON encoded file, then decodes the file.
+
+    CONFIG_EXAMPLES_WDGETJSON_MAXSIZE - Max. JSON Buffer Size
+    CONFIG_EXAMPLES_EXAMPLES_WGETJSON_URL - wget URL
+
 examples/xmlrpc
+^^^^^^^^^^^^^^^
 
   This example exercises the "Embeddable Lightweight XML-RPC Server" which
   is discussed at:

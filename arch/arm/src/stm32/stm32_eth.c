@@ -1656,6 +1656,7 @@ static void stm32_receive(FAR struct stm32_ethmac_s *priv)
 
           stm32_freebuffer(priv, dev->d_buf);
           dev->d_buf = NULL;
+          dev->d_len = 0;
         }
     }
 }
@@ -1956,7 +1957,7 @@ static void stm32_polltimer(int argc, uint32_t arg, ...)
   /* Check if the next TX descriptor is owned by the Ethernet DMA or CPU.  We
    * cannot perform the timer poll if we are unable to accept another packet
    * for transmission.  Hmmm.. might be bug here.  Does this mean if there is
-   * a transmit in progress, we will missing TCP time state updates?
+   * a transmit in progress, we will miss TCP time state updates?
    *
    * In a race condition, ETH_TDES0_OWN may be cleared BUT still not available
    * because stm32_freeframe() has not yet run.  If stm32_freeframe() has run,

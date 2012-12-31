@@ -12,9 +12,9 @@ nuttx/
   (2)  Signals (sched/, arch/)
   (2)  pthreads (sched/)
   (2)  C++ Support
-  (5)  Binary loaders (binfmt/)
+  (6)  Binary loaders (binfmt/)
  (17)  Network (net/, drivers/net)
-  (3)  USB (drivers/usbdev, drivers/usbhost)
+  (4)  USB (drivers/usbdev, drivers/usbhost)
  (11)  Libraries (lib/)
   (9)  File system/Generic drivers (fs/, drivers/)
   (5)  Graphics subystem (graphics/)
@@ -32,7 +32,7 @@ nuttx/
   (0)  ARM/LPC43x (arch/arm/src/lpc43xx/)
   (3)  ARM/STR71x (arch/arm/src/str71x/)
   (3)  ARM/LM3S6918 (arch/arm/src/lm3s/)
-  (7)  ARM/STM32 (arch/arm/src/stm32/)
+  (6)  ARM/STM32 (arch/arm/src/stm32/)
   (3)  AVR (arch/avr)
   (0)  Intel x86 (arch/x86)
   (4)  8051 / MCS51 (arch/8051/)
@@ -376,15 +376,15 @@ o Binary loaders (binfmt/)
   Description: Windows build issue.  Some of the configurations that use NXFLAT have
                the linker script specified like this:
 
-               NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld -no-check-sections
+               NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld -no-check-sections
 
                That will not work for windows-based tools because they require Windows
                style paths.  The solution is to do something like this:
 
                if ($(WINTOOL)y)
-                 NXFLATLDSCRIPT=${cygpath -w $(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld}
+                 NXFLATLDSCRIPT=${cygpath -w $(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld}
                else
-                 NXFLATLDSCRIPT=$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld
+                 NXFLATLDSCRIPT=$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld
                endif
                
                Then use
@@ -394,6 +394,48 @@ o Binary loaders (binfmt/)
   Status:      Open
   Priority:    There are too many references like the above.  They will have
                to get fixed as needed for Windows native tool builds.
+
+  Title:       TOOLCHAIN COMPATIBILITY PROBLEM
+  Descripton:  The older 4.3.3 compiler generates GOTOFF relocations to the constant
+               strings, like:
+
+               .L3:
+                  .word   .LC0(GOTOFF)
+                  .word   .LC1(GOTOFF)
+                  .word   .LC2(GOTOFF)
+                  .word   .LC3(GOTOFF)
+                  .word   .LC4(GOTOFF)
+
+               Where .LC0, LC1, LC2, LC3, and .LC4 are the labels correponding to strings in
+               the .rodata.str1.1 section.  One consequence of this is that .rodata must reside
+               in D-Space since it will addressed relative to the GOT (see the section entitled
+               "Read-Only Data in RAM" at
+               http://nuttx.org/Documentation/NuttXNxFlat.html#limitations).
+
+               The newer 4.6.3compiler generated PC relative relocations to the strings:
+
+               .L2:
+                  .word   .LC0-(.LPIC0+4)
+                  .word   .LC1-(.LPIC1+4)
+                  .word   .LC2-(.LPIC2+4)
+                  .word   .LC3-(.LPIC4+4)
+                  .word   .LC4-(.LPIC5+4)
+
+               This is good and bad.  This is good because it means that .rodata.str1.1 can now
+               reside in FLASH with .text and can be accessed using PC-relative addressing. 
+               That can be accomplished by simply moving the .rodata from the .data section to
+               the .text section in the linker script.  (The NXFLAT linker script is located at
+               nuttx/binfmt/libnxflat/gnu-nxflat.ld).
+
+               This is bad because a lot of stuff may get broken an a lot of test will need to
+               be done.  One question that I have is does this apply to all kinds of .rodata? 
+               Or just to .rodata.str1.1?
+  
+  Status:      Open.  Many of the required changes are in place but, unfortunately, not enough
+               go be fully functional.  I think all of the I-Space-to-I-Space fixes are in place.
+               However, the generated code also includes PC-relative references to .bss which
+               just cannot be done.
+  Priority:    Medium.  The workaround for now is to use the older, 4.3.3 OABI compiler.
 
 o Network (net/, drivers/net)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -586,6 +628,11 @@ o USB (drivers/usbdev, drivers/usbhost)
   Priority:    High for class drivers that need EP0 data.  For example, the
                CDC/ACM serial driver might need the line coding data (that
                data is not used currenly, but it might be).
+
+  Title:       USB HUB SUPPORT
+  Description: Add support for USB hubs
+  Status:      Open
+  Priority:    Low/Unknown.  This is a feature enhancement.
 
 o Libraries (lib/)
   ^^^^^^^^^^^^^^^^
@@ -1369,14 +1416,6 @@ o ARM/STM32 (arch/arm/src/stm32/)
                prevent this now.
   Status:      Open
   Priority:    Low (I am not even sure if this is a problem yet).
-
-  Status:      UNFINISHED STM32 F4 OTG FS HOST DRIVER
-  Description: A quick-n-dirty leverage of the the LPC17xx host driver was put into
-               the STM32 source to support development of the STM32 F4 OTG FS host
-               driver.  It is non-functional and still waiting for STM32 F4 logic
-               to be added.  Don't use it!
-  Status:      Open
-  Priority:    Low (unless you need a host driver).
 
 o AVR (arch/avr)
   ^^^^^^^^^^^^^^

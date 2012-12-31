@@ -45,6 +45,7 @@
 
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <netinet/in.h>
 #include <net/if.h>
@@ -97,6 +98,7 @@ int uip_gethostaddr(const char *ifname, struct in_addr *addr)
               memcpy(addr, &req.ifr_addr, sizeof(struct in_addr));
 #endif
             }
+          close(sockfd);
         }
     }
   return ret;

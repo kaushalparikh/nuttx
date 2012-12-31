@@ -46,10 +46,10 @@ APPDIR = ${shell pwd}
 #   appears in this directory as .config)
 # SUBDIRS is the list of all directories containing Makefiles.  It is used
 #   only for cleaning. namedapp must always be the first in the list.  This
-#   list can be extended by the .config file as well
+#   list can be extended by the .config file as well.
 
 CONFIGURED_APPS =
-SUBDIRS = examples graphics interpreters modbus namedapp nshlib netutils system vsn
+SUBDIRS = examples graphics interpreters modbus namedapp nshlib netutils system
 
 # There are two different mechanisms for obtaining the list of configured
 # directories:
@@ -70,15 +70,16 @@ SUBDIRS = examples graphics interpreters modbus namedapp nshlib netutils system 
 
 ifeq ($(CONFIG_NUTTX_NEWCONFIG),y)
 
+# namedapp/Make.defs must be included first
+
+include namedapp/Make.defs
 include examples/Make.defs
 include graphics/Make.defs
 include interpreters/Make.defs
 include modbus/Make.defs
-include namedapp/Make.defs
 include netutils/Make.defs
 include nshlib/Make.defs
 include system/Make.defs
-include vsn/Make.defs
 
 # INSTALLED_APPS is the list of currently available application directories.  It
 # is the same as CONFIGURED_APPS, but filtered to exclude any non-existent
@@ -113,8 +114,9 @@ $(foreach BUILTIN, $(CONFIGURED_APPS), $(eval $(call ADD_BUILTIN,$(BUILTIN))))
 # provided by the user (possibly as a symbolic link) to add libraries and
 # applications to the standard build from the repository.
 
-INSTALLED_APPS += ${shell if [ -r external/Makefile ]; then echo "external"; fi}
-SUBDIRS += ${shell if [ -r external/Makefile ]; then echo "external"; fi}
+EXTERNAL_DIR := $(dir $(wildcard external/Makefile))
+INSTALLED_APPS += $(EXTERNAL_DIR)
+SUBDIRS += $(EXTERNAL_DIR)
 
 # The final build target
 

@@ -40,9 +40,9 @@ include ${TOPDIR}/tools/Config.mk
 #   make                         -- Will build for the NuttX buildroot toolchain
 #   make CROSSDEV=arm-eabi-      -- Will build for the devkitARM toolchain
 #   make CROSSDEV=arm-none-eabi- -- Will build for the CodeSourcery toolchain
-#   make CROSSDEV=arm-elf-       -- Will build for the NuttX buildroot toolchain
+#   make CROSSDEV=arm-nuttx-elf- -- Will build for the NuttX buildroot toolchain
 
-CROSSDEV		= arm-elf-
+CROSSDEV		= arm-nuttx-elf-
 CC			= $(CROSSDEV)gcc
 CXX			= $(CROSSDEV)g++
 CPP			= $(CROSSDEV)gcc -E
@@ -63,11 +63,11 @@ OBJCOPYARGS		= -R .note -R .note.gnu.build-id -R .comment
 endif
 endif
 
-ifeq ($(CROSSDEV),arm-elf-)
+ifeq ($(CROSSDEV),arm-nuttx-elf-)
   MKDEP			= $(TOPDIR)/tools/mkdeps.sh
   ARCHINCLUDES		= -I. -isystem $(TOPDIR)/include
   ARCHXXINCLUDES	= -I. -isystem $(TOPDIR)/include -isystem $(TOPDIR)/include/cxx
-  ARCHSCRIPT		= -T$(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/usbstorage/ld.script
+  ARCHSCRIPT		= -T$(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/scripts/ld.script
   MAXOPTIMIZATION	= -Os
 else
   WINTOOL		= y
@@ -76,7 +76,7 @@ else
   MKDEP			= $(TOPDIR)/tools/mknulldeps.sh
   ARCHINCLUDES		= -I. -isystem "${shell cygpath -w $(TOPDIR)/include}"
   ARCHXXINCLUDES	= -I. -isystem "${shell cygpath -w $(TOPDIR)/include}" -isystem "${shell cygpath -w $(TOPDIR)/include/cxx}"
-  ARCHSCRIPT		= -T "${shell cygpath -w $(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/usbstorage/ld.script}"
+  ARCHSCRIPT		= -T "${shell cygpath -w $(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/scripts/ld.script}"
   MAXOPTIMIZATION	= -O2
 endif
 
@@ -110,7 +110,7 @@ AFLAGS			= $(CFLAGS) -D__ASSEMBLY__
 
 NXFLATLDFLAGS1		= -r -d -warn-common
 NXFLATLDFLAGS2		= $(NXFLATLDFLAGS1) \
-			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat.ld \
+			  -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-gotoff.ld \
 			  -no-check-sections
 LDNXFLATFLAGS		= -e main -s 2048
 
@@ -118,7 +118,7 @@ OBJEXT			= .o
 LIBEXT			= .a
 EXEEXT			=
 
-ifneq ($(CROSSDEV),arm-elf-)
+ifneq ($(CROSSDEV),arm-nuttx-elf-)
   LDFLAGS		+= -nostartfiles -nodefaultlibs
 endif
 ifeq ($(CONFIG_DEBUG_SYMBOLS),y)

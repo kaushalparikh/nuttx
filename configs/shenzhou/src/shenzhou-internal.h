@@ -387,9 +387,17 @@
  * 58 PD11 SD_CS          Active low: Pulled high (See also TFT LCD CN13, pin 32)
  */
 
-#define GPIO_SD_CD   (GPIO_INPUT|GPIO_CNF_INFLOAT|GPIO_EXTI|GPIO_PORTB|GPIO_PIN14)
-#define GPIO_SD_CS   (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
+#define GPIO_SD_CD      (GPIO_INPUT|GPIO_CNF_INFLOAT|GPIO_EXTI|GPIO_PORTB|GPIO_PIN14)
+#define GPIO_SD_CS      (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
                          GPIO_OUTPUT_SET|GPIO_PORTD|GPIO_PIN11)
+
+/* Relays */
+
+#define NUM_RELAYS      2
+#define GPIO_RELAYS_R00 (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
+                         GPIO_OUTPUT_SET|GPIO_PORTE|GPIO_PIN0)
+#define GPIO_RELAYS_R01 (GPIO_OUTPUT|GPIO_CNF_OUTPP|GPIO_MODE_50MHz|\
+                         GPIO_OUTPUT_SET|GPIO_PORTE|GPIO_PIN1)
 
 /****************************************************************************************************
  * Public Types

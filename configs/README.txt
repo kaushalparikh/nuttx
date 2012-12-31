@@ -171,7 +171,6 @@ defconfig -- This is a configuration file similar to the Linux
     CONFIG_RAW_BINARY - make a raw binary format file used with many
       different loaders using the GNU objcopy program.  This option
       should not be selected if you are not using the GNU toolchain.
-    CONFIG_HAVE_LIBM - toolchain supports libm.a
     CONFIG_HAVE_CXX - toolchain supports C++ and CXX, CXXFLAGS, and
       COMPILEXX have been defined in the configurations Make.defs
       file.
@@ -372,9 +371,6 @@ defconfig -- This is a configuration file similar to the Linux
     CONFIG_SDCLONE_DISABLE. Disable cloning of all socket
       desciptors by task_create() when a new task is started. If
       set, all sockets will appear to be closed in the new task.
-    CONFIG_NXFLAT. Enable support for the NXFLAT binary format.
-      This format will support execution of NuttX binaries located
-      in a ROMFS filesystem (see examples/nxflat).
     CONFIG_SCHED_WORKQUEUE.  Create a dedicated "worker" thread to
       handle delayed processing from interrupt handlers.  This feature
       is required for some drivers but, if there are not complaints,
@@ -417,6 +413,39 @@ defconfig -- This is a configuration file similar to the Linux
       applications.  For the example applications this is of the form 'app_main'
       where 'app' is the application name. If not defined, CONFIG_USER_ENTRYPOINT
       defaults to user_start.
+
+  Binary Loaders:
+    CONFIG_BINFMT_DISABLE - By default, support for loadable binary formats
+      is built.
+    This logic may be suppressed be defining this setting.
+    CONFIG_BINFMT_CONSTRUCTORS - Build in support for C++ constructors in
+      loaded modules.
+    CONFIG_SYMTAB_ORDEREDBYNAME - Symbol tables are order by name (rather
+      than value).
+    CONFIG_NXFLAT. Enable support for the NXFLAT binary format. This format
+      will support execution of NuttX binaries located in a ROMFS filesystem
+      (see apps/examples/nxflat).
+    CONFIG_ELF - Enable support for the ELF binary format. This format will
+      support execution of ELF binaries copied from a file system and
+      relocated into RAM (see apps/examples/elf).
+
+    If CONFIG_ELF is selected, then these additional options are available:
+
+    CONFIG_ELF_ALIGN_LOG2 - Align all sections to this Log2 value:  0->1,
+      1->2, 2->4, etc.
+    CONFIG_ELF_STACKSIZE - This is the default stack size that will will
+      be used when starting ELF binaries.
+    CONFIG_ELF_BUFFERSIZE - This is an I/O buffer that is used to access
+      the ELF file.  Variable length items will need to be read (such as 
+      symbol names).  This is really just this initial size of the buffer;
+      it will be reallocated as necessary to hold large symbol names).
+      Default: 128
+    CONFIG_ELF_BUFFERINCR - This is an I/O buffer that is used to access
+      the ELF file.  Variable length items will need to be read (such as
+      symbol names). This value specifies the size increment to use each
+      time the buffer is reallocated. Default: 32
+    CONFIG_ELF_DUMPBUFFER - Dump various ELF buffers for debug purposes.
+      This option requires CONFIG_DEBUG and CONFIG_DEBUG_VERBOSE.
 
   System Logging:
     CONFIG_SYSLOG enables general system logging support.
@@ -621,6 +650,37 @@ defconfig -- This is a configuration file similar to the Linux
       CONFIG_ARCH_STRNCPY, CONFIG_ARCH_STRLEN, CONFIG_ARCH_STRNLEN
       CONFIG_ARCH_BZERO
 
+  If CONFIG_ARCH_MEMCPY is not selected, then you make also select Daniel
+  Vik's optimized implementation of memcpy():
+
+    CONFIG_MEMCPY_VIK - Select this option to use the optimized memcpy()
+      function by Daniel Vik.  Select this option for improved performance
+      at the expense of increased size. See licensing information in the
+      top-level COPYING file.  Default: n
+
+  And if CONFIG_MEMCPY_VIK is selected, the following tuning options are available:
+
+    CONFIG_MEMCPY_PRE_INC_PTRS - Use pre-increment of pointers. Default is
+      post increment of pointers.
+
+    CONFIG_MEMCPY_INDEXED_COPY - Copying data using array indexing. Using
+      this option, disables the CONFIG_MEMCPY_PRE_INC_PTRS option.
+
+    CONFIG_MEMCPY_64BIT - Compiles memcpy for architectures that suppport
+      64-bit operations efficiently.
+
+  If CONFIG_ARCH_MEMSET is not selected, then the following option is
+  also available:
+
+    CONFIG_MEMSET_OPTSPEED - Select this option to use a version of memcpy()
+      optimized for speed. Default: memcpy() is optimized for size.
+
+  And if CONFIG_MEMSET_OPTSPEED is selected, the following tuning option is
+  available:
+
+    CONFIG_MEMSET_64BIT - Compiles memset() for architectures that suppport
+      64-bit operations efficiently.
+
   The architecture may provide custom versions of certain standard header
   files:
 
@@ -662,6 +722,15 @@ defconfig -- This is a configuration file similar to the Linux
       will be the redirecting math.h header file; for the architectures that
       don't select CONFIG_ARCH_MATH_H, the redirecting math.h header file will
       stay out-of-the-way in include/nuttx/.
+
+    CONFIG_ARCH_FLOAT_H
+      If you enable the generic, built-in math library, then that math library
+      will expect your toolchain to provide the standard float.h header file.
+      The float.h header file defines the properties of your floating point
+      implementation.  It would always be best to use your toolchain's float.h
+      header file but if none is avaiable, a default float.h header file will
+      provided if this option is selected.  However, there is no assurance that
+      the settings in this float.h are actually correct for your platform!
 
     CONFIG_ARCH_STDARG_H - There is also a redirecting version of stdarg.h in
       the source tree as well. It also resides out-of-the-way at include/nuttx/stdarg.h.
@@ -1078,6 +1147,10 @@ defconfig -- This is a configuration file similar to the Linux
 
     CONFIG_NET_DHCP_LIGHT - Reduces size of DHCP
     CONFIG_NET_RESOLV_ENTRIES - Number of resolver entries
+    CONFIG_NET_RESOLV_MAXRESPONSE - This setting determines the maximum
+      size of response message that can be received by the DNS resolver.
+      The default is 96 but may need to be larger on enterprise networks
+      (perhaps 176).
 
   THTTPD
 
@@ -1524,7 +1597,7 @@ configs/c5471evm
   This is a port to the Spectrum Digital C5471 evaluation board.  The
   TMS320C5471 is a dual core processor from TI with an ARM7TDMI general
   purpose processor and a c54 DSP.  It is also known as TMS320DA180 or just DA180. 
-  NuttX runs on the ARM core and is built with a GNU arm-elf toolchain*.
+  NuttX runs on the ARM core and is built with a GNU arm-nuttx-elf toolchain*.
   This port is complete and verified.
 
 configs/compal_e88 and compal_e99
@@ -1540,19 +1613,19 @@ configs/demo9s12ne64
 
 configs/ea3131
   Embedded Artists EA3131 Development board.  This board is based on the 
-  an NXP LPC3131 MCU. This OS is built with the arm-elf toolchain*.
+  an NXP LPC3131 MCU. This OS is built with the arm-nuttx-elf toolchain*.
   STATUS:  This port is complete and mature.
 
 configs/ea3152
   Embedded Artists EA3152 Development board.  This board is based on the 
-  an NXP LPC3152 MCU. This OS is built with the arm-elf toolchain*.
+  an NXP LPC3152 MCU. This OS is built with the arm-nuttx-elf toolchain*.
   STATUS:  This port is has not be exercised well, but since it is
   a simple derivative of the ea3131, it should be fully functional.
 
 configs/eagle100
   Micromint Eagle-100 Development board.  This board is based on the 
   an ARM Cortex-M3 MCU, the Luminary LM3S6918. This OS is built with the
-  arm-elf toolchain*.  STATUS:  This port is complete and mature.
+  arm-nuttx-elf toolchain*.  STATUS:  This port is complete and mature.
 
 configs/ekk-lm3s9b96
   TI/Stellaris EKK-LM3S9B96 board.  This board is based on the 
@@ -1591,7 +1664,7 @@ configs/lm3s6432-s2e
 configs/lm3s6965-ek
   Stellaris LM3S6965 Evaluation Kit.  This board is based on the 
   an ARM Cortex-M3 MCU, the Luminary/TI LM3S6965. This OS is built with the
-  arm-elf toolchain*.  STATUS:  This port is complete and mature.
+  arm-nuttx-elf toolchain*.  STATUS:  This port is complete and mature.
 
 configs/lm3s8962-ek
   Stellaris LMS38962 Evaluation Kit.
@@ -1607,17 +1680,17 @@ configs/lpc4330-xplorer
 
 configs/m68322evb
   This is a work in progress for the venerable m68322evb board from
-  Motorola. This OS is also built with the arm-elf toolchain*.  STATUS:
+  Motorola. This OS is also built with the arm-nuttx-elf toolchain*.  STATUS:
   This port was never completed.
 
 configs/mbed
   The configurations in this directory support the mbed board (http://mbed.org)
   that features the NXP LPC1768 microcontroller. This OS is also built
-  with the arm-elf toolchain*.  STATUS:  Contributed.
+  with the arm-nuttx-elf toolchain*.  STATUS:  Contributed.
 
 configs/mcu123-lpc214x
   This port is for the NXP LPC2148 as provided on the mcu123.com
-  lpc214x development board. This OS is also built with the arm-elf
+  lpc214x development board. This OS is also built with the arm-nuttx-elf
   toolchain*.  The port supports serial, timer0, spi, and usb.
 
 configs/micropendous3
@@ -1642,7 +1715,7 @@ configs/ne64badge
   not yet been fully tested.
 
 configs/ntosd-dm320
-  This port uses the Neuros OSD v1.0 Dev Board with a GNU arm-elf
+  This port uses the Neuros OSD v1.0 Dev Board with a GNU arm-nuttx-elf
   toolchain*: see
 
     http://wiki.neurostechnology.com/index.php/OSD_1.0_Developer_Home
@@ -1666,18 +1739,18 @@ configs/olimex-lpc1766stk
   Linux or Cygwin.  STATUS: Complete and mature.
 
 configs/olimex-lpc2378
-  This port uses the Olimex-lpc2378 board and a GNU arm-elf toolchain* under
+  This port uses the Olimex-lpc2378 board and a GNU arm-nuttx-elf toolchain* under
   Linux or Cygwin.  STATUS: ostest and NSH configurations available.
   This port for the NXP LPC2378 was contributed by Rommel Marcelo.
 
 configs/olimex-stm32-p107
-  This port uses the Olimex STM32-P107 board (STM32F107VC) and a GNU arm-elf
+  This port uses the Olimex STM32-P107 board (STM32F107VC) and a GNU arm-nuttx-elf
   toolchain* under Linux or Cygwin. See the https://www.olimex.com/dev/stm32-p107.html
   for further information.  Contributed by Max Holtzberg.  STATUS: Configurations
   for the basic OS test and NSH are available and verified.
 
 configs/olimex-strp711
-  This port uses the Olimex STR-P711 board and a GNU arm-elf toolchain* under
+  This port uses the Olimex STR-P711 board and a GNU arm-nuttx-elf toolchain* under
   Linux or Cygwin. See the http://www.olimex.com/dev/str-p711.html" for
   further information.  STATUS: Configurations for the basic OS test and NSH
   are complete and verified.

@@ -67,8 +67,9 @@
  * Name: elf_unload
  *
  * Description:
- *   This function unloads the object from memory. This essentially
- *   undoes the actions of elf_load.
+ *   This function unloads the object from memory. This essentially undoes
+ *   the actions of elf_load.  It is called only under certain error
+ *   conditions after the the module has been loaded but not yet started.
  *
  * Returned Value:
  *   0 (OK) is returned on success and a negated errno is returned on
@@ -84,13 +85,7 @@ int elf_unload(struct elf_loadinfo_s *loadinfo)
 
   /* Release memory holding the relocated ELF image */
 
-  if (loadinfo->elfalloc != 0)
-    {
-      kfree((FAR void *)loadinfo->elfalloc);
-      loadinfo->elfalloc = 0;
-    }
-
-   loadinfo->elfsize = 0;
+  elf_addrenv_free(loadinfo);
  
    /* Release memory used to hold static constructors and destructors */
 

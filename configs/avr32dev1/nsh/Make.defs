@@ -35,24 +35,11 @@
 
 include ${TOPDIR}/.config
 include ${TOPDIR}/tools/Config.mk
-
-# Setup for the selected toolchain
-
-ifeq ($(CONFIG_AVR32_AVRTOOLSW),y)
-  # AVR Tools under Windows
-  CROSSDEV = avr32-
-  WINTOOL = y
-  ARCHCPUFLAGS = -mpart=uc3b0256
-endif
-ifeq ($(CONFIG_AVR32_AVRTOOLSL),y)
-  # AVR Tools under Linux
-  CROSSDEV = avr32-
-  ARCHCPUFLAGS = -mpart=uc3b0256
-endif
+include ${TOPDIR}/arch/avr/src/avr32/Toolchain.defs
 
 ifeq ($(WINTOOL),y)
   # Windows-native toolchains
-  DIRLINK = $(TOPDIR)/tools/winlink.sh
+  DIRLINK = $(TOPDIR)/tools/copydir.sh
   DIRUNLINK = $(TOPDIR)/tools/unlink.sh
   MKDEP = $(TOPDIR)/tools/mknulldeps.sh
   ARCHINCLUDES = -I. -isystem "${shell cygpath -w $(TOPDIR)/include}"
@@ -78,7 +65,7 @@ OBJDUMP = $(CROSSDEV)objdump
 ARCHCCVERSION = ${shell $(CC) -v 2>&1 | sed -n '/^gcc version/p' | sed -e 's/^gcc version \([0-9\.]\)/\1/g' -e 's/[-\ ].*//g' -e '1q'}
 ARCHCCMAJOR = ${shell echo $(ARCHCCVERSION) | cut -d'.' -f1}
 
-ifeq ("${CONFIG_DEBUG_SYMBOLS}","y")
+ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
   ARCHOPTIMIZATION = -g
 else
   ARCHOPTIMIZATION = -Os -ffunction-sections -fdata-sections -fno-strict-aliasing
@@ -109,7 +96,6 @@ LDFLAGS += -nostartfiles -nodefaultlibs
 ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
   LDFLAGS += -g
 endif
-
 
 HOSTCC = gcc
 HOSTINCLUDES = -I.

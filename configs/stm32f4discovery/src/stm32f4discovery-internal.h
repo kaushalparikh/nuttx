@@ -113,6 +113,37 @@
 #  define GPIO_OTGFS_OVER  (GPIO_INPUT|GPIO_FLOAT|GPIO_SPEED_100MHz|GPIO_PUSHPULL|GPIO_PORTD|GPIO_PIN5)
 #endif
 
+/* UG-2864AMBAG01 OLED Display:
+ *
+ * --------------------------+----------------------------------------------
+ * Connector CON10 J1:      | STM32F4Discovery
+ * --------------+-----------+----------------------------------------------
+ * CON10 J1:     | CON20 J2: | P1/P2:
+ * --------------+-----------+----------------------------------------------
+ * 1  3v3        | 3,4 3v3   | P2 3V
+ * 3  /RESET     | 8 /RESET  | P2 PB6 (Arbitrary selection)
+ * 5  /CS        | 7 /CS     | P2 PB7 (Arbitrary selection)
+ * 7  A0         | 9 A0      | P2 PB8 (Arbitrary selection)
+ * 9  LED+ (N/C) | -----     | -----
+ * 2  5V Vcc     | 1,2 Vcc   | P2 5V
+ * 4  DI         | 18 D1/SI  | P1 PA7 (GPIO_SPI1_MOSI == GPIO_SPI1_MOSI_1 (1))
+ * 6  SCLK       | 19 D0/SCL | P1 PA5 (GPIO_SPI1_SCK == GPIO_SPI1_SCK_1 (1))
+ * 8  LED- (N/C) | -----     | ------
+ * 10 GND        | 20 GND    | P2 GND
+ * --------------+-----------+----------------------------------------------
+ * (1) Required because of on-board MEMS
+ * -------------------------------------------------------------------------
+ */
+ 
+#ifdef CONFIG_LCD_UG2864AMBAG01
+#  define GPIO_OLED_RESET (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_50MHz|\
+                           GPIO_OUTPUT_CLEAR|GPIO_PORTB|GPIO_PIN6)
+#  define GPIO_OLED_CS    (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_50MHz|\
+                           GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN7)
+#  define GPIO_OLED_A0    (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_50MHz|\
+                           GPIO_OUTPUT_CLEAR|GPIO_PORTB|GPIO_PIN8)
+#endif
+
 /****************************************************************************************************
  * Public Types
  ****************************************************************************************************/

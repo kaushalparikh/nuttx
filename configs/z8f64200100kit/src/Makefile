@@ -1,7 +1,7 @@
 ############################################################################
 # configs/z8f64200100kit/Makefile
 #
-#   Copyright (C) 2008 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2008, 2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,27 +35,34 @@
 
 -include $(TOPDIR)/Make.defs
 
-ARCHSRCDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-WARCHSRCDIR	= ${shell cygpath -w $(ARCHSRCDIR)}
-USRINCLUDES	= -usrinc:'.;$(WTOPDIR)\sched;$(WARCHSRCDIR);$(WARCHSRCDIR)\common'
-INCLUDES	= $(ARCHSTDINCLUDES) $(USRINCLUDES)
-CFLAGS		= $(ARCHWARNINGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(INCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+SCHEDSRCDIR = $(TOPDIR)$(DELIM)sched
+ARCHSRCDIR = $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src
 
-ASRCS		= 
-AOBJS		= $(ASRCS:.S=$(OBJEXT))
-CSRCS		= z8_lowinit.c z8_leds.c
-COBJS		= $(CSRCS:.c=$(OBJEXT))
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  USRINCLUDES = -usrinc:".;$(SCHEDSRCDIR);$(ARCHSRCDIR);$(ARCHSRCDIR)\common"
+else
+  WSCHEDSRCDIR = ${shell cygpath -w $(SCHEDSRCDIR)}
+  WARCHSRCDIR = ${shell cygpath -w $(ARCHSRCDIR)}
+  USRINCLUDES = -usrinc:'.;$(WSCHEDSRCDIR);$(WARCHSRCDIR);$(WARCHSRCDIR)\common'
+endif
 
-SRCS		= $(ASRCS) $(CSRCS)
-OBJS		= $(AOBJS) $(COBJS)
+INCLUDES = $(ARCHSTDINCLUDES) $(USRINCLUDES)
+CFLAGS = $(ARCHWARNINGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(INCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
 
+ASRCS = 
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+CSRCS = z8_lowinit.c z8_leds.c
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
 
 all: libboard$(LIBEXT)
 
 $(ASRCS) $(HEAD_ASRC): %$(ASMEXT): %.S
-	@$(CPP) $(CPPFLAGS) `cygpath -w $<` -o $@.tmp
-	@cat $@.tmp | sed -e "s/^#/;/g" > $@
-	@rm $@.tmp
+	$(Q) $(CPP) $(CPPFLAGS) `cygpath -w $<` -o $@.tmp
+	$(Q) cat $@.tmp | sed -e "s/^#/;/g" > $@
+	$(Q) rm $@.tmp
 
 $(AOBJS): %$(OBJEXT): %$(ASMEXT)
 	$(call ASSEMBLE, $<, $@)
@@ -64,21 +71,20 @@ $(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 libboard$(LIBEXT): $(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
-	@$(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
-	@touch $@
+	$(Q) $(MKDEP) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	@rm -f libboard$(LIBEXT) *~ .*.swp
+	$(call DELFILE, libboard$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

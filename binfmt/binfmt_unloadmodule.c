@@ -83,10 +83,25 @@
  ****************************************************************************/
 
 #ifdef CONFIG_BINFMT_CONSTRUCTORS
-static inline void exec_dtors(FAR const struct binary_s *binp)
+static inline int exec_dtors(FAR const struct binary_s *binp)
 {
   binfmt_dtor_t *dtor = binp->dtors;
+#ifdef CONFIG_ADDRENV
+  hw_addrenv_t oldenv;
+  int ret;
+#endif
   int i;
+
+  /* Instantiate the address enviroment containing the destructors */
+
+#ifdef CONFIG_ADDRENV
+  ret = up_addrenv_select(binp->addrenv, &oldenv);
+  if (ret < 0)
+    {
+      bdbg("up_addrenv_select() failed: %d\n", ret);
+      return ret;
+    }
+#endif
 
   /* Execute each destructor */
 
@@ -97,6 +112,14 @@ static inline void exec_dtors(FAR const struct binary_s *binp)
       (*dtor)();
       dtor++;
     }
+
+  /* Restore the address enviroment */
+
+#ifdef CONFIG_ADDRENV
+  return up_addrenv_restore(oldenv);
+#else
+  return OK;
+#endif
 }
 #endif
 
@@ -125,15 +148,23 @@ static inline void exec_dtors(FAR const struct binary_s *binp)
 
 int unload_module(FAR const struct binary_s *binp)
 {
+#ifdef CONFIG_BINFMT_CONSTRUCTORS
+  int ret;
+#endif
   int i;
  
   if (binp)
     {
-
       /* Execute C++ desctructors */
 
 #ifdef CONFIG_BINFMT_CONSTRUCTORS
-      exec_dtors(binp);
+      ret = exec_dtors(binp);
+      if (ret < 0)
+        {
+          bdbg("exec_ctors() failed: %d\n", ret);
+          set_errno(-ret);
+          return ERROR;
+        }
 #endif
 
       /* Unmap mapped address spaces */
@@ -152,9 +183,13 @@ int unload_module(FAR const struct binary_s *binp)
           if (binp->alloc[i])
             {
               bvdbg("Freeing alloc[%d]: %p\n", i, binp->alloc[i]);
-              free(binp->alloc[i]);
+              free((FAR void *)binp->alloc[i]);
             }
         }
+
+      /* Notice that the address environment is not destroyed.  This should
+       * happen automatically when the task exits.
+       */
     }
 
   return OK;

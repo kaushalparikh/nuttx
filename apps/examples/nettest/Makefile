@@ -1,7 +1,7 @@
 ############################################################################
 # examples/nettest/Makefile
 #
-#   Copyright (C) 2007-2008, 2010-2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2007-2008, 2010-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -54,11 +54,14 @@ TARG_COBJS	= $(TARG_CSRCS:.c=$(OBJEXT))
 TARG_SRCS	= $(TARG_ASRCS) $(TARG_CSRCS)
 TARG_OBJS	= $(TARG_AOBJS) $(TARG_COBJS)
 
-TARG_POSIX	= "$(APPDIR)/libapps$(LIBEXT)"
-ifeq ($(WINTOOL),y)
-  TARG_BIN	= "${shell cygpath -w  $(APPDIR)/libapps$(LIBEXT)}"
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  TARG_BIN		= ..\..\libapps$(LIBEXT)
 else
-  TARG_BIN	= "$(TARG_POSIX)"
+ifeq ($(WINTOOL),y)
+  TARG_BIN		= ..\\..\\libapps$(LIBEXT)
+else
+  TARG_BIN		= ../../libapps$(LIBEXT)
+endif
 endif
 
 HOSTCFLAGS	+= -DCONFIG_EXAMPLES_NETTEST_HOST=1
@@ -69,8 +72,6 @@ endif
 ifeq ($(CONFIG_EXAMPLES_NETTEST_PERFORMANCE),y)
 HOSTCFLAGS	+= -DCONFIG_EXAMPLES_NETTEST_PERFORMANCE=1
 endif
-
-
 
 HOST_SRCS	= host.c
 ifeq ($(CONFIG_EXAMPLES_NETTEST_SERVER),y)
@@ -95,7 +96,7 @@ STACKSIZE	= 2048
 VPATH		= 
 
 all: .built $(HOST_BIN)
-.PHONY:	clean depend disclean
+.PHONY:	clean depend distclean
 
 $(TARG_AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
@@ -112,9 +113,7 @@ $(HOST_BIN): $(HOST_OBJS)
 	@$(HOSTCC) $(HOSTLDFLAGS) $(HOST_OBJS) -o $@
 
 .built: $(TARG_OBJS)
-	@( for obj in $(TARG_OBJS) ; do \
-		$(call ARCHIVE, $(TARG_BIN), $${obj}); \
-	done ; )
+	$(call ARCHIVE, $(BIN), $(TARG_OBJS))
 	@touch .built
 
 .context:
@@ -126,17 +125,19 @@ endif
 context: .context
 
 .depend: Makefile $(TARG_SRCS)
-	@$(MKDEP) $(ROOTDEPPATH) $(CC) -- $(CFLAGS) -- $(TARG_SRCS) >Make.dep
+	@$(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(TARG_SRCS) >Make.dep
 	@touch $@
 
 depend: .depend
 
 clean:
-	@rm -f $(TARG_POSIX) $(HOST_BIN) .built *.o *~ .*.swp
+	$(call DELFILE, $(HOST_BIN))
+	$(call DELFILE, .built)
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep
 

@@ -38,6 +38,7 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
+#include <nuttx/compiler.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -47,8 +48,11 @@
 #include <debug.h>
 
 #include <arpa/inet.h>
+
 #include <nuttx/binfmt/nxflat.h>
 #include <nuttx/binfmt/symtab.h>
+
+#include "libnxflat.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -229,8 +233,6 @@ static inline int nxflat_gotrelocs(FAR struct nxflat_loadinfo_s *loadinfo)
 
   hdr = (FAR struct nxflat_hdr_s*)loadinfo->ispace;
 
-  /* From this, we can get the list of relocation entries. */
-
   /* From this, we can get the offset to the list of relocation entries */
 
   offset  = ntohl(hdr->h_relocstart);
@@ -247,10 +249,26 @@ static inline int nxflat_gotrelocs(FAR struct nxflat_loadinfo_s *loadinfo)
   DEBUGASSERT(offset + nrelocs * sizeof(struct nxflat_reloc_s)
               <= (loadinfo->isize + loadinfo->dsize));
 
-  relocs = (FAR struct nxflat_reloc_s*)
+  relocs = (FAR struct nxflat_reloc_s *)
         (offset - loadinfo->isize + loadinfo->dspace->region);
   bvdbg("isize: %08lx dpsace: %p relocs: %p\n", 
         (long)loadinfo->isize, loadinfo->dspace->region, relocs);
+
+  /* All relocations are performed within the D-Space allocation.  If
+   * CONFIG_ADDRENV=y, then that D-Space allocation lies in an address
+   * environment that may not be in place.  So, in that case, we must call
+   * nxflat_addrenv_select to temporarily instantiate that address space
+   * before the relocations can be performed.
+   */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_select(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_select() failed: %d\n", ret);
+      return ret;
+    }
+#endif
 
   /* Now, traverse the relocation list of and bind each GOT relocation. */
 
@@ -259,7 +277,13 @@ static inline int nxflat_gotrelocs(FAR struct nxflat_loadinfo_s *loadinfo)
     {
       /* Handle the relocation by the relocation type */
 
+#ifdef CONFIG_CAN_PASS_STRUCTS
       reloc = *relocs++;
+#else
+      memcpy(&reloc, relocs, sizeof(struct nxflat_reloc_s));
+      relocs++;
+#endif
+
       result = OK;
       switch (NXFLAT_RELOC_TYPE(reloc.r_info))
         {
@@ -329,6 +353,16 @@ static inline int nxflat_gotrelocs(FAR struct nxflat_loadinfo_s *loadinfo)
     }
 #endif
 
+  /* Restore the original address environment */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_restore(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_restore() failed: %d\n", ret);
+    }
+#endif
+
   return ret;
 }
 
@@ -346,16 +380,19 @@ static inline int nxflat_gotrelocs(FAR struct nxflat_loadinfo_s *loadinfo)
  ****************************************************************************/
 
 static inline int nxflat_bindimports(FAR struct nxflat_loadinfo_s *loadinfo,
-                                       FAR const struct symtab_s *exports,
-                                       int nexports)
+                                     FAR const struct symtab_s *exports,
+                                     int nexports)
 {
   FAR struct nxflat_import_s *imports;
   FAR struct nxflat_hdr_s    *hdr;
-  FAR const struct symtab_s *symbol;
+  FAR const struct symtab_s  *symbol;
 
   char    *symname;
   uint32_t offset;
   uint16_t nimports;
+#ifdef CONFIG_ADDRENV
+  int      ret;
+#endif
   int      i;
 
   /* The NXFLAT header is the first thing at the beginning of the ISpace. */
@@ -369,6 +406,22 @@ static inline int nxflat_bindimports(FAR struct nxflat_loadinfo_s *loadinfo,
   offset   = ntohl(hdr->h_importsymbols);
   nimports = ntohs(hdr->h_importcount);
   bvdbg("Imports offset: %08x nimports: %d\n", offset, nimports);
+
+  /* The import[] table resides within the D-Space allocation.  If
+   * CONFIG_ADDRENV=y, then that D-Space allocation lies in an address
+   * environment that may not be in place.  So, in that case, we must call
+   * nxflat_addrenv_select to temporarily instantiate that address space
+   * before the import[] table can be modified.
+   */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_select(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_select() failed: %d\n", ret);
+      return ret;
+    }
+#endif
 
   /* Verify that this module requires imported symbols */
 
@@ -421,6 +474,9 @@ static inline int nxflat_bindimports(FAR struct nxflat_loadinfo_s *loadinfo,
           if (!symbol)
             {
               bdbg("Exported symbol \"%s\" not found\n", symname);
+#ifdef CONFIG_ADDRENV
+              (void)nxflat_addrenv_restore(loadinfo);
+#endif
               return -ENOENT;
             }
 
@@ -442,7 +498,73 @@ static inline int nxflat_bindimports(FAR struct nxflat_loadinfo_s *loadinfo,
     }
 #endif
 
+  /* Restore the original address environment */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_restore(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_restore() failed: %d\n", ret);
+    }
+
+  return ret;
+#else
   return OK;
+#endif
+}
+
+/****************************************************************************
+ * Name: nxflat_clearbss
+ *
+ * Description:
+ *   Clear uninitialized .bss memory
+ *
+ * Returned Value:
+ *   0 (OK) is returned on success and a negated errno is returned on
+ *   failure.
+ *
+ ****************************************************************************/
+
+static inline int nxflat_clearbss(FAR struct nxflat_loadinfo_s *loadinfo)
+{
+#ifdef CONFIG_ADDRENV
+  int ret;
+#endif
+
+  /* .bss resides within the D-Space allocation.  If CONFIG_ADDRENV=y, then
+   * that D-Space allocation lies in an address environment that may not be
+   * in place.  So, in that case, we must call nxflat_addrenv_select to
+   * temporarily instantiate that address space before the .bss can be
+   * accessed.
+   */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_select(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_select() failed: %d\n", ret);
+      return ret;
+    }
+#endif
+
+  /* Zero the BSS area */
+
+   memset((void*)(loadinfo->dspace->region + loadinfo->datasize), 0,
+          loadinfo->bsssize);
+
+  /* Restore the original address environment */
+
+#ifdef CONFIG_ADDRENV
+  ret = nxflat_addrenv_restore(loadinfo);
+  if (ret < 0)
+    {
+      bdbg("ERROR: nxflat_addrenv_restore() failed: %d\n", ret);
+    }
+
+  return ret;
+#else
+  return OK;
+#endif
 }
 
 /****************************************************************************
@@ -484,8 +606,7 @@ int nxflat_bind(FAR struct nxflat_loadinfo_s *loadinfo,
            * space in the loaded file.
            */
 
-          memset((void*)(loadinfo->dspace->region + loadinfo->datasize),
-                      0, loadinfo->bsssize);
+          ret = nxflat_clearbss(loadinfo);
         }
     }
 

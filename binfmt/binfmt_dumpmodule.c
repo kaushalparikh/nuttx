@@ -70,7 +70,7 @@
  ***********************************************************************/
 
 /***********************************************************************
- * Name: load_module
+ * Name: dump_module
  *
  * Description:
  *   Load a module into memory and prep it for execution.
@@ -95,6 +95,9 @@ int dump_module(FAR const struct binary_s *bin)
 #ifdef CONFIG_BINFMT_CONSTRUCTORS
       bdbg("  ctors:     %p nctors=%d\n", bin->ctors, bin->nctors);
       bdbg("  dtors:     %p ndtors=%d\n", bin->dtors, bin->ndtors);
+#endif
+#ifdef CONFIG_ADDRENV
+      bdbg("  addrenv:   %p\n", bin->addrenv);
 #endif
       bdbg("  stacksize: %d\n", bin->stacksize);
     }

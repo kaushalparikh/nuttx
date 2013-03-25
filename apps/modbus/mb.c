@@ -99,7 +99,7 @@ static xMBFunctionHandler xFuncHandlers[CONFIG_MB_FUNC_HANDLERS_MAX] = {
 #ifdef CONFIG_MB_FUNC_OTHER_REP_SLAVEID_ENABLED
     {MB_FUNC_OTHER_REPORT_SLAVEID, eMBFuncReportSlaveID},
 #endif
-#ifdef CONFIG_MB_FUNC_READ_INPUT_ENABLE
+#ifdef CONFIG_MB_FUNC_READ_INPUT_ENABLED
     {MB_FUNC_READ_INPUT_REGISTER, eMBFuncReadInputRegister},
 #endif
 #ifdef CONFIG_MB_FUNC_READ_HOLDING_ENABLED
@@ -399,10 +399,12 @@ eMBPoll( void )
                     ucMBFrame[usLength++] = ( uint8_t )( ucFunctionCode | MB_FUNC_ERROR );
                     ucMBFrame[usLength++] = eException;
                 }
+#ifdef CONFIG_MB_ASCII_ENABLED
                 if( ( eMBCurrentMode == MB_ASCII ) && CONFIG_MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS )
                 {
                     vMBPortTimersDelay( CONFIG_MB_ASCII_TIMEOUT_WAIT_BEFORE_SEND_MS );
-                }                
+                }
+#endif
                 eStatus = peMBFrameSendCur( ucMBAddress, ucMBFrame, usLength );
             }
             break;

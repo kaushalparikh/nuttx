@@ -33,7 +33,7 @@
 
 6.3 2011-05-15 Gregory Nutt <gnutt@nuttx.org>
 
-    * apps/interpreter: Add a directory to hold interpreters.  The Pascal add-
+	* apps/interpreter: Add a directory to hold interpreters.  The Pascal add-
 	  on module now installs and builds under this directory.
 	* apps/interpreter/ficl: Added logic to build Ficl (the "Forth Inspired
 	  Command Language").  See http://ficl.sourceforge.net/.
@@ -406,4 +406,32 @@
 	  supports setting IP addresses, network masks, name server addresses,
 	  and hardware address (from Darcy Gong).
 
-6.24 2012-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.24 2012-12-20 Gregory Nutt <gnutt@nuttx.org>
+
+	* apps/examples/ostest/roundrobin.c:  Replace large tables with
+	  algorithmic prime number generation.  This allows the roundrobin
+	  test to run on platforms with minimal SRAM (Freddie Chopin).
+	* apps/nshlib/nsh_dbgcmds.c:  Add hexdump command to dump the contents
+	  of a file (or character device) to the console  Contributed by Petteri
+	  Aimonen.
+	* apps/examples/modbus:  Fixes from Freddie Chopin
+	* apps/examples/modbus/Kconfig: Kconfig logic for FreeModBus contributed
+	  by Freddie Chopin.
+	* Makefile, */Makefile:  Various fixes for Windows native build.  Now uses
+	  make foreach loops instead of shell loops.
+	* apps/examples/elf/test/*/Makefile: OSX doesn't support install -D, use
+	  mkdir -p then install without the -D.  From Mike Smith.
+	* apps/examples/relays/Makefile: Reduced stack requirement (Darcy Gong).
+	* apps/nshlib and apps/netutils/dhcpc:  Extend the NSH ifconfig command plus
+	  various DHCPC improvements(Darcy Gong).
+	* apps/nshlib/nsh_apps.c: Fix compilation errors when CONFIG_NSH_DISABLEBG=y.
+	  From Freddie Chopin.
+	* Rename CONFIG_PCODE and CONFIG_FICL as CONFIG_INTERPRETERS_PCODE and
+	  CONFIG_INTERPRETERS_FICL for consistency with other configuration naming.
+	* apps/examples/keypadtest:  A keypad test example contributed by Denis
+	  Carikli.
+	* apps/examples/elf and nxflat:  If CONFIG_BINFMT_EXEPATH is defined, these
+	  tests will now use a relative path to the program and expect the binfmt/
+	  logic to find the absolute path to the program using the PATH variable.
+
+6.25 2013-xx-xx Gregory Nutt <gnutt@nuttx.org>

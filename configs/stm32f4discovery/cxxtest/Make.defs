@@ -35,71 +35,7 @@
 
 include ${TOPDIR}/.config
 include ${TOPDIR}/tools/Config.mk
-
-# Setup for the selected toolchain
-
-ifeq ($(CONFIG_STM32_CODESOURCERYW),y)
-  # CodeSourcery under Windows
-  CROSSDEV = arm-none-eabi-
-  ARCROSSDEV = arm-none-eabi-
-  WINTOOL = y
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-endif
-ifeq ($(CONFIG_STM32_CODESOURCERYL),y)
-  # CodeSourcery under Linux
-  CROSSDEV = arm-none-eabi-
-  ARCROSSDEV = arm-none-eabi-
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-  MAXOPTIMIZATION = -O2
-endif
-ifeq ($(CONFIG_STM32_ATOLLIC_LITE),y)
-  # Atollic toolchain under Windows
-  CROSSDEV = arm-atollic-eabi-
-  ARCROSSDEV =
-  WINTOOL = y
-ifeq ($(CONFIG_ARCH_FPU),y)
-  ARCHCPUFLAGS = -mcpu=cortex-m4 -mthumb -march=armv7e-m -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-else
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-endif
-endif
-ifeq ($(CONFIG_STM32_ATOLLIC_PRO),y)
-  # Atollic toolchain under Windows
-  CROSSDEV = arm-atollic-eabi-
-  ARCROSSDEV = arm-atollic-eabi-
-  WINTOOL = y
-ifeq ($(CONFIG_ARCH_FPU),y)
-  ARCHCPUFLAGS = -mcpu=cortex-m4 -mthumb -march=armv7e-m -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-else
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-endif
-endif
-ifeq ($(CONFIG_STM32_DEVKITARM),y)
-  # devkitARM under Windows
-  CROSSDEV = arm-eabi-
-  ARCROSSDEV = arm-eabi-
-  WINTOOL = y
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-endif
-ifeq ($(CONFIG_STM32_RAISONANCE),y)
-  # Raisonance RIDE7 under Windows
-  CROSSDEV = arm-none-eabi-
-  ARCROSSDEV = arm-none-eabi-
-  WINTOOL = y
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-endif
-ifeq ($(CONFIG_STM32_BUILDROOT),y)
-  # NuttX buildroot under Linux or Cygwin
-  # OABI
-  # CROSSDEV = arm-nuttx-elf-
-  # ARCROSSDEV = arm-nuttx-elf-
-  # ARCHCPUFLAGS = -mtune=cortex-m3 -march=armv7-m -mfloat-abi=soft
-  # EABI
-  CROSSDEV = arm-nuttx-eabi-
-  ARCROSSDEV = arm-nuttx-eabi-
-  ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
-  MAXOPTIMIZATION = -Os
-endif
+include ${TOPDIR}/arch/arm/src/armv7-m/Toolchain.defs
 
 CC = $(CROSSDEV)gcc
 CXX = $(CROSSDEV)g++
@@ -120,7 +56,7 @@ EXTRA_LIBS = -lsupc++
 
 ifeq ($(WINTOOL),y)
   # Windows-native toolchains
-  DIRLINK = $(TOPDIR)/tools/winlink.sh
+  DIRLINK = $(TOPDIR)/tools/copydir.sh
   DIRUNLINK = $(TOPDIR)/tools/unlink.sh
   MKDEP = $(TOPDIR)/tools/mknulldeps.sh
   ARCHINCLUDES = -I. -isystem "${shell cygpath -w $(TOPDIR)/include}"
@@ -138,7 +74,7 @@ else
   ARCHSCRIPT = -T$(TOPDIR)/configs/$(CONFIG_ARCH_BOARD)/scripts/$(LDSCRIPT)
 endif
 
-ifeq ("${CONFIG_DEBUG_SYMBOLS}","y")
+ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
   ARCHOPTIMIZATION = -g
 else
   ARCHOPTIMIZATION = $(MAXOPTIMIZATION) -fno-strict-aliasing -fno-strength-reduce -fomit-frame-pointer

@@ -1030,7 +1030,7 @@ static void usbhost_callback(FAR struct usbhost_transfer_s *xfer)
       xfer->buffer[0] = 0;
     }
 
-  (void)work_queue(&xfer->work, (worker_t)usbhost_hubevent, xfer, 0);
+  (void)work_queue(HPWORK, &xfer->work, (worker_t)usbhost_hubevent, xfer, 0);
 }
 
 /****************************************************************************

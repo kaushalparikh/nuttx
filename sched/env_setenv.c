@@ -85,7 +85,7 @@
 
 int setenv(FAR const char *name, FAR const char *value, int overwrite)
 {
-  FAR _TCB *rtcb;
+  FAR struct tcb_s *rtcb;
   FAR struct task_group_s *group;
   FAR char *pvar;
   FAR char *newenvp;
@@ -121,10 +121,10 @@ int setenv(FAR const char *name, FAR const char *value, int overwrite)
         }
     }
 
-  /* Get a reference to the thread-private environ in the TCB.*/
+  /* Get a reference to the thread-private environ in the TCB. */
 
   sched_lock();
-  rtcb  = (FAR _TCB*)g_readytorun.head;
+  rtcb  = (FAR struct tcb_s*)g_readytorun.head;
   group = rtcb->group;
   DEBUGASSERT(group);
 
@@ -161,7 +161,7 @@ int setenv(FAR const char *name, FAR const char *value, int overwrite)
   if (group->tg_envp)
     {
       newsize = group->tg_envsize + varlen;
-      newenvp = (FAR char *)krealloc(group->tg_envp, newsize);
+      newenvp = (FAR char *)kurealloc(group->tg_envp, newsize);
       if (!newenvp)
         {
           ret = ENOMEM;
@@ -173,7 +173,7 @@ int setenv(FAR const char *name, FAR const char *value, int overwrite)
   else
     {
       newsize = varlen;
-      newenvp = (FAR char *)kmalloc(varlen);
+      newenvp = (FAR char *)kumalloc(varlen);
       if (!newenvp)
         {
           ret = ENOMEM;
@@ -202,6 +202,4 @@ errout:
 }
 
 #endif /* CONFIG_DISABLE_ENVIRON */
-
-
 

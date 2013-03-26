@@ -53,7 +53,7 @@
 #define LPC17_FLASH_BASE    0x00000000 /* -0x1fffffff: On-chip non-volatile memory */
 #define LPC17_SRAM_BASE     0x10000000 /* -0x10007fff: On-chip SRAM (devices <=32Kb) */
 #define LPC17_ROM_BASE      0x1fff0000 /* -0x1fffffff: 8Kb Boot ROM with flash services */
-#define LPC17_AHBSRAM_BASE  0x20000000 /* -0x3fffffff: On-chip Peripheral SRAM (devices >32Kb) */    
+#define LPC17_AHBSRAM_BASE  0x20000000 /* -0x3fffffff: On-chip Peripheral SRAM (devices >32Kb) */
 #  define LPC17_SRAM_BANK0  0x20000000 /* -0x20003fff: On-chip Peripheral SRAM Bank0 (devices >=32Kb) */
 #  define LPC17_SRAM_BANK1  0x20004000 /* -0x20007fff: On-chip Peripheral SRAM Bank1 (devices 64Kb) */
 #define LPC17_AHB_BASE      0x20080000 /* -0x2008ffff: DMA Controller, Ethernet, and USB */
@@ -70,10 +70,10 @@
 # define LPC17_EXTSRAM_CS2  0x98000000 /* Chip select 2 /up to 64MB/  */
 # define LPC17_EXTSRAM_CS3  0x9c000000 /* Chip select 3 /up to 64MB/  */
 
-# define LPC17_EXTDRAM_CS0  0x9c000000 /* Chip select 0 /up to 256MB/  */
-# define LPC17_EXTDRAM_CS1  0x9c000000 /* Chip select 1 /up to 256MB/  */
-# define LPC17_EXTDRAM_CS2  0x9c000000 /* Chip select 2 /up to 256MB/  */
-# define LPC17_EXTDRAM_CS3  0x9c000000 /* Chip select 3 /up to 256MB/  */
+# define LPC17_EXTDRAM_CS0  0xa0000000 /* Chip select 0 /up to 256MB/  */
+# define LPC17_EXTDRAM_CS1  0xb0000000 /* Chip select 1 /up to 256MB/  */
+# define LPC17_EXTDRAM_CS2  0xc0000000 /* Chip select 2 /up to 256MB/  */
+# define LPC17_EXTDRAM_CS3  0xd0000000 /* Chip select 3 /up to 256MB/  */
 
 #define LPC17_CORTEXM3_BASE 0xe0000000 /* -0xe00fffff: (see armv7-m/nvic.h) */
 #define LPC17_SCS_BASE      0xe000e000
@@ -119,7 +119,7 @@
 #define LPC17_UART2_BASE    0x40098000 /* -0x4009bfff: UART 2 */
 #define LPC17_UART3_BASE    0x4009c000 /* -0x4009ffff: UART 3 */
 #define LPC17_I2C2_BASE     0x400a0000 /* -0x400a3fff: I2C 2 */
-                                       /* -0x400a7fff: Reserved */
+#define LPC17_UART4_BASE    0x400a4000 /* -0x400a7fff: UART4 */
 #define LPC17_I2S_BASE      0x400a8000 /* -0x400abfff: I2S */
 #define LPC17_SSP2_BASE     0x400ac000 /* -0x400affff: SSP2 */
                                        /* -0x400b3fff: Reserved */
@@ -138,6 +138,10 @@
 #define LPC17_CRC_BASE      0x20090000 /*  CRC engine */
 #define LPC17_GPIO_BASE     0x20098000 /*  GPIO */
 #define LPC17_EMC_BASE      0x2009c000 /*  External Memory Controller */
+
+/* EEPROM */
+
+#define LPC17_EEPROM_BASE   0x00200000 /* EEPROM controller */
 
 /************************************************************************************
  * Public Types

@@ -1,7 +1,7 @@
 /************************************************************************
  * arch/arm/src/lpc31xx/lpc31_allocateheap.c
  *
- *   Copyright (C) 2009-2010 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009-2010, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
+#include <nuttx/kmalloc.h>
 #include <arch/board/board.h>
 
 #include "arm.h"
@@ -156,10 +157,14 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by defining CONFIG_HEAP_BASE
- *   and CONFIG_HEAP_SIZE.  If these are not defined, then this function
- *   will be called to dynamically set aside the heap region to the end
- *   of SRAM.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
  *
  *   SRAM layout:
  *   Start of SRAM:   .data
@@ -175,8 +180,8 @@
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 {
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size  = LPC31_HEAP_VEND - g_heapbase;
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size  = LPC31_HEAP_VEND - g_idle_topstack;
 }
 
 /************************************************************************
@@ -192,15 +197,15 @@ void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 void up_addregion(void)
 {
 #if defined(CONFIG_ARCH_EXTSRAM0) && defined(CONFIG_ARCH_EXTSRAM0HEAP)
-  mm_addregion((FAR void*)LPC31_EXTSRAM0_VSECTION, CONFIG_ARCH_EXTSRAM0SIZE);
+  kmm_addregion((FAR void*)LPC31_EXTSRAM0_VSECTION, CONFIG_ARCH_EXTSRAM0SIZE);
 #endif
 
 #if defined(CONFIG_ARCH_EXTSRAM1) && defined(CONFIG_ARCH_EXTSRAM1HEAP)
-  mm_addregion((FAR void*)LPC31_EXTSRAM1_VSECTION, CONFIG_ARCH_EXTSRAM1SIZE);
+  kmm_addregion((FAR void*)LPC31_EXTSRAM1_VSECTION, CONFIG_ARCH_EXTSRAM1SIZE);
 #endif
 
 #if defined(CONFIG_ARCH_EXTDRAM) && defined(CONFIG_ARCH_EXTDRAMHEAP)
-  mm_addregion((FAR void*)LPC31_EXTSDRAM_VSECTION, CONFIG_ARCH_EXTDRAMSIZE);
+  kmm_addregion((FAR void*)LPC31_EXTSDRAM_VSECTION, CONFIG_ARCH_EXTDRAMSIZE);
 #endif
 }
 #endif

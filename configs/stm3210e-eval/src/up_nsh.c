@@ -60,6 +60,7 @@
 #endif
 
 #include <arch/board/board.h>
+
 #include "stm3210e-internal.h"
 
 /****************************************************************************

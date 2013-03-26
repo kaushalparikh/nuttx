@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/sim/src/up_createstack.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -85,7 +85,7 @@
  *
  ****************************************************************************/
 
-int up_create_stack(_TCB *tcb, size_t stack_size)
+int up_create_stack(struct tcb_s *tcb, size_t stack_size)
 {
   int ret = ERROR;
 
@@ -96,7 +96,7 @@ int up_create_stack(_TCB *tcb, size_t stack_size)
 
   /* Allocate the memory for the stack */
 
-  uint32_t *stack_alloc_ptr = (uint32_t*)kmalloc(adj_stack_size);
+  uint32_t *stack_alloc_ptr = (uint32_t*)kumalloc(adj_stack_size);
   if (stack_alloc_ptr)
     {
       /* This is the address of the last word in the allocation */
@@ -110,5 +110,6 @@ int up_create_stack(_TCB *tcb, size_t stack_size)
       tcb->adj_stack_ptr   = adj_stack_ptr;
       ret = OK;
     }
+
   return ret;
 }

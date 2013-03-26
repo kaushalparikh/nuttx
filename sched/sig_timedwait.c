@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/sig_timedwait.c
  *
- *   Copyright (C) 2007-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -93,15 +93,15 @@
 static void sig_timeout(int argc, uint32_t itcb)
 {
   /* On many small machines, pointers are encoded and cannot be simply cast
-   * from uint32_t to _TCB*.  The following union works around this
+   * from uint32_t to struct tcb_s*.  The following union works around this
    * (see wdogparm_t).  This odd logic could be conditioned on
    * CONFIG_CAN_CAST_POINTERS, but it is not too bad in any case.
    */
 
   union
     {
-      FAR _TCB *wtcb;
-      uint32_t  itcb;
+      FAR struct tcb_s *wtcb;
+      uint32_t itcb;
     } u;
 
    u.itcb = itcb;
@@ -178,13 +178,14 @@ static void sig_timeout(int argc, uint32_t itcb)
 int sigtimedwait(FAR const sigset_t *set, FAR struct siginfo *info,
                  FAR const struct timespec *timeout)
 {
-  FAR _TCB       *rtcb = (FAR _TCB*)g_readytorun.head;
-  sigset_t        intersection;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
+  sigset_t intersection;
   FAR sigpendq_t *sigpend;
-  WDOG_ID         wdog;
-  irqstate_t      saved_state;
-  int32_t         waitticks;
-  int             ret = ERROR;
+  irqstate_t saved_state;
+  int32_t waitticks;
+  int ret = ERROR;
+
+  DEBUGASSERT(rtcb->waitdog == NULL);
 
   sched_lock();  /* Not necessary */
 
@@ -265,8 +266,8 @@ int sigtimedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
           /* Create a watchdog */
 
-          wdog = wd_create();
-          if (wdog)
+          rtcb->waitdog = wd_create();
+          if (rtcb->waitdog)
             {
               /* This little of nonsense is necessary for some
                * processors where sizeof(pointer) < sizeof(uint32_t).
@@ -278,7 +279,7 @@ int sigtimedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
               /* Start the watchdog */
 
-              wd_start(wdog, waitticks, (wdentry_t)sig_timeout, 1, wdparm.dwarg);
+              wd_start(rtcb->waitdog, waitticks, (wdentry_t)sig_timeout, 1, wdparm.dwarg);
 
               /* Now wait for either the signal or the watchdog */
 
@@ -286,7 +287,8 @@ int sigtimedwait(FAR const sigset_t *set, FAR struct siginfo *info,
 
               /* We no longer need the watchdog */
 
-              wd_delete(wdog);
+              wd_delete(rtcb->waitdog);
+              rtcb->waitdog = NULL;
             }
         }
 

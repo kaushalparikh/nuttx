@@ -2,7 +2,7 @@
  * netutils/thttpd/libhttpd.c
  * HTTP Protocol Library
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Derived from the file of the same name in the original THTTPD package:
@@ -1863,10 +1863,10 @@ static int ls(httpd_conn *hc)
 #ifndef CONFIG_CUSTOM_STACK
       child = task_create("CGI child", CONFIG_THTTPD_CGI_PRIORITY,
                           CONFIG_THTTPD_CGI_STACKSIZE,
-                          (main_t)ls_child, (const char **)argv);
+                          (main_t)ls_child, (FAR char * const *)argv);
 #else
       child = task_create("CGI child", CONFIG_THTTPD_CGI_PRIORITY,
-                          (main_t)ls_child, (const char **)argv);
+                          (main_t)ls_child, (FAR char * const *)argv);
 #endif
       if (child < 0)
         {
@@ -1913,8 +1913,9 @@ static int check_referer(httpd_conn *hc)
   /* Are we doing referer checking at all? */
 
 #ifdef CONFIG_THTTPD_URLPATTERN
-  int r;
   char *cp;
+  int r;
+  int child;
 
   child = really_check_referer(hc);
 

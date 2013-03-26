@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/arm/src/stm32/chip/stm32f10xx_rcc.h
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,13 +166,13 @@
 #ifndef CONFIG_STM32_VALUELINE
 #  define RCC_CFGR_USBPRE           (1 << 22) /* Bit 22: USB prescaler */
 #endif
-#define RCC_CFGR_MCO_SHIFT          (24)      /* Bits 26-24: Microcontroller Clock Output */
-#define RCC_CFGR_MCO_MASK           (0x0f << RCC_CFGR_MCO_SHIFT)
-#  define RCC_CFGR_NOCLK            (0 << RCC_CFGR_MCO_SHIFT)  /* 0xx: No clock */
-#  define RCC_CFGR_SYSCLK           (4 << RCC_CFGR_MCO_SHIFT)  /* 100: System clock selected */
-#  define RCC_CFGR_INTCLK           (5 << RCC_CFGR_MCO_SHIFT)  /* 101: Internal 8 MHz RC oscillator clock selected */
-#  define RCC_CFGR_EXTCLK           (6 << RCC_CFGR_MCO_SHIFT)  /* 110: External 1-25 MHz oscillator clock selected */
-#  define RCC_CFGR_PLLCLKd2         (7 << RCC_CFGR_MCO_SHIFT)  /* 111: PLL clock divided by 2 selected */
+#define RCC_CFGR_MCO_SHIFT          (24)      /* Bits 27-24: Microcontroller Clock Output */
+#define RCC_CFGR_MCO_MASK           (15 << RCC_CFGR_MCO_SHIFT)
+#  define RCC_CFGR_NOCLK            (0 << RCC_CFGR_MCO_SHIFT)  /* 00xx: No clock */
+#  define RCC_CFGR_SYSCLK           (4 << RCC_CFGR_MCO_SHIFT)  /* 0100: System clock selected */
+#  define RCC_CFGR_INTCLK           (5 << RCC_CFGR_MCO_SHIFT)  /* 0101: Internal 8 MHz RC oscillator clock selected */
+#  define RCC_CFGR_EXTCLK           (6 << RCC_CFGR_MCO_SHIFT)  /* 0110: External 1-25 MHz oscillator clock selected */
+#  define RCC_CFGR_PLLCLKd2         (7 << RCC_CFGR_MCO_SHIFT)  /* 0111: PLL clock divided by 2 selected */
 #  define RCC_CFGR_PLL2CLK          (8 << RCC_CFGR_MCO_SHIFT)  /* 1000: PLL2 clock selected */
 #  define RCC_CFGR_PLL3CLKd2        (9 << RCC_CFGR_MCO_SHIFT)  /* 1001: PLL3 clock devided by 2 selected */
 #  define RCC_CFGR_XT1              (10 << RCC_CFGR_MCO_SHIFT) /* 1010: external 3-25 MHz oscillator clock selected (for Ethernet) */
@@ -245,7 +245,7 @@
 #define RCC_APB1RSTR_USART2RST      (1 << 17) /* Bit 17: USART 2 reset */
 #define RCC_APB1RSTR_USART3RST      (1 << 18) /* Bit 18: USART 3 reset */
 #define RCC_APB1RSTR_UART4RST       (1 << 19) /* Bit 19: UART 4 reset */
-#define RCC_APB1RSTR_UART5RST       (1 << 20) /* Bit 18: UART 5 reset */
+#define RCC_APB1RSTR_UART5RST       (1 << 20) /* Bit 20: UART 5 reset */
 #define RCC_APB1RSTR_I2C1RST        (1 << 21) /* Bit 21: I2C 1 reset */
 #define RCC_APB1RSTR_I2C2RST        (1 << 22) /* Bit 22: I2C 2 reset */
 #ifndef CONFIG_STM32_VALUELINE
@@ -349,17 +349,17 @@
 
 /* Backup domain control register */
 
-#define RCC_BDCR_BDRST              (1 << 16) /* Bit 16: Backup domain software reset */
-#define RCC_BDCR_RTCEN              (1 << 15) /* Bit 15: RTC clock enable */
+#define RCC_BDCR_LSEON              (1 << 0)  /* Bit 0: External Low Speed oscillator enable */
+#define RCC_BDCR_LSERDY             (1 << 1)  /* Bit 1: External Low Speed oscillator Ready */
+#define RCC_BDCR_LSEBYP             (1 << 2)  /* Bit 2: External Low Speed oscillator Bypass */
 #define RCC_BDCR_RTCSEL_SHIFT       (8)       /* Bits 9:8: RTC clock source selection */
 #define RCC_BDCR_RTCSEL_MASK        (3 << RCC_BDCR_RTCSEL_SHIFT)
 #  define RCC_BDCR_RTCSEL_NOCLK     (0 << RCC_BDCR_RTCSEL_SHIFT) /* 00: No clock */
 #  define RCC_BDCR_RTCSEL_LSE       (1 << RCC_BDCR_RTCSEL_SHIFT) /* 01: LSE oscillator clock used as RTC clock */
 #  define RCC_BDCR_RTCSEL_LSI       (2 << RCC_BDCR_RTCSEL_SHIFT) /* 10: LSI oscillator clock used as RTC clock */
 #  define RCC_BDCR_RTCSEL_HSE       (3 << RCC_BDCR_RTCSEL_SHIFT) /* 11: HSE oscillator clock divided by 128 used as RTC clock */
-#define RCC_BDCR_LSEBYP             (1 << 2)  /* Bit 2: External Low Speed oscillator Bypass */
-#define RCC_BDCR_LSERDY             (1 << 1)  /* Bit 1: External Low Speed oscillator Ready */
-#define RCC_BDCR_LSEON              (1 << 0)  /* Bit 0: External Low Speed oscillator enable */
+#define RCC_BDCR_RTCEN              (1 << 15) /* Bit 15: RTC clock enable */
+#define RCC_BDCR_BDRST              (1 << 16) /* Bit 16: Backup domain software reset */
 
 /* Control/status register */
 

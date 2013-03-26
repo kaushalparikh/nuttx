@@ -1,7 +1,7 @@
 ############################################################################
 # mm/Makefile
 #
-#   Copyright (C) 2007, 2012 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2007, 2012, 2013 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,24 +35,40 @@
 
 -include $(TOPDIR)/Make.defs
 
-ASRCS	= 
-CSRCS	= mm_initialize.c mm_sem.c  mm_addfreechunk.c mm_size2ndx.c mm_shrinkchunk.c \
-		mm_malloc.c mm_zalloc.c mm_calloc.c mm_realloc.c \
-		mm_memalign.c mm_free.c mm_mallinfo.c
+# Core allocator logic
 
-ifeq ($(CONFIG_GRAN),y)
-CSRCS	+= mm_graninit.c mm_granalloc.c mm_granfree.c mm_grancritical.c
+ASRCS  = 
+CSRCS  = mm_initialize.c mm_sem.c  mm_addfreechunk.c mm_size2ndx.c
+CSRCS += mm_shrinkchunk.c mm_malloc.c mm_zalloc.c mm_calloc.c mm_realloc.c
+CSRCS += mm_memalign.c mm_free.c mm_mallinfo.c
+
+# Allocator instances
+
+CSRCS += mm_user.c
+ifeq ($(CONFIG_NUTTX_KERNEL),y)
+ifeq ($(CONFIG_MM_KERNEL_HEAP),y)
+CSRCS += mm_kernel.c
+endif
 endif
 
-AOBJS	= $(ASRCS:.S=$(OBJEXT))
-COBJS	= $(CSRCS:.c=$(OBJEXT))
+# An optional granule allocator
 
-SRCS	= $(ASRCS) $(CSRCS)
-OBJS	= $(AOBJS) $(COBJS)
+ifeq ($(CONFIG_GRAN),y)
+CSRCS += mm_graninit.c mm_granalloc.c mm_granfree.c mm_grancritical.c
+endif
 
-BIN	= libmm$(LIBEXT)
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+UBIN = libumm$(LIBEXT)
+KBIN = libkmm$(LIBEXT)
+BIN = libmm$(LIBEXT)
 
 all:	$(BIN)
+.PHONY: kclean uclean clean distclean 
 
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
@@ -63,14 +79,53 @@ $(COBJS): %$(OBJEXT): %.c
 $(BIN):	$(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
+ifneq ($(BIN),$(UBIN))
+$(UBIN): kclean
+	$(Q) $(MAKE) $(UBIN) BIN=$(UBIN) TOPDIR=$(TOPDIR) EXTRADEFINES=$(EXTRADEFINES)
+	$(Q) touch .userlib
+endif
+
+ifneq ($(BIN),$(KBIN))
+$(KBIN): uclean
+	$(Q) $(MAKE) $(KBIN) BIN=$(KBIN) TOPDIR=$(TOPDIR) EXTRADEFINES=$(EXTRADEFINES)
+	$(Q) touch .kernlib
+endif
+
 .depend: Makefile $(SRCS)
 	$(Q) $(MKDEP) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	$(Q) touch $@
 
 depend: .depend
 
+# Clean Targets:
+# Clean user-mode temporary files (retaining the UBIN binary)
+
+uclean:
+ifneq ($(OBJEXT),)
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist .userlib ]; then del *$(OBJEXT)
+else
+	$(Q) ( if [ -f .userlib ]; then rm -f *$(OBJEXT); fi )
+endif
+endif
+	$(call DELFILE, .userlib)
+
+# Clean kernel-mode temporary files (retaining the KBIN binary)
+
+kclean:
+ifneq ($(OBJEXT),)
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist .kernlib ]; then del *$(OBJEXT)
+else
+	$(Q) ( if [ -f .kernlib ]; then rm -f *$(OBJEXT); fi )
+endif
+endif
+	$(call DELFILE, .kernlib)
+
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(UBIN))
+	$(call DELFILE, $(KBIN))
 	$(call CLEAN)
 
 distclean: clean

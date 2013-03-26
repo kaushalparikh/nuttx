@@ -182,7 +182,8 @@
 #ifndef CONFIG_SCHED_HAVE_PARENT
 pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
-  _TCB *ctcb;
+  FAR struct tcb_s *ctcb;
+  FAR struct task_group_s *group;
   bool mystat;
   int err;
   int ret;
@@ -212,21 +213,26 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
       goto errout_with_errno;
     }
 
+  /* The the task group corresponding to this PID */
+
+  group = ctcb->group;
+  DEBUGASSERT(group);
+
   /* "If more than one thread is suspended in waitpid() awaiting termination of
    * the same process, exactly one thread will return the process status at the
    * time of the target process termination."  Hmmm.. what do we return to the
    * others?
    */
 
-  if (stat_loc != NULL && ctcb->stat_loc == NULL)
+  if (stat_loc != NULL && group->tg_statloc == NULL)
     {
-      ctcb->stat_loc = stat_loc;
-      mystat         = true;
+      group->tg_statloc = stat_loc;
+      mystat = true;
     }
 
   /* Then wait for the task to exit */
  
-  ret = sem_wait(&ctcb->exitsem);
+  ret = sem_wait(&group->tg_exitsem);
   if (ret < 0)
     {
       /* Unlock pre-emption and return the ERROR (sem_wait has already set
@@ -236,7 +242,7 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
 
       if (mystat)
         {
-          ctcb->stat_loc = NULL;
+          group->tg_statloc = NULL;
         }
 
       goto errout;
@@ -270,8 +276,8 @@ errout:
 #else
 pid_t waitpid(pid_t pid, int *stat_loc, int options)
 {
-  FAR _TCB *rtcb = (FAR _TCB *)g_readytorun.head;
-  FAR _TCB *ctcb;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s *)g_readytorun.head;
+  FAR struct tcb_s *ctcb;
 #ifdef CONFIG_SCHED_CHILD_STATUS
   FAR struct child_status_s *child;
   bool retains;
@@ -344,7 +350,9 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
             }
         }
     }
-#else
+
+#else /* CONFIG_SCHED_CHILD_STATUS */
+
   if (rtcb->nchildren == 0)
     {
       /* There are no children */
@@ -367,7 +375,8 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
           goto errout_with_errno;
         }
     }
-#endif
+
+#endif /* CONFIG_SCHED_CHILD_STATUS */
 
   /* Loop until the child that we are waiting for dies */
 
@@ -449,7 +458,9 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
               goto errout_with_errno;
             }
         }
-#else
+
+#else  /* CONFIG_SCHED_CHILD_STATUS */
+
       /* Check if the task has already died. Signals are not queued in
        * NuttX.  So a possibility is that the child has died and we
        * missed the death of child signal (we got some other signal
@@ -461,13 +472,14 @@ pid_t waitpid(pid_t pid, int *stat_loc, int options)
         {
           /* We know that the child task was running okay we stared,
            * so we must have lost the signal.  What can we do?
-           * Let's claim we were interrupted by a signal.
+           * Let's return ECHILD.. that is at least informative.
            */
 
-          err = EINTR;
+          err = ECHILD;
           goto errout_with_errno;
         }
-#endif
+
+#endif /* CONFIG_SCHED_CHILD_STATUS */
 
       /* Wait for any death-of-child signal */
 

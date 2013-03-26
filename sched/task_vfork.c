@@ -54,6 +54,9 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+/* vfork() requires architecture-specific support as well as waipid(). */
+
+#if defined(CONFIG_ARCH_HAVE_VFORK) && defined(CONFIG_SCHED_WAITPID)
 
 /****************************************************************************
  * Private Functions
@@ -105,10 +108,10 @@
  *
  ****************************************************************************/
 
-FAR _TCB *task_vforksetup(start_t retaddr)
+FAR struct task_tcb_s *task_vforksetup(start_t retaddr)
 {
-  _TCB *parent = (FAR _TCB *)g_readytorun.head;
-  _TCB *child;
+  struct tcb_s *parent = (FAR struct tcb_s *)g_readytorun.head;
+  struct task_tcb_s *child;
   int priority;
   int ret;
 
@@ -116,18 +119,29 @@ FAR _TCB *task_vforksetup(start_t retaddr)
 
   /* Allocate a TCB for the child task. */
 
-  child = (FAR _TCB*)kzalloc(sizeof(_TCB));
+  child = (FAR struct task_tcb_s *)kzalloc(sizeof(struct task_tcb_s));
   if (!child)
     {
+      sdbg("ERROR: Failed to allocate TCB\n");
       set_errno(ENOMEM);
       return NULL;
     }
+
+  /* Allocate a new task group */
+
+#ifdef HAVE_TASK_GROUP
+  ret = group_allocate(child);
+  if (ret < 0)
+    {
+      goto errout_with_tcb;
+    }
+#endif
 
   /* Associate file descriptors with the new task */
 
 #if CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0
   ret = group_setuptaskfiles(child);
-  if (ret != OK)
+  if (ret < OK)
     {
       goto errout_with_tcb;
     }
@@ -146,7 +160,7 @@ FAR _TCB *task_vforksetup(start_t retaddr)
   svdbg("Child priority=%d start=%p\n", priority, retaddr);
   ret = task_schedsetup(child, priority, retaddr, parent->entry.main,
                         TCB_FLAG_TTYPE_TASK);
-  if (ret != OK)
+  if (ret < OK)
     {
       goto errout_with_tcb;
     }
@@ -155,7 +169,7 @@ FAR _TCB *task_vforksetup(start_t retaddr)
   return child;
 
 errout_with_tcb:
-  sched_releasetcb(child);
+  sched_releasetcb((FAR struct tcb_s *)child);
   set_errno(-ret);
   return NULL;
 }
@@ -203,16 +217,14 @@ errout_with_tcb:
  *
  ****************************************************************************/
 
-pid_t task_vforkstart(FAR _TCB *child)
+pid_t task_vforkstart(FAR struct task_tcb_s *child)
 {
 #if CONFIG_TASK_NAME_SIZE > 0
-  _TCB *parent = (FAR _TCB *)g_readytorun.head;
+  struct tcb_s *parent = (FAR struct tcb_s *)g_readytorun.head;
 #endif
   FAR const char *name;
   pid_t pid;
-#ifdef CONFIG_SCHED_WAITPID
   int rc;
-#endif
   int ret;
 
   svdbg("Starting Child TCB=%p, parent=%p\n", child, g_readytorun.head);
@@ -226,16 +238,27 @@ pid_t task_vforkstart(FAR _TCB *child)
   name = NULL;
 #endif
 
-  (void)task_argsetup(child, name, (const char **)NULL);
+  (void)task_argsetup(child, name, (FAR char * const *)NULL);
+
+  /* Now we have enough in place that we can join the group */
+
+#ifdef HAVE_TASK_GROUP
+  ret = group_initialize(child);
+  if (ret < 0)
+    {
+      task_vforkabort(child, -ret);
+      return ERROR;
+    }
+#endif
 
   /* Get the assigned pid before we start the task */
 
-  pid = (int)child->pid;
+  pid = (int)child->cmn.pid;
 
   /* Activate the task */
 
-  ret = task_activate(child);
-  if (ret != OK)
+  ret = task_activate((FAR struct tcb_s *)child);
+  if (ret < OK)
     {
       task_vforkabort(child, -ret);
       return ERROR;
@@ -258,8 +281,6 @@ pid_t task_vforkstart(FAR _TCB *child)
    * after the parent thread again?
    */
 
-#ifdef CONFIG_SCHED_WAITPID
-
   /* We can also exploit a bug in the execv() implementation:  The PID
    * of the task exec'ed by the child will not be the same as the PID of
    * the child task.  Therefore, waitpid() on the child task's PID will
@@ -278,31 +299,6 @@ pid_t task_vforkstart(FAR _TCB *child)
   (void)waitpid(pid, &rc, 0);
 #endif
 
-#else
-  /* The following logic does not appear to work... It gets stuff in an
-   * infinite kill() loop and hogs the processor.  Therefore, it looks
-   * as though CONFIG_SCHED_WAITPID may be a requirement to used vfork().
-   *
-   * Again exploiting that execv() bug: Check if the child thread is
-   * still running.
-   */
-
-  while (kill(pid, 0) == OK)
-    {
-      /* Yes.. then we can yield to it -- assuming that it has not lowered
-       * its priority.  sleep(0) might be a safer thing to do since it does
-       * not depend on prioirities:  It will halt the parent thread for one
-       * system clock tick.  This will delay the return to the parent thread.
-       */
-
-#ifndef CONFIG_DISABLE_SIGNALS
-      sleep(0);
-#else
-      sched_yield();
-#endif
-    }
-#endif
-
   return pid;
 }
 
@@ -317,7 +313,7 @@ pid_t task_vforkstart(FAR _TCB *child)
  *
  ****************************************************************************/
 
-void task_vforkabort(FAR _TCB *child, int errcode)
+void task_vforkabort(FAR struct task_tcb_s *child, int errcode)
 {
   /* The TCB was added to the active task list by task_schedsetup() */
 
@@ -325,6 +321,8 @@ void task_vforkabort(FAR _TCB *child, int errcode)
 
   /* Release the TCB */
 
-  sched_releasetcb(child);
+  sched_releasetcb((FAR struct tcb_s *)child);
   set_errno(errcode);
 }
+
+#endif /* CONFIG_ARCH_HAVE_VFORK && CONFIG_SCHED_WAITPID */

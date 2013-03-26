@@ -109,12 +109,12 @@
 
 mqd_t mq_open(const char *mq_name, int oflags, ...)
 {
-  FAR _TCB       *rtcb = (FAR _TCB*)g_readytorun.head;
-  FAR msgq_t     *msgq;
-  mqd_t           mqdes = NULL;
-  va_list         arg;          /* Points to each un-named argument */
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
+  FAR msgq_t *msgq;
+  mqd_t mqdes = NULL;
+  va_list arg;                  /* Points to each un-named argument */
   struct mq_attr *attr;         /* MQ creation attributes */
-  int             namelen;      /* Length of MQ name */
+  int namelen;                  /* Length of MQ name */
 
   /* Make sure that a non-NULL name is supplied */
 
@@ -215,7 +215,7 @@ mqd_t mq_open(const char *mq_name, int oflags, ...)
                        * uninitialized, mq_deallocate() is not used.
                        */
 
-                      sched_free(msgq);
+                      sched_kfree(msgq);
                     }
                 }
             }

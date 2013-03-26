@@ -154,6 +154,7 @@ struct mmcsd_slot_s
   uint32_t twrite;       /* Card write time */
   uint32_t ocr;          /* Last 4 bytes of OCR (R3) */
   uint32_t r7;           /* Last 4 bytes of R7 */
+  uint32_t spispeed;     /* Speed to use for SPI in data mode */
 };
 
 struct mmcsd_cmdinfo_s
@@ -169,7 +170,8 @@ struct mmcsd_cmdinfo_s
 
 /* Misc *********************************************************************/
 
-static void   mmcsd_semtake(sem_t *sem);
+static void     mmcsd_semtake(FAR struct mmcsd_slot_s *slot);
+static void     mmcsd_semgive(FAR struct mmcsd_slot_s *slot);
 
 /* Card SPI interface *******************************************************/
 
@@ -339,9 +341,23 @@ static const struct mmcsd_cmdinfo_s g_acmd41 = {ACMD41, MMCSD_CMDRESP_R1, 0xff};
  * Name: mmcsd_semtake
  ****************************************************************************/
 
-static void mmcsd_semtake(sem_t *sem)
+static void mmcsd_semtake(FAR struct mmcsd_slot_s *slot)
 {
-  while (sem_wait(sem) != 0)
+  /* Get exclusive access to the SPI bus (if necessary) */
+
+#ifndef CONFIG_SPI_OWNBUS
+  (void)SPI_LOCK(slot->spi, true);
+
+  /* Set the frequency, as some other driver could have changed it. */
+
+  SPI_SETFREQUENCY(slot->spi, slot->spispeed);
+#endif
+
+  /* Get exclusive access to the MMC/SD device (prossibly un-necessary if
+   * SPI_LOCK is also implemented as a semaphore.
+   */
+
+  while (sem_wait(&slot->sem) != 0)
     {
       /* The only case that an error should occur here is if the wait was
        * awakened by a signal.
@@ -351,7 +367,26 @@ static void mmcsd_semtake(sem_t *sem)
     }
 }
 
-#define mmcsd_semgive(sem) sem_post(sem)
+static void mmcsd_semgive(FAR struct mmcsd_slot_s *slot)
+{
+  /* Relinquish the lock on the MMC/SD device */
+
+  sem_post(&slot->sem);
+
+  /* Relinquish the lock on the SPI bus */
+
+#ifndef CONFIG_SPI_OWNBUS
+  /* The card may need up to 8 SCLK cycles to sample the CS status
+   * and release the MISO line.
+   */
+
+  (void)SPI_SEND(slot->spi, 0xff);
+
+  /* Relinquish exclusive access to the SPI bus */
+
+  (void)SPI_LOCK(slot->spi, false);
+#endif
+}
 
 /****************************************************************************
  * Name: mmcsd_waitready
@@ -658,6 +693,10 @@ static void mmcsd_decodecsd(FAR struct mmcsd_slot_s *slot, uint8_t *csd)
       frequency = CONFIG_MMCSD_SPICLOCK;
     }
 
+  /* Store the value for future use */
+  
+  slot->spispeed = frequency;
+    
   /* Set the actual SPI frequency as close as possible to that value */
 
   frequency = SPI_SETFREQUENCY(spi, frequency);
@@ -1005,7 +1044,7 @@ static int mmcsd_open(FAR struct inode *inode)
   /* Verify that an MMC/SD card has been inserted */
 
   ret = -ENODEV;
-  mmcsd_semtake(&slot->sem);
+  mmcsd_semtake(slot);
   if ((SPI_STATUS(spi, SPIDEV_MMCSD) & SPI_STATUS_PRESENT) != 0)
     {
       /* Yes.. a card is present.  Has it been initialized? */
@@ -1030,7 +1069,7 @@ static int mmcsd_open(FAR struct inode *inode)
     }
 
 errout_with_sem:
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
   return ret;
 }
 
@@ -1124,7 +1163,7 @@ static ssize_t mmcsd_read(FAR struct inode *inode, unsigned char *buffer,
 
   /* Select the slave */
 
-  mmcsd_semtake(&slot->sem);
+  mmcsd_semtake(slot);
   SPI_SELECT(spi, SPIDEV_MMCSD, true);
 
   /* Single or multiple block read? */
@@ -1172,6 +1211,7 @@ static ssize_t mmcsd_read(FAR struct inode *inode, unsigned char *buffer,
               fdbg("Failed: to receive the block\n");
               goto errout_with_eio;
             }
+
          buffer += SECTORSIZE(slot);
        }
 
@@ -1184,7 +1224,7 @@ static ssize_t mmcsd_read(FAR struct inode *inode, unsigned char *buffer,
 
   SPI_SELECT(spi, SPIDEV_MMCSD, false);
   SPI_SEND(spi, 0xff);
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
 
   fvdbg("Read %d bytes:\n", nbytes);
   mmcsd_dumpbuffer("Read buffer", buffer, nbytes);
@@ -1192,7 +1232,7 @@ static ssize_t mmcsd_read(FAR struct inode *inode, unsigned char *buffer,
 
 errout_with_eio:
   SPI_SELECT(spi, SPIDEV_MMCSD, false);
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
   return -EIO;
 }
 
@@ -1281,11 +1321,12 @@ static ssize_t mmcsd_write(FAR struct inode *inode, const unsigned char *buffer,
       offset = start_sector * SECTORSIZE(slot);
       fvdbg("nbytes=%d byte offset=%d\n", nbytes, offset);
     }
+
   mmcsd_dumpbuffer("Write buffer", buffer, nbytes);
 
   /* Select the slave */
 
-  mmcsd_semtake(&slot->sem);
+  mmcsd_semtake(slot);
   SPI_SELECT(spi, SPIDEV_MMCSD, true);
 
   /* Single or multiple block transfer? */
@@ -1356,7 +1397,7 @@ static ssize_t mmcsd_write(FAR struct inode *inode, const unsigned char *buffer,
   ret = mmcsd_waitready(slot);
   SPI_SELECT(spi, SPIDEV_MMCSD, false);
   SPI_SEND(spi, 0xff);
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
 
   /* The success return value is the number of sectors written */
 
@@ -1364,7 +1405,7 @@ static ssize_t mmcsd_write(FAR struct inode *inode, const unsigned char *buffer,
 
 errout_with_sem:
   SPI_SELECT(spi, SPIDEV_MMCSD, false);
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
   return -EIO;
 }
 #endif
@@ -1413,14 +1454,14 @@ static int mmcsd_geometry(FAR struct inode *inode, struct geometry *geometry)
 
   /* Re-sample the CSD */
 
-  mmcsd_semtake(&slot->sem);
+  mmcsd_semtake(slot);
   SPI_SELECT(spi, SPIDEV_MMCSD, true);
   ret = mmcsd_getcsd(slot, csd);
   SPI_SELECT(spi, SPIDEV_MMCSD, false);
 
   if (ret < 0)
     {
-      mmcsd_semgive(&slot->sem);
+      mmcsd_semgive(slot);
       fdbg("mmcsd_getcsd returned %d\n", ret);
       return ret;
     }
@@ -1449,7 +1490,7 @@ static int mmcsd_geometry(FAR struct inode *inode, struct geometry *geometry)
    */
 
   slot->state &= ~MMCSD_SLOTSTATUS_MEDIACHGD;
-  mmcsd_semgive(&slot->sem);
+  mmcsd_semgive(slot);
 
   fvdbg("geo_available:     %d\n", geometry->geo_available);
   fvdbg("geo_mediachanged:  %d\n", geometry->geo_mediachanged);
@@ -1470,6 +1511,8 @@ static int mmcsd_geometry(FAR struct inode *inode, struct geometry *geometry)
  * Description:
  *   Detect media and initialize
  *
+ * Precondition:
+ *   Semaphore has been taken.
  ****************************************************************************/
 
 static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
@@ -1479,7 +1522,8 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
   uint32_t result = MMCSD_SPIR1_IDLESTATE;
   uint32_t start;
   uint32_t elapsed;
-  int i, j;
+  int i;
+  int j;
 
   /* Assume that the card is not ready (we'll clear this on successful card
    * initialization.
@@ -1551,6 +1595,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
     {
       fdbg("Send CMD0 failed: R1=%02x\n", result);
       SPI_SELECT(spi, SPIDEV_MMCSD, false);
+      mmcsd_semgive(slot);
       return -EIO;
     }
 
@@ -1585,6 +1630,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
                       break;
                     }
                 }
+
               elapsed = ELAPSED_TIME(start);
             }
           while (elapsed < MMCSD_DELAY_1SEC);
@@ -1594,6 +1640,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
           if (elapsed < MMCSD_DELAY_1SEC)
            {
              fvdbg("Send CMD58\n");
+
              SPI_SEND(spi, 0xff);
              result = mmcsd_sendcmd(slot, &g_cmd58, 0);
              if (result == MMCSD_SPIR1_OK)
@@ -1664,6 +1711,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
                    break;
                 }
              }
+
           elapsed = ELAPSED_TIME(start);
         }
       while (elapsed < MMCSD_DELAY_1SEC);
@@ -1672,6 +1720,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
         {
           fdbg("Failed to exit IDLE state\n");
           SPI_SELECT(spi, SPIDEV_MMCSD, false);
+          mmcsd_semgive(slot);
           return -EIO;
         }
     }
@@ -1680,6 +1729,7 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
     {
       fdbg("Failed to identify card\n");
       SPI_SELECT(spi, SPIDEV_MMCSD, false);
+      mmcsd_semgive(slot);
       return -EIO;
     }
 
@@ -1691,8 +1741,10 @@ static int mmcsd_mediainitialize(FAR struct mmcsd_slot_s *slot)
     {
       fdbg("mmcsd_getcsd(CMD9) failed: %d\n", result);
       SPI_SELECT(spi, SPIDEV_MMCSD, false);
+      mmcsd_semgive(slot);
       return -EIO;
     }
+
   mmcsd_dmpcsd(csd, slot->type);
 
   /* CSD data and set block size */
@@ -1762,7 +1814,7 @@ static void mmcsd_mediachanged(void *arg)
 
   /* Save the current slot state and reassess the new state */
 
-  mmcsd_semtake(&slot->sem);
+  mmcsd_semtake(slot);
   oldstate = slot->state;
 
   /* Check if media was removed or inserted */
@@ -1798,6 +1850,8 @@ static void mmcsd_mediachanged(void *arg)
           slot->state |= MMCSD_SLOTSTATUS_MEDIACHGD;
         }
     }
+
+  mmcsd_semgive(slot);
 }
 
 /****************************************************************************
@@ -1852,10 +1906,13 @@ int mmcsd_spislotinitialize(int minor, int slotno, FAR struct spi_dev_s *spi)
   /* Bind the SPI port to the slot */
 
   slot->spi = spi;
+  slot->spispeed = MMCSD_IDMODE_CLOCK;
 
   /* Ininitialize for the media in the slot (if any) */
 
+  mmcsd_semtake(slot);
   ret = mmcsd_mediainitialize(slot);
+  mmcsd_semgive(slot);
   if (ret == 0)
     {
       fvdbg("mmcsd_mediainitialize returned OK\n");

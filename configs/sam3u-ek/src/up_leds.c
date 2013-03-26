@@ -58,13 +58,11 @@
  * Definitions
  ****************************************************************************/
 
-/* Enables debug output from this file (needs CONFIG_DEBUG with
- * CONFIG_DEBUG_VERBOSE too)
+/* CONFIG_DEBUG_LEDS enables debug output from this file (needs CONFIG_DEBUG
+ * with CONFIG_DEBUG_VERBOSE too)
  */
 
-#undef LED_DEBUG  /* Define to enable debug */
-
-#ifdef LED_DEBUG
+#ifdef CONFIG_DEBUG_LEDS
 #  define leddbg  lldbg
 #  define ledvdbg llvdbg
 #else
@@ -96,7 +94,6 @@
 
 static const uint8_t g_ledon[8] =
 {
-	
   (LED0_OFF     |LED1_OFF     |LED2_OFF),      /* LED_STARTED  */
   (LED0_ON      |LED1_OFF     |LED2_ON),       /* LED_HEAPALLOCATE */
   (LED0_OFF     |LED1_ON      |LED2_OFF),      /* LED_IRQSENABLED  */
@@ -110,7 +107,6 @@ static const uint8_t g_ledon[8] =
 
 static const uint8_t g_ledoff[8] =
 {
-	
   (LED0_OFF     |LED1_OFF     |LED2_OFF),      /* LED_STARTED (does not happen) */
   (LED0_ON      |LED1_OFF     |LED2_ON),       /* LED_HEAPALLOCATE (does not happen) */
   (LED0_OFF     |LED1_ON      |LED2_OFF),      /* LED_IRQSENABLED (does not happen) */
@@ -147,6 +143,7 @@ static void up_setled(uint16_t pinset, uint8_t state)
       default:
         return;
     }
+
   sam3u_gpiowrite(pinset, polarity);
 }
 

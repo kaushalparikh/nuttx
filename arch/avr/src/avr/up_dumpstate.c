@@ -168,8 +168,8 @@ static inline void up_registerdump(void)
 
 void up_dumpstate(void)
 {
-  _TCB    *rtcb = (_TCB*)g_readytorun.head;
-  uint16_t sp   = up_getsp();
+  struct tcb_s *rtcb = (struct tcb_s*)g_readytorun.head;
+  uint16_t sp = up_getsp();
   uint16_t ustackbase;
   uint16_t ustacksize;
 #if CONFIG_ARCH_INTERRUPTSTACK > 0
@@ -181,7 +181,7 @@ void up_dumpstate(void)
 
   if (rtcb->pid == 0)
     {
-      ustackbase = g_heapbase - 1;
+      ustackbase = g_idle_topstack - 1;
       ustacksize = CONFIG_IDLETHREAD_STACKSIZE;
     }
   else

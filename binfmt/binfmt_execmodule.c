@@ -134,13 +134,13 @@ static void exec_ctors(FAR void *arg)
 
 int exec_module(FAR const struct binary_s *binp)
 {
-  FAR _TCB     *tcb;
+  FAR struct task_tcb_s *tcb;
 #ifndef CONFIG_CUSTOM_STACK
   FAR uint32_t *stack;
 #endif
-  pid_t         pid;
-  int           err;
-  int           ret;
+  pid_t pid;
+  int err;
+  int ret;
 
   /* Sanity checking */
 
@@ -156,7 +156,7 @@ int exec_module(FAR const struct binary_s *binp)
 
   /* Allocate a TCB for the new task. */
 
-  tcb = (FAR _TCB*)kzalloc(sizeof(_TCB));
+  tcb = (FAR struct task_tcb_s*)kzalloc(sizeof(struct task_tcb_s));
   if (!tcb)
     {
       err = ENOMEM;
@@ -166,7 +166,7 @@ int exec_module(FAR const struct binary_s *binp)
   /* Allocate the stack for the new task */
 
 #ifndef CONFIG_CUSTOM_STACK
-  stack = (FAR uint32_t*)kmalloc(binp->stacksize);
+  stack = (FAR uint32_t*)kumalloc(binp->stacksize);
   if (!tcb)
     {
       err = ENOMEM;
@@ -175,13 +175,13 @@ int exec_module(FAR const struct binary_s *binp)
 
   /* Initialize the task */
 
-  ret = task_init(tcb, binp->filename, binp->priority, stack,
-                  binp->stacksize, binp->entrypt, binp->argv);
+  ret = task_init((FAR struct tcb_s *)tcb, binp->filename, binp->priority,
+                  stack, binp->stacksize, binp->entrypt, binp->argv);
 #else
   /* Initialize the task */
 
-  ret = task_init(tcb, binp->filename, binp->priority, stack,
-                  binp->entrypt, binp->argv);
+  ret = task_init((FAR struct tcb_s *)tcb, binp->filename, binp->priority,
+                  stack, binp->entrypt, binp->argv);
 #endif
   if (ret < 0)
     {
@@ -198,17 +198,17 @@ int exec_module(FAR const struct binary_s *binp)
    */
 
 #ifdef CONFIG_PIC
-  tcb->dspace = binp->alloc[0];
+  tcb->cmn.dspace = binp->alloc[0];
 
   /* Re-initialize the task's initial state to account for the new PIC base */
 
-  up_initial_state(tcb);
+  up_initial_state(&tcb->cmn);
 #endif
 
   /* Assign the address environment to the task */
 
 #ifdef CONFIG_ADDRENV
-  ret = up_addrenv_assign(binp->addrenv, tcb);
+  ret = up_addrenv_assign(binp->addrenv, &tcb->cmn);
   if (ret < 0)
     {
       err = -ret;
@@ -228,11 +228,11 @@ int exec_module(FAR const struct binary_s *binp)
 
   /* Get the assigned pid before we start the task */
 
-  pid = tcb->pid;
+  pid = tcb->cmn.pid;
 
   /* Then activate the task at the provided priority */
 
-  ret = task_activate(tcb);
+  ret = task_activate((FAR struct tcb_s *)tcb);
   if (ret < 0)
     {
       err = errno;
@@ -244,11 +244,11 @@ int exec_module(FAR const struct binary_s *binp)
 
 errout_with_stack:
 #ifndef CONFIG_CUSTOM_STACK
-  tcb->stack_alloc_ptr = NULL;
-  sched_releasetcb(tcb);
-  kfree(stack);
+  tcb->cmn.stack_alloc_ptr = NULL;
+  sched_releasetcb(&tcb->cmn);
+  kufree(stack);
 #else
-  sched_releasetcb(tcb);
+  sched_releasetcb(&tcb->cmn);
 #endif
   goto errout;
 

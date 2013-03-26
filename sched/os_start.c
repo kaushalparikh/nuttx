@@ -39,8 +39,9 @@
 
 #include  <sys/types.h>
 #include  <stdbool.h>
-#include  <debug.h>
 #include  <string.h>
+#include  <assert.h>
+#include  <debug.h>
 
 #include  <nuttx/arch.h>
 #include  <nuttx/compiler.h>
@@ -141,13 +142,17 @@ volatile dq_queue_t g_waitingforfill;
 
 volatile dq_queue_t g_inactivetasks;
 
-/* This is the list of dayed memory deallocations that need to be handled
- * within the IDLE loop.  These deallocations get queued by sched_free()
- * if the OS attempts to deallocate memory while it is within an interrupt
- * handler.
+/* These are lists of dayed memory deallocations that need to be handled
+ * within the IDLE loop or worker thread.  These deallocations get queued
+ * by sched_kufree and sched_kfree() if the OS needs to deallocate memory
+ * while it is within an interrupt handler.
  */
 
-volatile sq_queue_t g_delayeddeallocations;
+volatile sq_queue_t g_delayed_kufree;
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+volatile sq_queue_t g_delayed_kfree;
+#endif
 
 /* This is the value of the last process ID assigned to a task */
 
@@ -204,7 +209,7 @@ const tasklist_t g_tasklisttable[NUM_TASK_STATES] =
  * that user init task is responsible for bringing up the rest of the system
  */
 
-static FAR _TCB g_idletcb;
+static FAR struct task_tcb_s g_idletcb;
 
 /* This is the name of the idle task */
 
@@ -233,6 +238,7 @@ void os_start(void)
 
   slldbg("Entry\n");
 
+  /* Initialize RTOS Data ***************************************************/
   /* Initialize all task lists */
 
   dq_init(&g_readytorun);
@@ -249,7 +255,10 @@ void os_start(void)
   dq_init(&g_waitingforfill);
 #endif
   dq_init(&g_inactivetasks);
-  sq_init(&g_delayeddeallocations);
+  sq_init(&g_delayed_kufree);
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+  sq_init(&g_delayed_kfree);
+#endif
 
   /* Initialize the logic that determine unique process IDs. */
 
@@ -262,9 +271,10 @@ void os_start(void)
 
   /* Assign the process ID of ZERO to the idle task */
 
-  g_pidhash[ PIDHASH(0)].tcb = &g_idletcb;
+  g_pidhash[ PIDHASH(0)].tcb = &g_idletcb.cmn;
   g_pidhash[ PIDHASH(0)].pid = 0;
 
+  /* Initialize the IDLE task TCB *******************************************/
   /* Initialize a TCB for this thread of execution.  NOTE:  The default
    * value for most components of the g_idletcb are zero.  The entire
    * structure is set to zero.  Then only the (potentially) non-zero
@@ -272,13 +282,13 @@ void os_start(void)
    * that has pid == 0 and sched_priority == 0.
    */
 
-  bzero((void*)&g_idletcb, sizeof(_TCB));
-  g_idletcb.task_state = TSTATE_TASK_RUNNING;
-  g_idletcb.entry.main = (main_t)os_start;
+  bzero((void*)&g_idletcb, sizeof(struct task_tcb_s));
+  g_idletcb.cmn.task_state = TSTATE_TASK_RUNNING;
+  g_idletcb.cmn.entry.main = (main_t)os_start;
 
 #if CONFIG_TASK_NAME_SIZE > 0
-  strncpy(g_idletcb.name, g_idlename, CONFIG_TASK_NAME_SIZE-1);
-  g_idletcb.argv[0] = g_idletcb.name;
+  strncpy(g_idletcb.cmn.name, g_idlename, CONFIG_TASK_NAME_SIZE-1);
+  g_idletcb.argv[0] = g_idletcb.cmn.name;
 #else
   g_idletcb.argv[0] = (char*)g_idlename;
 #endif /* CONFIG_TASK_NAME_SIZE */
@@ -289,8 +299,9 @@ void os_start(void)
 
   /* Initialize the processor-specific portion of the TCB */
 
-  up_initial_state(&g_idletcb);
+  up_initial_state(&g_idletcb.cmn);
 
+  /* Initialize RTOS facilities *********************************************/
   /* Initialize the semaphore facility(if in link).  This has to be done
    * very early because many subsystems depend upon fully functional
    * semaphores.
@@ -305,16 +316,26 @@ void os_start(void)
 
   /* Initialize the memory manager */
 
-#ifndef CONFIG_HEAP_BASE
   {
     FAR void *heap_start;
     size_t heap_size;
+
+    /* Get the user-mode heap from the platform specific code and configure
+     * the user-mode memory allocator.
+     */
+
     up_allocate_heap(&heap_start, &heap_size);
+    kumm_initialize(heap_start, heap_size);
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+    /* Get the kernel-mode heap from the platform specific code and configure
+     * the kernel-mode memory allocator.
+     */
+
+    up_allocate_kheap(&heap_start, &heap_size);
     kmm_initialize(heap_start, heap_size);
-  }
-#else
-  kmm_initialize((void*)CONFIG_HEAP_BASE, CONFIG_HEAP_SIZE);
 #endif
+  }
 
   /* Initialize tasking data structures */
 
@@ -325,12 +346,6 @@ void os_start(void)
     {
       task_initialize();
     }
-#endif
-
-  /* Allocate the IDLE group and suppress child status. */
-
-#ifdef HAVE_TASK_GROUP
-  (void)group_allocate(&g_idletcb);
 #endif
 
   /* Initialize the interrupt handling subsystem (if included) */
@@ -445,25 +460,34 @@ void os_start(void)
       lib_initialize();
     }
 
+  /* IDLE Group Initialization **********************************************/
+  /* Allocate the IDLE group and suppress child status. */
+
+#ifdef HAVE_TASK_GROUP
+  DEBUGVERIFY(group_allocate(&g_idletcb));
+#endif
+
   /* Create stdout, stderr, stdin on the IDLE task.  These will be
    * inherited by all of the threads created by the IDLE task.
    */
 
-  (void)group_setupidlefiles(&g_idletcb);
+  DEBUGVERIFY(group_setupidlefiles(&g_idletcb));
 
   /* Complete initialization of the IDLE group.  Suppress retention
    * of child status in the IDLE group.
    */
 
 #ifdef HAVE_TASK_GROUP
-  (void)group_initialize(&g_idletcb);
-  g_idletcb.group->tg_flags = GROUP_FLAG_NOCLDWAIT;
+  DEBUGVERIFY(group_initialize(&g_idletcb));
+  g_idletcb.cmn.group->tg_flags = GROUP_FLAG_NOCLDWAIT;
 #endif
 
+  /* Bring Up the System ****************************************************/
   /* Create initial tasks and bring-up the system */
 
-  (void)os_bringup();
+  DEBUGVERIFY(os_bringup());
 
+  /* The IDLE Loop **********************************************************/
   /* When control is return to this point, the system is idle. */
 
   sdbg("Beginning Idle Loop\n");

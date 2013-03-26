@@ -37,7 +37,7 @@
 
 # Sub-directories
 
-SUBDIRS = tiff
+SUBDIRS = tiff screenshot
 
 # Sub-directories that might need context setup
 

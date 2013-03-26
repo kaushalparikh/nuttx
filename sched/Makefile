@@ -41,12 +41,19 @@ AOBJS = $(ASRCS:.S=$(OBJEXT))
 MISC_SRCS  = os_start.c os_bringup.c errno_getptr.c errno_get.c errno_set.c
 MISC_SRCS += sched_garbage.c sched_getfiles.c sched_getsockets.c sched_getstreams.c
 
-TSK_SRCS = prctl.c task_create.c task_init.c task_setup.c task_activate.c
-TSK_SRCS += task_start.c task_delete.c task_deletecurrent.c task_exithook.c
-TSK_SRCS += task_restart.c task_vfork.c exit.c getpid.c sched_addreadytorun.c
-TSK_SRCS += sched_removereadytorun.c sched_addprioritized.c sched_mergepending.c
-TSK_SRCS += sched_addblocked.c sched_removeblocked.c sched_free.c sched_gettcb.c
-TSK_SRCS += sched_verifytcb.c sched_releasetcb.c
+TSK_SRCS  = prctl.c exit.c getpid.c
+TSK_SRCS += task_create.c task_init.c task_setup.c task_activate.c task_start.c
+TSK_SRCS += task_delete.c task_deletecurrent.c task_exithook.c task_recover.c
+TSK_SRCS += task_restart.c task_spawn.c task_spawnparms.c 
+TSK_SRCS += sched_addreadytorun.c sched_removereadytorun.c sched_addprioritized.c
+TSK_SRCS += sched_mergepending.c sched_addblocked.c sched_removeblocked.c
+TSK_SRCS += sched_free.c sched_gettcb.c sched_verifytcb.c sched_releasetcb.c
+
+ifeq ($(CONFIG_ARCH_HAVE_VFORK),y)
+ifeq ($(CONFIG_SCHED_WAITPID),y)
+TSK_SRCS += task_vfork.c
+endif
+endif
 
 ifneq ($(CONFIG_BINFMT_DISABLE),y)
 ifeq ($(CONFIG_LIBC_EXECFUNCS),y)
@@ -84,6 +91,7 @@ endif
 
 GRP_SRCS  = group_create.c group_join.c group_leave.c group_find.c
 GRP_SRCS += group_setupstreams.c group_setupidlefiles.c group_setuptaskfiles.c
+GRP_SRCS += task_getgroup.c group_foreachchild.c group_killchildren.c
 
 ifeq ($(CONFIG_SCHED_HAVE_PARENT),y)
 GRP_SRCS += task_reparent.c
@@ -119,11 +127,13 @@ SIGNAL_SRCS += sig_kill.c sig_queue.c sig_waitinfo.c sig_timedwait.c
 SIGNAL_SRCS += sig_findaction.c sig_allocatependingsigaction.c
 SIGNAL_SRCS += sig_releasependingsigaction.c sig_unmaskpendingsignal.c
 SIGNAL_SRCS += sig_removependingsignal.c sig_releasependingsignal.c sig_lowest.c
-SIGNAL_SRCS += sig_mqnotempty.c sig_cleanup.c sig_received.c sig_deliver.c pause.c
+SIGNAL_SRCS += sig_mqnotempty.c sig_cleanup.c sig_dispatch.c sig_deliver.c
+SIGNAL_SRCS += pause.c
 
 MQUEUE_SRCS  = mq_open.c mq_close.c mq_unlink.c mq_send.c mq_timedsend.c
 MQUEUE_SRCS += mq_sndinternal.c mq_receive.c mq_timedreceive.c mq_rcvinternal.c
-MQUEUE_SRCS += mq_initialize.c mq_descreate.c mq_findnamed.c mq_msgfree.c mq_msgqfree.c
+MQUEUE_SRCS += mq_initialize.c mq_descreate.c mq_findnamed.c mq_msgfree.c
+MQUEUE_SRCS += mq_msgqfree.c mq_release.c mq_recover.c
 
 ifneq ($(CONFIG_DISABLE_SIGNALS),y)
 MQUEUE_SRCS += mq_waitirq.c
@@ -143,7 +153,7 @@ PTHREAD_SRCS += pthread_barrierinit.c pthread_barrierdestroy.c pthread_barrierwa
 PTHREAD_SRCS += pthread_cancel.c pthread_setcancelstate.c
 PTHREAD_SRCS += pthread_keycreate.c pthread_setspecific.c pthread_getspecific.c pthread_keydelete.c
 PTHREAD_SRCS += pthread_initialize.c pthread_completejoin.c pthread_findjoininfo.c
-PTHREAD_SRCS += pthread_removejoininfo.c pthread_once.c pthread_setschedprio.c
+PTHREAD_SRCS += pthread_once.c pthread_release.c pthread_setschedprio.c
 
 ifneq ($(CONFIG_DISABLE_SIGNALS),y)
 PTHREAD_SRCS += pthread_condtimedwait.c pthread_kill.c pthread_sigmask.c
@@ -165,21 +175,14 @@ TIMER_SRCS += timer_initialize.c timer_create.c timer_delete.c timer_getoverrun.
 TIMER_SRCS += timer_gettime.c timer_settime.c timer_release.c
 endif
 
-ifeq ($(CONFIG_SCHED_WORKQUEUE),y)
-WORK_SRCS = work_thread.c work_queue.c work_cancel.c work_signal.c
-endif
-
 ifeq ($(CONFIG_PAGING),y)
 PGFILL_SRCS = pg_miss.c pg_worker.c
 endif
 
 IRQ_SRCS = irq_initialize.c irq_attach.c irq_dispatch.c irq_unexpectedisr.c
 
-KMM_SRCS = kmm_initialize.c kmm_addregion.c kmm_semaphore.c
-KMM_SRCS = kmm_kmalloc.c kmm_kzalloc.c kmm_krealloc.c kmm_kfree.c
-
 CSRCS  = $(MISC_SRCS) $(TSK_SRCS) $(GRP_SRCS) $(SCHED_SRCS) $(WDOG_SRCS)
-CSRCS += $(TIME_SRCS) $(SEM_SRCS) $(TIMER_SRCS) $(WORK_SRCS) $(PGFILL_SRCS)
+CSRCS += $(TIME_SRCS) $(SEM_SRCS) $(TIMER_SRCS) $(PGFILL_SRCS)
 CSRCS += $(IRQ_SRCS)
 
 ifneq ($(CONFIG_DISABLE_CLOCK),y)
@@ -200,10 +203,6 @@ endif
 
 ifneq ($(CONFIG_DISABLE_ENVIRON),y)
 CSRCS += $(ENV_SRCS)
-endif
-
-ifeq ($(CONFIG_NUTTX_KERNEL),y)
-CSRCS += $(KMM_SRCS)
 endif
 
 COBJS = $(CSRCS:.c=$(OBJEXT))

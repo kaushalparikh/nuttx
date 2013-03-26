@@ -1,7 +1,7 @@
 /****************************************************************************
  * mm/mm_shrinkchunk.c
  *
- *   Copyright (C) 2007, 2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2009, 1013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,8 +37,11 @@
  * Included Files
  ****************************************************************************/
 
-#include "mm_environment.h"
-#include "mm_internal.h"
+#include <nuttx/config.h>
+
+#include <assert.h>
+
+#include <nuttx/mm.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -63,7 +66,8 @@
  *
  ****************************************************************************/
 
-void  mm_shrinkchunk(FAR struct mm_allocnode_s *node, size_t size)
+void  mm_shrinkchunk(FAR struct mm_heap_s *heap,
+                     FAR struct mm_allocnode_s *node, size_t size)
 {
   FAR struct mm_freenode_s *next;
 
@@ -108,7 +112,7 @@ void  mm_shrinkchunk(FAR struct mm_allocnode_s *node, size_t size)
 
       /* Add the new node to the freenodelist */
 
-      mm_addfreechunk(newnode);
+      mm_addfreechunk(heap, newnode);
     }
 
   /* The next chunk is allocated.  Try to free the end portion at the end
@@ -134,6 +138,6 @@ void  mm_shrinkchunk(FAR struct mm_allocnode_s *node, size_t size)
 
       /* Add the new node to the freenodelist */
 
-      mm_addfreechunk(newnode);
+      mm_addfreechunk(heap, newnode);
     }
 }

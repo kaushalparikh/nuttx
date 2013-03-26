@@ -49,7 +49,7 @@
 #include "group_internal.h"
 #include "env_internal.h"
 
-#ifdef HAVE_TASK_GROUP
+#if defined(HAVE_TASK_GROUP) && !defined(CONFIG_DISABLE_PTHREAD)
 
 /*****************************************************************************
  * Pre-processor Definitions
@@ -69,6 +69,76 @@
 /*****************************************************************************
  * Private Functions
  *****************************************************************************/
+
+/*****************************************************************************
+ * Name: group_addmember
+ *
+ * Description:
+ *   Add a new member to a group.  
+ *
+ * Parameters:
+ *   group - The task group to add the new member
+ *   pid - The new member
+ *
+ * Return Value:
+ *   0 (OK) on success; a negated errno value on failure.
+ *
+ * Assumptions:
+ *   Called during thread creation and during reparenting in a safe context.
+ *   No special precautions are required here.
+ *
+ *****************************************************************************/
+
+#ifdef HAVE_GROUP_MEMBERS
+static inline int group_addmember(FAR struct task_group_s *group, pid_t pid)
+{
+  irqstate_t flags;
+
+  DEBUGASSERT(group && group->tg_nmembers < UINT8_MAX);
+
+  /* Will we need to extend the size of the array of groups? */
+
+  if (group->tg_nmembers >= group->tg_mxmembers)
+    {
+      FAR pid_t *newmembers;
+      unsigned int newmax;
+
+      /* Yes... reallocate the array of members */
+
+      newmax = group->tg_mxmembers + GROUP_REALLOC_MEMBERS;
+      if (newmax > UINT8_MAX)
+        {
+          newmax = UINT8_MAX;
+        }
+
+      newmembers = (FAR pid_t *)
+        krealloc(group->tg_members, sizeof(pid_t) * newmax);
+
+      if (!newmembers)
+        {
+          sdbg("ERROR: Failed to reallocate tg_members\n");
+          return -ENOMEM;
+        }
+
+      /* Save the new number of members in the reallocated members array.
+       * We need to make the following atomic because the member list
+       * may be traversed from an interrupt handler (read-only).
+       */
+
+      flags = irqsave();
+      group->tg_members   = newmembers;
+      group->tg_mxmembers = newmax;
+      irqrestore(flags);
+    }
+
+  /* Assign this new pid to the group; group->tg_nmembers will be incremented 
+   * by the caller.
+   */
+
+  group->tg_members[group->tg_nmembers] = pid;
+  return OK;
+}
+#endif /* HAVE_GROUP_MEMBERS */
 
 /*****************************************************************************
  * Public Functions
@@ -99,15 +169,15 @@
  *
  *****************************************************************************/
 
-int group_bind(FAR _TCB *tcb)
+int group_bind(FAR struct pthread_tcb_s *tcb)
 {
-  FAR _TCB *ptcb = (FAR _TCB *)g_readytorun.head;
+  FAR struct tcb_s *ptcb = (FAR struct tcb_s *)g_readytorun.head;
 
-  DEBUGASSERT(ptcb && tcb && ptcb->group && !tcb->group);
+  DEBUGASSERT(ptcb && tcb && ptcb->group && !tcb->cmn.group);
 
   /* Copy the group reference from the parent to the child */
 
-  tcb->group = ptcb->group;
+  tcb->cmn.group = ptcb->group;
   return OK;
 }
 
@@ -136,24 +206,24 @@ int group_bind(FAR _TCB *tcb)
  *
  *****************************************************************************/
 
-int group_join(FAR _TCB *tcb)
+int group_join(FAR struct pthread_tcb_s *tcb)
 {
   FAR struct task_group_s *group;
 #ifdef HAVE_GROUP_MEMBERS
   int ret;
 #endif
 
-  DEBUGASSERT(tcb && tcb->group &&
-              tcb->group->tg_nmembers < UINT8_MAX);
+  DEBUGASSERT(tcb && tcb->cmn.group &&
+              tcb->cmn.group->tg_nmembers < UINT8_MAX);
 
   /* Get the group from the TCB */
 
-  group = tcb->group;
+  group = tcb->cmn.group;
 
 #ifdef HAVE_GROUP_MEMBERS
   /* Add the member to the group */
 
-  ret = group_addmember(group, tcb->pid);
+  ret = group_addmember(group, tcb->cmn.pid);
   if (ret < 0)
     {
       return ret;
@@ -164,64 +234,4 @@ int group_join(FAR _TCB *tcb)
   return OK;
 }
 
-/*****************************************************************************
- * Name: group_addmember
- *
- * Description:
- *   Add a new member to a group.  
- *
- * Parameters:
- *   group - The task group to add the new member
- *   pid - The new member
- *
- * Return Value:
- *   0 (OK) on success; a negated errno value on failure.
- *
- * Assumptions:
- *   Called during thread creation and during reparenting in a safe context.
- *   No special precautions are required here.
- *
- *****************************************************************************/
-
-#ifdef HAVE_GROUP_MEMBERS
-int group_addmember(FAR struct task_group_s *group, pid_t pid)
-{
-  DEBUGASSERT(group && group->tg_nmembers < UINT8_MAX);
-
-  /* Will we need to extend the size of the array of groups? */
-
-  if (group->tg_nmembers >= group->tg_mxmembers)
-    {
-      FAR pid_t *newmembers;
-      unsigned int newmax;
-
-      /* Yes... reallocate the array of members */
-
-      newmax = group->tg_mxmembers + GROUP_REALLOC_MEMBERS;
-      if (newmax > UINT8_MAX)
-        {
-          newmax = UINT8_MAX;
-        }
-
-      newmembers = (FAR pid_t *)
-        krealloc(group->tg_members, sizeof(pid_t) * newmax);
-
-      if (!newmembers)
-        {
-          return -ENOMEM;
-        }
-
-      /* Save the new number of members in the reallocated members array */
-
-      group->tg_members   = newmembers;
-      group->tg_mxmembers = newmax;
-    }
-
-  /* Assign this new pid to the group. */
-
-  group->tg_members[group->tg_nmembers] = pid;
-  return OK;
-}
-#endif /* HAVE_GROUP_MEMBERS */
-
-#endif /* HAVE_TASK_GROUP */
+#endif /* HAVE_TASK_GROUP && !CONFIG_DISABLE_PTHREAD */

@@ -82,7 +82,7 @@
  *
  ****************************************************************************/
 
-int up_use_stack(_TCB *tcb, void *stack, size_t stack_size)
+int up_use_stack(struct tcb_s *tcb, void *stack, size_t stack_size)
 {
   size_t top_of_stack;
 
@@ -92,7 +92,7 @@ int up_use_stack(_TCB *tcb, void *stack, size_t stack_size)
     {
       /* Yes.. free it */
 
-      sched_free(tcb->stack_alloc_ptr);
+      sched_ufree(tcb->stack_alloc_ptr);
     }
 
   /* Save the stack allocation */
@@ -115,7 +115,7 @@ int up_use_stack(_TCB *tcb, void *stack, size_t stack_size)
 
   top_of_stack = (size_t)tcb->stack_alloc_ptr + stack_size - 1;
 
-  /* Save the adjusted stack values in the _TCB */
+  /* Save the adjusted stack values in the struct tcb_s */
 
   tcb->adj_stack_ptr  = (FAR void *)top_of_stack;
   tcb->adj_stack_size = stack_size;

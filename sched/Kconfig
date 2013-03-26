@@ -3,6 +3,34 @@
 # see misc/tools/kconfig-language.txt.
 #
 
+config BOARD_INITIALIZE
+	bool "Custom board/driver initialization"
+	default n
+	---help---
+		By default, there are three points in time where you can insert
+		custom initialization logic:
+
+		1) <arch>_boardinitialize():  This function is used only for
+		   initialize of very low-level things like configuration of
+		   GPIO pins, power setting.  The OS has not been initialized
+		   at this point, so you cannot allocate memory or initialize
+		   device drivers at this phase.
+
+		2) The next level of initialization is performed by a call to
+		   up_initialize() (in arch/<arch>/src/common/up_initialize.c).
+		   The OS has been initialized at this point and it is okay to
+		   initialize drivers in this phase.
+
+		3) And, finally, when the user application code starts.
+
+		If BOARD_INITIALIZE is selected, then an additional initialization
+		call will be performed in the boot-up sequence to a function
+		called board_initialize().  board_initialize() will be
+		call between phases 2) and 3) above, immediately after
+		up_initialize() is called.  This additional initialization
+		phase may be used, for example, to initialize board-specific
+		device drivers.
+
 config MSEC_PER_TICK
 	int "Milliseconds per system timer tick"
 	default 10
@@ -26,9 +54,9 @@ config SCHED_INSTRUMENTATION
 		If enabled, then the board-specific logic must provide the following
 		functions (see include/sched.h):
 
-		void sched_note_start(FAR _TCB *tcb);
-		void sched_note_stop(FAR _TCB *tcb);
-		void sched_note_switch(FAR _TCB *pFromTcb, FAR _TCB *pToTcb);
+		void sched_note_start(FAR struct tcb_s *tcb);
+		void sched_note_stop(FAR struct tcb_s *tcb);
+		void sched_note_switch(FAR struct tcb_s *pFromTcb, FAR struct tcb_s *pToTcb);
 
 config TASK_NAME_SIZE
 	int "Maximum task name size"
@@ -216,74 +244,6 @@ config SDCLONE_DISABLE
 	Disable cloning of all socket
 	desciptors by task_create() when a new task is started. If
 	set, all sockets will appear to be closed in the new task.
-
-config SCHED_WORKQUEUE
-	bool "Enable worker thread"
-	default n
-	depends on !DISABLE_SIGNALS
-	---help---
-		Create a dedicated "worker" thread to handle delayed processing from interrupt
-		handlers.  This feature is required for some drivers but, if there are no
-		complaints, can be safely disabled.  The worker thread also performs
-		garbage collection -- completing any delayed memory deallocations from
-		interrupt handlers.  If the worker thread is disabled, then that clean up will
-		be performed by the IDLE thread instead (which runs at the lowest of priority
-		and may not be appropriate if memory reclamation is of high priority).
-
-config SCHED_WORKPRIORITY
-	int "Worker thread priority"
-	default 192
-	depends on SCHED_WORKQUEUE
-	---help---
-		The execution priority of the worker thread.  Default: 192
-
-config SCHED_WORKPERIOD
-	int "Worker thread period"
-	default 50000
-	depends on SCHED_WORKQUEUE
-	---help---
-		How often the worker thread checks for work in units of microseconds.
-		Default: 50*1000 (50 MS).
-
-config SCHED_WORKSTACKSIZE
-	int "Worker thread stack size"
-	default 2048
-	depends on SCHED_WORKQUEUE
-	---help---
-		The stack size allocated for the worker thread.  Default: 2K.
-
-config SCHED_LPWORK
-	bool "Enable a lower priority worker thread"
-	default n
-	depends on SCHED_WORKQUEUE
-	---help---
-		If SCHED_WORKQUEUE is defined, then a single work queue is created by
-		default.  If SCHED_LPWORK is also defined then an additional, lower-
-		priority work queue will also be created.  This lower priority work
-		queue is better suited for more extended processing (such as file system
-		clean-up operations)
-
-config SCHED_LPWORKPRIORITY
-	int "Lower priority worker thread priority"
-	default 50
-	depends on SCHED_LPWORK
-	---help---
-		The execution priority of the lopwer priority worker thread.  Default: 192
-
-config SCHED_LPWORKPERIOD
-	int "Lower priority worker thread period"
-	default 50000
-	depends on SCHED_LPWORK
-	---help---
-		How often the lower priority worker thread checks for work in units
-		of microseconds. Default: 50*1000 (50 MS).
-
-config SCHED_LPWORKSTACKSIZE
-	int "Lower priority worker thread stack size"
-	default 2048
-	depends on SCHED_LPWORK
-	---help---
-		The stack size allocated for the lower priority worker thread.  Default: 2K.
 
 config SCHED_WAITPID
 	bool "Enable waitpid() API"

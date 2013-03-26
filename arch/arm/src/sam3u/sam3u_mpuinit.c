@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/common/sam3u_mpuinit.c
  *
- *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,10 +38,14 @@
  ****************************************************************************/
 
 #include <nuttx/config.h>
-#include <arch/board/user_map.h>
+
+#include <assert.h>
+
+#include <nuttx/userspace.h>
+
 #include "mpu.h"
 
-#ifdef CONFIG_NUTTX_KERNEL
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_ARMV7M_MPU)
 
 /****************************************************************************
  * Private Definitions
@@ -78,18 +82,11 @@
 
 void sam3u_mpuinitialize(void)
 {
-  uintptr_t datastart = MIN(ONFIG_USER_DATADESTSTART, CONFIG_USER_BSSSTART);
-  uintptr_t dataend   = MAX(ONFIG_USER_DATADESTEND,   CONFIG_USER_BSSEND);
+  uintptr_t datastart = MIN(USERSPACE->us_datastart, USERSPACE->us_bssstart);
+  uintptr_t dataend   = MAX(USERSPACE->us_dataend,   USERSPACE->us_bssend);
 
-  DEBUGASSERT(CONFIG_USER_TEXTEND >= CONFIG_USER_TEXTSTART && dataend >= datastart);
-
-	@echo "#define C     0x`grep \" _stext\"       $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define        0x`grep \" _etext$\"      $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define CONFIG_USER_DATASOURCE    0x`grep \" _eronly$\"    $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define C 0x`grep \" _sdata$\"     $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define CONFIG_USER_   0x`grep \" _edata$\"     $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define       0x`grep \" _sbss\"       $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
-	@echo "#define CONFIG_USER_        0x`grep \" _ebss$\"      $(TOPDIR)/User.map | cut -d' ' -f1`" >> $(BOARD_INCLUDE)/user_map.h
+  DEBUGASSERT(USERSPACE->us_textend >= USERSPACE->us_textstart &&
+              dataend >= datastart);
 
   /* Show MPU information */
 
@@ -97,7 +94,9 @@ void sam3u_mpuinitialize(void)
 
   /* Configure user flash and SRAM space */
 
-  mpu_userflash(CONFIG_USER_TEXTSTART, CONFIG_USER_TEXTEND - CONFIG_USER_TEXTSTART);
+  mpu_userflash(USERSPACE->us_textstart,
+                USERSPACE->us_textend - USERSPACE->us_textstart);
+
   mpu_userintsram(datastart, dataend - datastart);
 
   /* Then enable the MPU */
@@ -106,17 +105,19 @@ void sam3u_mpuinitialize(void)
 }
 
 /****************************************************************************
- * Name: sam3u_mpuheap
+ * Name: sam3u_mpu_uheap
  *
  * Description:
- *  Map a heap region (probably needs to extension to handle external SRAM).
+ *  Map the user-heap region.
+ *
+ *  This logic may need an extension to handle external SDRAM).
  *
  ****************************************************************************/
 
-void sam3u_mpuheap(uintptr_t start, size_t size)
+void sam3u_mpu_uheap(uintptr_t start, size_t size)
 {
   mpu_userintsram(start, size);
 }
 
-#endif /* CONFIG_NUTTX_KERNEL */
+#endif /* CONFIG_NUTTX_KERNEL && CONFIG_ARMV7M_MPU */
 

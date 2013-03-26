@@ -77,24 +77,16 @@
  *
  ************************************************************************/
 
-void sig_cleanup(FAR _TCB *stcb)
+void sig_cleanup(FAR struct tcb_s *stcb)
 {
   FAR sigactq_t  *sigact;
   FAR sigq_t     *sigq;
-  FAR sigpendq_t *sigpend;
 
   /* Deallocate all entries in the list of signal actions */
 
   while ((sigact = (FAR sigactq_t*)sq_remfirst(&stcb->sigactionq)) != NULL)
     {
       sig_releaseaction(sigact);
-    }
-
-  /* Deallocate all entries in the list of pending signals */
-
-  while ((sigpend = (FAR sigpendq_t*)sq_remfirst(&stcb->sigpendingq)) != NULL)
-    {
-      sig_releasependingsignal(sigpend);
     }
 
   /* Deallocate all entries in the list of pending signal actions */
@@ -116,3 +108,27 @@ void sig_cleanup(FAR _TCB *stcb)
    stcb->sigprocmask  = ALL_SIGNAL_SET;
    stcb->sigwaitmask  = NULL_SIGNAL_SET;
 }
+
+/************************************************************************
+ * Name: sig_release
+ *
+ * Description:
+ *   Deallocate all signal-related lists in a group.  This function is
+ *   called only when the last thread leaves the group.  The caller is
+ *   expected to have assured the critical section necessary to perform
+ *   this action.
+ *
+ ************************************************************************/
+
+void sig_release(FAR struct task_group_s *group)
+{
+  FAR sigpendq_t *sigpend;
+
+  /* Deallocate all entries in the list of pending signals */
+
+  while ((sigpend = (FAR sigpendq_t*)sq_remfirst(&group->sigpendingq)) != NULL)
+    {
+      sig_releasependingsignal(sigpend);
+    }
+}
+

@@ -110,7 +110,7 @@ config ARCH_BOARD_EAGLE100
 		an ARM Cortex-M3 MCU, the Luminary LM3S6918. This OS is built with the
 		arm-nuttx-elf toolchain*.  STATUS:  This port is complete and mature.
 
-config ARCH_BOARD_EKK_LM3S9B96
+config ARCH_BOARD_EKKLM3S9B96
 	bool "TI/Stellaris EKK-LM3S9B96"
 	depends on ARCH_CHIP_LM3S9B96
 	select ARCH_HAVE_LEDS
@@ -200,9 +200,19 @@ config ARCH_BOARD_LM3S8962EK
 	---help---
 		Stellaris LMS38962 Evaluation Kit.
 
+config ARCH_BOARD_LM4F120_LAUNCHPAD
+	bool "Stellaris LM4F120 LaunchPad"
+	depends on ARCH_CHIP_LM4F120
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		Stellaris LM4F120 LaunchPad.
+
 config ARCH_BOARD_LPCXPRESSO
 	bool "NXP LPCExpresso LPC1768"
 	depends on ARCH_CHIP_LPC1768
+	select ARCH_HAVE_LEDS
 	---help---
 		Embedded Artists base board with NXP LPCExpresso LPC1768.  This board
 		is based on the NXP LPC1768.  The Code Red toolchain is used by default.
@@ -318,6 +328,15 @@ config ARCH_BOARD_MIRTOO
 		This is the port to the DTX1-4000L "Mirtoo" module.  This module uses MicroChip
 		PIC32MX250F128D.  See http://www.dimitech.com/ for further information.
 
+config ARCH_BOARD_NUTINY_NUC120
+	bool "Nuvoton NuTiny NUC120"
+	depends on ARCH_CHIP_NUC120LE3AN
+	select ARCH_HAVE_LEDS
+	---help---
+		This is the port to the Nuvoton NuTiny EVB 120 board.  This board uses a 
+		Nuvoton NUC120 chip, specifically the NUC120LE3AN.  See http://www.nuvoton.com/
+		for further information.
+
 config ARCH_BOARD_OLIMEXLPC2378
 	bool "Olimex-lpc2378 board"
 	depends on ARCH_CHIP_LPC2378
@@ -349,6 +368,9 @@ config ARCH_BOARD_OLIMEX_STM32P107
 config ARCH_BOARD_OPEN1788
 	bool "Wave Share Open1788"
 	depends on ARCH_CHIP_LPC1788
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		This port uses the Wave Share Open1788 board. See the
 		http://wvshare.com/product/Open1788-Standard.htm for further
@@ -508,6 +530,15 @@ config ARCH_BOARD_STM32F100RC_GENERIC
 	---help---
 		STMicro STM32F100RC generic board.
 
+config ARCH_BOARD_STM32F3_DISCOVERY
+	bool "STMicro STM32F3-Discovery board"
+	depends on ARCH_CHIP_STM32F303VC
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		STMicro STM32F3-Discovery board based on the STMicro CONFIG_ARCH_CHIP_STM32F303VCT6 MCU.
+
 config ARCH_BOARD_STM32F4_DISCOVERY
 	bool "STMicro STM32F4-Discovery board"
 	depends on ARCH_CHIP_STM32F407VG
@@ -635,6 +666,14 @@ config ARCH_BOARD_ZP214XPA
 		ZPA213X/4XPA development board. Includes support for the
 		UG-2864AMBAG01 OLED also from The0.net
 
+config ARCH_BOARD_ZKITARM
+	bool "Zilogic ZKit-ARM-1769 Development Kit"
+	depends on ARCH_CHIP_LPC1768
+	select ARCH_HAVE_LEDS
+	---help---
+		Zilogic System's ARM development Kit, ZKIT-ARM-1769.  This board is based
+		on the NXP LPC1769.  The Nuttx Buildroot toolchain is used by default.
+
 config ARCH_BOARD_SIM
 	bool "User mode simulation"
 	depends on ARCH_SIM
@@ -665,7 +704,7 @@ config ARCH_BOARD
 	default "ea3131"              if ARCH_BOARD_EA3131
 	default "ea3152"              if ARCH_BOARD_EA3152
 	default "eagle100"            if ARCH_BOARD_EAGLE100
-	default "ekk-lm3s9b96"        if ARCH_BOARD_EKK_LM3S9B96
+	default "ekk-lm3s9b96"        if ARCH_BOARD_EKKLM3S9B96
 	default "ez80f910200kitg"     if ARCH_BOARD_EZ80F910200KITG
 	default "ez80f910200zco"      if ARCH_BOARD_EZ80F910200ZCO
 	default "fire-stm32v2"        if ARCH_BOARD_FIRE_STM32
@@ -675,6 +714,7 @@ config ARCH_BOARD
 	default "lm3s6432-s2e"        if ARCH_BOARD_LM3S6432S2E
 	default "lm3s6965-ek"         if ARCH_BOARD_LM3S6965EK
 	default "lm3s8962-ek"         if ARCH_BOARD_LM3S8962EK
+	default "lm4f120-launchpad"   if ARCH_BOARD_LM4F120_LAUNCHPAD
 	default "lpc4330-xplorer"     if ARCH_BOARD_LPC4330_XPLORER
 	default "lpcxpresso-lpc1768"  if ARCH_BOARD_LPCXPRESSO
 	default "m68322evb"           if ARCH_BOARD_M68332EVB
@@ -686,6 +726,7 @@ config ARCH_BOARD
 	default "ne64badge"           if ARCH_BOARD_NE64BADGE
 	default "ntosd-dm320"         if ARCH_BOARD_NTOSD_DM320
 	default "nucleus2g"           if ARCH_BOARD_NUCLEUS2G
+	default "nutiny-nuc120"       if ARCH_BOARD_NUTINY_NUC120
 	default "olimex-lpc1766stk"   if ARCH_BOARD_LPC1766STK
 	default "olimex-lpc2378"      if ARCH_BOARD_OLIMEXLPC2378
 	default "olimex-stm32-p107"   if ARCH_BOARD_OLIMEX_STM32P107
@@ -705,6 +746,7 @@ config ARCH_BOARD
 	default "stm3220g-eval"       if ARCH_BOARD_STM3220G_EVAL
 	default "stm3240g-eval"       if ARCH_BOARD_STM3240G_EVAL
 	default "stm32f100rc_generic" if ARCH_BOARD_STM32F100RC_GENERIC
+	default "stm32f3discovery"    if ARCH_BOARD_STM32F3_DISCOVERY
 	default "stm32f4discovery"    if ARCH_BOARD_STM32F4_DISCOVERY
 	default "sure-pic32mx"        if ARCH_BOARD_SUREPIC32MX
 	default "teensy"              if ARCH_BOARD_TEENSY
@@ -718,6 +760,7 @@ config ARCH_BOARD
 	default "z8encore000zco"      if ARCH_BOARD_Z8ENCORE000ZCO
 	default "z8f64200100kit"      if ARCH_BOARD_Z8F64200100KIT
 	default "zp214xpa"            if ARCH_BOARD_ZP214XPA
+	default "zkit-arm-1769"       if ARCH_BOARD_ZKITARM
 	default "sim"                 if ARCH_BOARD_SIM
 	default ""                    if ARCH_BOARD_CUSTOM
 
@@ -803,7 +846,7 @@ endif
 if ARCH_BOARD_EAGLE100
 source "configs/eagle100/Kconfig"
 endif
-if ARCH_BOARD_EKK_LM3S9B96
+if ARCH_BOARD_EKKLM3S9B96
 source "configs/ekk-lm3s9b96/Kconfig"
 endif
 if ARCH_BOARD_EZ80F910200KITG
@@ -832,6 +875,9 @@ source "configs/lm3s6965-ek/Kconfig"
 endif
 if ARCH_BOARD_LM3S8962EK
 source "configs/lm3s8962-ek/Kconfig"
+endif
+if ARCH_BOARD_LM3S8962EK
+source "configs/lm4f120-launchpad/Kconfig"
 endif
 if ARCH_BOARD_LPC4330_XPLORER
 source "configs/lpc4330-xplorer/Kconfig"
@@ -865,6 +911,9 @@ source "configs/ntosd-dm320/Kconfig"
 endif
 if ARCH_BOARD_NUCLEUS2G
 source "configs/nucleus2g/Kconfig"
+endif
+if ARCH_BOARD_NUTINY_NUC120
+source "configs/nutiny-nuc120/Kconfig"
 endif
 if ARCH_BOARD_LPC1766STK
 source "configs/olimex-lpc1766stk/Kconfig"
@@ -958,6 +1007,9 @@ source "configs/z8f64200100kit/Kconfig"
 endif
 if ARCH_BOARD_ZP214XPA
 source "configs/zp214xpa/Kconfig"
+endif
+if ARCH_BOARD_ZKITARM
+source "configs/zkit-arm-1769/Kconfig"
 endif
 if ARCH_BOARD_SIM
 source "configs/sim/Kconfig"

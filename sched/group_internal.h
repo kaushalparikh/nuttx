@@ -61,6 +61,8 @@
  * Public Type Definitions
  ****************************************************************************/
 
+typedef int (*foreachchild_t)(pid_t pid, FAR void *arg);
+
 /****************************************************************************
  * Public Data
  ****************************************************************************/
@@ -76,20 +78,30 @@ extern FAR struct task_group_s *g_grouphead;
 /* Task group data structure management */
 
 #ifdef HAVE_TASK_GROUP
-int  group_allocate(FAR _TCB *tcb);
-int  group_initialize(FAR _TCB *tcb);
-int  group_bind(FAR _TCB *tcb);
-int  group_join(FAR _TCB *tcb);
-void group_leave(FAR _TCB *tcb);
+int  group_allocate(FAR struct task_tcb_s *tcb);
+int  group_initialize(FAR struct task_tcb_s *tcb);
+#ifndef CONFIG_DISABLE_PTHREAD
+int  group_bind(FAR struct pthread_tcb_s *tcb);
+int  group_join(FAR struct pthread_tcb_s *tcb);
+#endif
+void group_leave(FAR struct tcb_s *tcb);
 
 #ifdef HAVE_GROUP_MEMBERS
-FAR struct task_group_s *group_find(gid_t gid);
-int group_addmember(FAR struct task_group_s *group, pid_t pid);
-int  group_removemember(FAR struct task_group_s *group, pid_t pid);
+FAR struct task_group_s *group_findbygid(gid_t gid);
+FAR struct task_group_s *group_findbypid(pid_t pid);
+int group_foreachchild(FAR struct task_group_s *group,
+                       foreachchild_t handler, FAR void *arg);
+int group_killchildren(FAR struct task_tcb_s *tcb);
 #endif
 
+/* Convenience functions */
+
+FAR struct task_group_s *task_getgroup(pid_t pid);
+
+/* Signaling group members */
+
 #ifndef CONFIG_DISABLE_SIGNALS
-int  group_signal(FAR struct task_group_s *group, FAR siginfo_t *info);
+int  group_signal(FAR struct task_group_s *group, FAR siginfo_t *siginfo);
 #endif
 #endif /* HAVE_TASK_GROUP */
 
@@ -116,10 +128,10 @@ void group_removechildren(FAR struct task_group_s *group);
 /* Group data resource configuration */
 
 #if CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0
-int  group_setupidlefiles(FAR _TCB *tcb);
-int  group_setuptaskfiles(FAR _TCB *tcb);
+int  group_setupidlefiles(FAR struct task_tcb_s *tcb);
+int  group_setuptaskfiles(FAR struct task_tcb_s *tcb);
 #if CONFIG_NFILE_STREAMS > 0
-int  group_setupstreams(FAR _TCB *tcb);
+int  group_setupstreams(FAR struct task_tcb_s *tcb);
 #endif
 #endif
 

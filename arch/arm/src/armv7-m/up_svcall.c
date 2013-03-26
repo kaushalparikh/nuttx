@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/armv7-m/up_svcall.c
  *
- *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,8 @@
 #endif
 
 #include "svcall.h"
+#include "exc_return.h"
+#include "os_internal.h"
 #include "up_internal.h"
 
 /****************************************************************************
@@ -59,29 +61,15 @@
  ****************************************************************************/
 /* Configuration ************************************************************/
 
-#undef SYSCALL_INTERRUPTIBLE
-#if defined(CONFIG_NUTTX_KERNEL)
-#  if CONFIG_ARCH_INTERRUPTSTACK > 3
-#    warning "CONFIG_ARCH_INTERRUPTSTACK and CONFIG_NUTTX_KERNEL are incompatible"
-#    warning "options as currently implemented.  Interrupts will have to be disabled"
-#    warning "during SYScall processing to avoid un-handled nested interrupts"
-#  else
-#    define SYSCALL_INTERRUPTIBLE 1
-#  endif
-#endif
-
 /* Debug ********************************************************************/
 /* Debug output from this file may interfere with context switching!  To get
  * debug output you must enabled the following in your NuttX configuration:
  *
- * CONFIG_DEBUG and CONFIG_DEBUG_SCHED
- *
- * And you must explicitly define DEBUG_SVCALL below:
+ * CONFIG_DEBUG and CONFIG_DEBUG_SYSCALL
  */
 
-#undef DEBUG_SVCALL         /* Define to debug SVCall */
-#ifdef DEBUG_SVCALL
-# define svcdbg(format, arg...) slldbg(format, ##arg)
+#ifdef CONFIG_DEBUG_SYSCALL
+# define svcdbg(format, arg...) lldbg(format, ##arg)
 #else
 # define svcdbg(x...)
 #endif
@@ -102,121 +90,39 @@
  * Name: dispatch_syscall
  *
  * Description:
- *   Dispatch a system call to the appropriate handling logic.
+ *   Call the stub function corresponding to the system call.
+ *
+ *   Here we need to preserve registers:
+ *
+ *   R0 - Need not be preserved until after the stub is called.
+ *   R1-R3 - Need to be preserved until the stub is called.  The values of
+ *     R0 and R1 returned by the stub must be preserved.
+ *   R4-R11 must be preserved to support the expectations of the user-space
+ *     callee
+ *   R12 - Need not be preserved
+ *   R13 - (stack pointer)
+ *   R14 - Need not be preserved
+ *   R15 - (PC)
  *
  ****************************************************************************/
 
 #ifdef CONFIG_NUTTX_KERNEL
-static inline void dispatch_syscall(uint32_t *regs)
+static void dispatch_syscall(void) naked_function;
+static void dispatch_syscall(void)
 {
-  uint32_t  cmd  = regs[REG_R0];
-  FAR _TCB *rtcb = sched_self();
-  uintptr_t ret  = (uintptr_t)ERROR;
-
-  /* Verify the the SYS call number is within range */
-
-  if (cmd < SYS_maxsyscall)
-    {
-      /* Report error and return ERROR */
-
-      slldbg("ERROR: Bad SYS call: %d\n", cmd);
-    }
-  else
-    {
-      /* The index into the syscall table is offset by the number of architecture-
-       * specific reserved entries at the beginning of the SYS call number space.
-       */
-
-      int index = cmd - CONFIG_SYS_RESERVED;
-
-      /* Enable interrupts while the SYSCALL executes */
-
-#ifdef SYSCALL_INTERRUPTIBLE
-      irqenable();
-#endif
-
-      /* Call the correct stub for each SYS call, based on the number of parameters */
-
-      svcdbg("Calling stub%d at %p\n", index, g_stubloopkup[index].stub0);
-
-      switch (g_stubnparms[index])
-        {
-        /* No parameters */
-
-        case 0:
-          ret = g_stublookup[index].stub0();
-          break;
-
-        /* Number of parameters: 1 */
-
-        case 1:
-          ret = g_stublookup[index].stub1(regs[REG_R1]);
-          break;
-
-        /* Number of parameters: 2 */
-
-        case 2:
-          ret = g_stublookup[index].stub2(regs[REG_R1], regs[REG_R2]);
-          break;
-
-         /* Number of parameters: 3 */
-
-       case 3:
-          ret = g_stublookup[index].stub3(regs[REG_R1], regs[REG_R2],
-                                          regs[REG_R3]);
-          break;
-
-         /* Number of parameters: 4 */
-
-       case 4:
-          ret = g_stublookup[index].stub4(regs[REG_R1], regs[REG_R2],
-                                          regs[REG_R3], regs[REG_R4]);
-          break;
-
-        /* Number of parameters: 5 */
-
-        case 5:
-          ret = g_stublookup[index].stub5(regs[REG_R1], regs[REG_R2],
-                                          regs[REG_R3], regs[REG_R4],
-                                          regs[REG_R5]);
-          break;
-
-        /* Number of parameters: 6 */
-
-        case 6:
-          ret = g_stublookup[index].stub6(regs[REG_R1], regs[REG_R2],
-                                          regs[REG_R3], regs[REG_R4],
-                                          regs[REG_R5], regs[REG_R6]);
-          break;
-
-        /* Unsupported number of paramters. Report error and return ERROR */
-
-        default:
-          slldbg("ERROR: Bad SYS call %d number parameters %d\n",
-                 cmd, g_stubnparms[index]);
-          break;
-        }
-
-#ifdef SYSCALL_INTERRUPTIBLE
-      irqdisable();
-#endif
-    }
-
-  /* Set up the return value.  First, check if a context switch occurred. 
-   * In this case, regs will no longer be the same as current_regs.  In
-   * the case of a context switch, we will have to save the return value
-   * in the TCB where it can be returned later when the task is restarted.
-   */
-
-  if (regs != current_regs)
-    {
-      regs = rtcb->xcp.regs;
-    }
-
-  /* Then return the result in R0 */
-
-  svcdbg("Return value regs: %p value: %d\n", regs, ret);
-  regs[REG_R0] = (uint32_t)ret;
+  __asm__ __volatile__
+  (
+    " push {r4}\n"                 /* Save R4 */
+    " mov r4, lr\n"                /* Save lr in R4 */
+    " ldr ip, =g_stublookup\n"     /* R12=The base of the stub lookup table */
+    " ldr ip, [ip, r0, lsl #2]\n"  /* R12=The address of the stub for this syscall */
+    " blx ip\n"                    /* Call the stub (modifies lr)*/
+    " mov lr, r4\n"                /* Restore lr */
+    " pop {r4}\n"                  /* Restore r4 */
+    " mov r2, r0\n"                /* R2=Saved return value in R0 */
+    " mov r0, #3\n"                /* R0=SYS_syscall_return */
+    " svc 0"                       /* Return from the syscall */
+  );
 }
 #endif
 
@@ -249,7 +155,11 @@ int up_svcall(int irq, FAR void *context)
   svcdbg("  R8: %08x %08x %08x %08x %08x %08x %08x %08x\n",
          regs[REG_R8],  regs[REG_R9],  regs[REG_R10], regs[REG_R11],
          regs[REG_R12], regs[REG_R13], regs[REG_R14], regs[REG_R15]);
-  svcdbg("  PSR=%08x\n", regs[REG_XPSR]);
+#ifdef REG_EXC_RETURN
+  svcdbg("  PSR: %08x LR: %08x\n", regs[REG_XPSR], regs[REG_EXC_RETURN]);
+#else
+  svcdbg("  PSR: %08x\n", regs[REG_XPSR]);
+#endif
 
   /* Handle the SVCall according to the command in R0 */
 
@@ -327,17 +237,112 @@ int up_svcall(int irq, FAR void *context)
         }
         break;
 
+      /* R0=SYS_syscall_return: This a syscall return command:
+       *
+       *   void up_syscall_return(void);
+       *
+       * At this point, the following values are saved in context:
+       *
+       *   R0 = SYS_syscall_return
+       *
+       * We need to restore the saved return address and return in
+       * unprivileged thread mode.
+       */
+
+#ifdef CONFIG_NUTTX_KERNEL
+      case SYS_syscall_return:
+        {
+          struct tcb_s *rtcb = sched_self();
+
+          /* Make sure that there is a saved syscall return address. */
+
+          DEBUGASSERT(rtcb->xcp.sysreturn != 0);
+
+          /* Setup to return to the saved syscall return address in
+           * the original mode.
+           */
+
+          regs[REG_PC]         = rtcb->xcp.sysreturn;
+          regs[REG_EXC_RETURN] = rtcb->xcp.excreturn;
+          rtcb->xcp.sysreturn  = 0;
+
+          /* The return value must be in R0-R1.  dispatch_syscall() temporarily
+           * moved the value for R0 into R2.
+           */
+
+          regs[REG_R0]         = regs[REG_R2];
+        }
+        break;
+#endif
+
+      /* R0=SYS_task_start: This a user task start
+       *
+       *   void up_task_start(main_t taskentry, int argc, FAR char *argv[]) noreturn_function;
+       *
+       * At this point, the following values are saved in context:
+       *
+       *   R0 = SYS_task_start
+       *   R1 = taskentry
+       *   R2 = argc
+       *   R3 = argv
+       */
+
+#ifdef CONFIG_NUTTX_KERNEL
+      case SYS_task_start:
+        {
+          /* Set up to return to the user-space task start-up function in
+           * unprivileged mode.
+           */
+
+          regs[REG_PC]         = (uint32_t)USERSPACE->task_startup;
+          regs[REG_EXC_RETURN] = EXC_RETURN_UNPRIVTHR;
+
+          /* Change the paramter ordering to match the expection of struct
+           * userpace_s task_startup:
+           */
+
+          regs[REG_R0]         = regs[REG_R1]; /* Task entry */
+          regs[REG_R1]         = regs[REG_R2]; /* argc */
+          regs[REG_R2]         = regs[REG_R3]; /* argv */
+        }
+        break;
+#endif
+
       /* This is not an architecture-specific system call.  If NuttX is built
        * as a standalone kernel with a system call interface, then all of the
        * additional system calls must be handled as in the default case.
        */
 
       default:
+        {
 #ifdef CONFIG_NUTTX_KERNEL
-        dispatch_syscall(regs);
+          FAR struct tcb_s *rtcb = sched_self();
+
+          /* Verify that the SYS call number is within range */
+
+          DEBUGASSERT(regs[REG_R0] < SYS_maxsyscall);
+
+          /* Make sure that we got here that there is a no saved syscall
+           * return address.  We cannot yet handle nested system calls.
+           */
+
+          DEBUGASSERT(rtcb->xcp.sysreturn == 0);
+
+          /* Setup to return to dispatch_syscall in privileged mode. */
+
+          rtcb->xcp.sysreturn  = regs[REG_PC];
+          rtcb->xcp.excreturn  = regs[REG_EXC_RETURN];
+
+          regs[REG_PC]         = (uint32_t)dispatch_syscall;
+          regs[REG_EXC_RETURN] = EXC_RETURN_PRIVTHR;
+
+          /* Offset R0 to account for the reserved values */
+
+          regs[REG_R0]        -= CONFIG_SYS_RESERVED;
 #else
-        slldbg("ERROR: Bad SYS call: %d\n", regs[REG_R0]);
+          slldbg("ERROR: Bad SYS call: %d\n", regs[REG_R0]);
 #endif
+        }
         break;
     }
 
@@ -352,7 +357,12 @@ int up_svcall(int irq, FAR void *context)
       svcdbg("  R8: %08x %08x %08x %08x %08x %08x %08x %08x\n",
              current_regs[REG_R8],  current_regs[REG_R9],  current_regs[REG_R10], current_regs[REG_R11],
              current_regs[REG_R12], current_regs[REG_R13], current_regs[REG_R14], current_regs[REG_R15]);
-      svcdbg("  PSR=%08x\n", current_regs[REG_XPSR]);
+#ifdef REG_EXC_RETURN
+      svcdbg("  PSR: %08x LR: %08x\n",
+             current_regs[REG_XPSR], current_regs[REG_EXC_RETURN]);
+#else
+      svcdbg("  PSR: %08x\n", current_regs[REG_XPSR]);
+#endif
     }
   else
     {

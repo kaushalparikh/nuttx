@@ -54,7 +54,7 @@
 #include "os_internal.h"
 #include "chip.h"
 #include "stm32_dma.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 
 /* This file supports only the STM32 F4 family (an probably the F2 family
  * as well?)
@@ -130,7 +130,7 @@ static struct stm32_dma_s g_dma[DMA_NSTREAMS] =
     .stream   = 3,
     .irq      = STM32_IRQ_DMA1S3,
     .shift    = DMA_INT_STREAM3_SHIFT,
-    .base     = STM32_DMA1_BASE + STM32_DMA_OFFSET(4),
+    .base     = STM32_DMA1_BASE + STM32_DMA_OFFSET(3),
   },
   {
     .stream   = 4,

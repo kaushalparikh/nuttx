@@ -51,17 +51,11 @@
 #include "up_arch.h"
 #include "os_internal.h"
 #include "up_internal.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 
 /****************************************************************************
  * Definitions
  ****************************************************************************/
-
-/* Enable NVIC debug features that are probably only desireable during
- * bringup
- */
-
-#undef STM32_IRQ_DEBUG
 
 /* Get a 32-bit version of the default priority */
 
@@ -93,7 +87,7 @@ volatile uint32_t *current_regs;
  *
  ****************************************************************************/
 
-#if defined(STM32_IRQ_DEBUG) && defined (CONFIG_DEBUG)
+#if defined(CONFIG_DEBUG_IRQ) && defined (CONFIG_DEBUG)
 static void stm32_dumpnvic(const char *msg, int irq)
 {
   irqstate_t flags;

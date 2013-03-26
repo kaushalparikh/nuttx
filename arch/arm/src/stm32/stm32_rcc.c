@@ -52,7 +52,7 @@
 #include "chip.h"
 #include "stm32_rcc.h"
 #include "stm32_flash.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 #include "stm32_waste.h"
 
 /****************************************************************************
@@ -80,6 +80,8 @@
 #  include "chip/stm32f10xxx_rcc.c"
 #elif defined(CONFIG_STM32_STM32F20XX)
 #  include "chip/stm32f20xxx_rcc.c"
+#elif defined(CONFIG_STM32_STM32F30XX)
+#  include "chip/stm32f30xxx_rcc.c"
 #elif defined(CONFIG_STM32_STM32F40XX)
 #  include "chip/stm32f40xxx_rcc.c"
 #else
@@ -179,5 +181,3 @@ void stm32_clockenable(void)
 #endif
 }
 #endif
-
-

@@ -49,8 +49,10 @@
 
 #include "lib_internal.h"
 
+#if !defined(CONFIG_NUTTX_KERNEL) || defined(__KERNEL__)
+
 /************************************************************
- * Definitions
+ * Pre-processor Definitions
  ************************************************************/
 
 /************************************************************
@@ -66,7 +68,7 @@
  ************************************************************/
 
 /************************************************************
- * lib_initialize
+ * Name: lib_initialize
  ************************************************************/
 
 /* General library initialization hook */
@@ -74,6 +76,10 @@
 void weak_const_function lib_initialize(void)
 {
 }
+
+/************************************************************
+ * Name: lib_streaminit
+ ************************************************************/
 
 #if CONFIG_NFILE_STREAMS > 0
 /* The following function is called when a new task is allocated.  It
@@ -138,12 +144,13 @@ void lib_releaselist(FAR struct streamlist *list)
 
       if (list->sl_streams[i].fs_bufstart)
         {
-          sched_free(list->sl_streams[i].fs_bufstart);
+          sched_ufree(list->sl_streams[i].fs_bufstart);
         }
     }
 #endif
 }
 
+#endif /* !CONFIG_NUTTX_KERNEL || __KERNEL__ */
 #endif /* CONFIG_NFILE_STREAMS */
 
 

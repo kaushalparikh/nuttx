@@ -85,43 +85,52 @@
  ****************************************************************************/
 
 #if defined(CONFIG_SCHED_ATEXIT) && !defined(CONFIG_SCHED_ONEXIT)
-static inline void task_atexit(FAR _TCB *tcb)
+static inline void task_atexit(FAR struct tcb_s *tcb)
 {
-#if defined(CONFIG_SCHED_ATEXIT_MAX) && CONFIG_SCHED_ATEXIT_MAX > 1
-  int index;
+  FAR struct task_group_s *group = tcb->group;
 
-  /* Call each atexit function in reverse order of registration  atexit()
-   * functions are registered from lower to higher arry indices; they must
-   * be called in the reverse order of registration when task exists, i.e.,
-   * from higher to lower indices.
+  /* Make sure that we have not already left the group.  Only the final
+   * exitting thread in the task group should trigger the atexit()
+   * callbacks.
    */
 
-  for (index = CONFIG_SCHED_ATEXIT_MAX-1; index >= 0; index--)
+  if (group && group->tg_nmembers == 1)
     {
-      if (tcb->atexitfunc[index])
+#if defined(CONFIG_SCHED_ATEXIT_MAX) && CONFIG_SCHED_ATEXIT_MAX > 1
+      int index;
+
+      /* Call each atexit function in reverse order of registration atexit()
+       * functions are registered from lower to higher arry indices; they
+       * must be called in the reverse order of registration when the task
+       * group exits, i.e., from higher to lower indices.
+       */
+
+      for (index = CONFIG_SCHED_ATEXIT_MAX-1; index >= 0; index--)
+        {
+          if (group->tg_atexitfunc[index])
+            {
+              /* Call the atexit function */
+
+              (*group->tg_atexitfunc[index])();
+
+              /* Nullify the atexit function to prevent its reuse. */
+
+              group->tg_atexitfunc[index] = NULL;
+            }
+        }
+#else
+      if (group->tg_atexitfunc)
         {
           /* Call the atexit function */
 
-          (*tcb->atexitfunc[index])();
+          (*group->tg_atexitfunc)();
 
           /* Nullify the atexit function to prevent its reuse. */
 
-          tcb->atexitfunc[index] = NULL;
+          group->tg_atexitfunc = NULL;
         }
-    }
-
-#else
-  if (tcb->atexitfunc)
-    {
-      /* Call the atexit function */
-
-      (*tcb->atexitfunc)();
-
-      /* Nullify the atexit function to prevent its reuse. */
-
-      tcb->atexitfunc = NULL;
-    }
 #endif
+    }
 }
 #else
 #  define task_atexit(tcb)
@@ -136,42 +145,52 @@ static inline void task_atexit(FAR _TCB *tcb)
  ****************************************************************************/
  
 #ifdef CONFIG_SCHED_ONEXIT
-static inline void task_onexit(FAR _TCB *tcb, int status)
+static inline void task_onexit(FAR struct tcb_s *tcb, int status)
 {
-#if defined(CONFIG_SCHED_ONEXIT_MAX) && CONFIG_SCHED_ONEXIT_MAX > 1
-  int index;
+  FAR struct task_group_s *group = tcb->group;
 
-  /* Call each on_exit function in reverse order of registration.  on_exit()
-   * functions are registered from lower to higher arry indices; they must
-   * be called in the reverse order of registration when task exists, i.e.,
-   * from higher to lower indices.
+  /* Make sure that we have not already left the group.  Only the final
+   * exitting thread in the task group should trigger the atexit()
+   * callbacks.
    */
 
-  for (index = CONFIG_SCHED_ONEXIT_MAX-1; index >= 0; index--)
+  if (group && group->tg_nmembers == 1)
     {
-      if (tcb->onexitfunc[index])
+#if defined(CONFIG_SCHED_ONEXIT_MAX) && CONFIG_SCHED_ONEXIT_MAX > 1
+      int index;
+
+      /* Call each on_exit function in reverse order of registration.
+       * on_exit() functions are registered from lower to higher arry
+       * indices; they must be called in the reverse order of registration
+       * when the task grroup exits, i.e., from higher to lower indices.
+       */
+
+      for (index = CONFIG_SCHED_ONEXIT_MAX-1; index >= 0; index--)
+        {
+          if (group->tg_onexitfunc[index])
+            {
+              /* Call the on_exit function */
+
+             (*group->tg_onexitfunc[index])(status, group->tg_onexitarg[index]);
+
+              /* Nullify the on_exit function to prevent its reuse. */
+
+              group->tg_onexitfunc[index] = NULL;
+            }
+        }
+#else
+      if (group->tg_onexitfunc)
         {
           /* Call the on_exit function */
 
-          (*tcb->onexitfunc[index])(status, tcb->onexitarg[index]);
+          (*group->tg_onexitfunc)(status, group->tg_onexitarg);
 
           /* Nullify the on_exit function to prevent its reuse. */
 
-          tcb->onexitfunc[index] = NULL;
+          group->tg_onexitfunc = NULL;
         }
-    }
-#else
-  if (tcb->onexitfunc)
-    {
-      /* Call the on_exit function */
-
-      (*tcb->onexitfunc)(status, tcb->onexitarg);
-
-      /* Nullify the on_exit function to prevent its reuse. */
-
-      tcb->onexitfunc = NULL;
-    }
 #endif
+    }
 }
 #else
 #  define task_onexit(tcb,status)
@@ -270,7 +289,7 @@ static inline void task_groupexit(FAR struct task_group_s *group)
 
 #ifdef CONFIG_SCHED_HAVE_PARENT
 #ifdef HAVE_GROUP_MEMBERS
-static inline void task_sigchild(gid_t pgid, FAR _TCB *ctcb, int status)
+static inline void task_sigchild(gid_t pgid, FAR struct tcb_s *ctcb, int status)
 {
   FAR struct task_group_s *chgrp = ctcb->group;
   FAR struct task_group_s *pgrp;
@@ -283,7 +302,7 @@ static inline void task_sigchild(gid_t pgid, FAR _TCB *ctcb, int status)
    * this case, the child task group has been orphaned.
    */
 
-  pgrp = group_find(chgrp->tg_pgid);
+  pgrp = group_findbygid(pgid);
   if (!pgrp)
     {
       /* Set the task group ID to an invalid group ID.  The dead parent
@@ -299,7 +318,9 @@ static inline void task_sigchild(gid_t pgid, FAR _TCB *ctcb, int status)
    * interpretable exit  Check if this is the main task that is exiting.
    */
 
-  if ((ctcb->flags & TCB_FLAG_TTYPE_MASK) == TCB_FLAG_TTYPE_TASK)
+#ifndef CONFIG_DISABLE_PTHREAD
+  if ((ctcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD)
+#endif
     {
       task_exitstatus(pgrp, status);
     }
@@ -322,12 +343,14 @@ static inline void task_sigchild(gid_t pgid, FAR _TCB *ctcb, int status)
       info.si_signo           = SIGCHLD;
       info.si_code            = CLD_EXITED;
       info.si_value.sival_ptr = NULL;
+#ifndef CONFIG_DISABLE_PTHREAD
+      info.si_pid             = chgrp->tg_task;
+#else
       info.si_pid             = ctcb->pid;
+#endif
       info.si_status          = status;
 
-      /* Send the signal.  We need to use this internal interface so that we
-       * can provide the correct si_code value with the signal.
-       */
+      /* Send the signal to one thread in the group */
 
       (void)group_signal(pgrp, &info);
     }
@@ -335,7 +358,8 @@ static inline void task_sigchild(gid_t pgid, FAR _TCB *ctcb, int status)
 
 #else /* HAVE_GROUP_MEMBERS */
 
-static inline void task_sigchild(FAR _TCB *ptcb, FAR _TCB *ctcb, int status)
+static inline void task_sigchild(FAR struct tcb_s *ptcb,
+                                 FAR struct tcb_s *ctcb, int status)
 {
   siginfo_t info;
 
@@ -344,7 +368,9 @@ static inline void task_sigchild(FAR _TCB *ptcb, FAR _TCB *ctcb, int status)
    * that are still running.
    */
 
-  if ((ctcb->flags & TCB_FLAG_TTYPE_MASK) == TCB_FLAG_TTYPE_TASK)
+#ifndef CONFIG_DISABLE_PTHREAD
+  if ((ctcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD)
+#endif
     {
 #ifdef CONFIG_SCHED_CHILD_STATUS
       /* Save the exit status now of the main thread */
@@ -368,14 +394,18 @@ static inline void task_sigchild(FAR _TCB *ptcb, FAR _TCB *ctcb, int status)
       info.si_signo           = SIGCHLD;
       info.si_code            = CLD_EXITED;
       info.si_value.sival_ptr = NULL;
+#ifndef CONFIG_DISABLE_PTHREAD
+      info.si_pid             = ctcb->group->tg_task;
+#else
       info.si_pid             = ctcb->pid;
+#endif
       info.si_status          = status;
 
       /* Send the signal.  We need to use this internal interface so that we
        * can provide the correct si_code value with the signal.
        */
 
-      (void)sig_received(ptcb, &info);
+      (void)sig_tcbdispatch(ptcb, &info);
     }
 }
 
@@ -395,7 +425,7 @@ static inline void task_sigchild(FAR _TCB *ptcb, FAR _TCB *ctcb, int status)
  ****************************************************************************/
 
 #ifdef CONFIG_SCHED_HAVE_PARENT
-static inline void task_leavegroup(FAR _TCB *ctcb, int status)
+static inline void task_leavegroup(FAR struct tcb_s *ctcb, int status)
 {
 #ifdef HAVE_GROUP_MEMBERS
   DEBUGASSERT(ctcb && ctcb->group);
@@ -409,7 +439,7 @@ static inline void task_leavegroup(FAR _TCB *ctcb, int status)
   task_sigchild(ctcb->group->tg_pgid, ctcb, status);
   sched_unlock();
 #else
-  FAR _TCB *ptcb;
+  FAR struct tcb_s *ptcb;
 
   /* Keep things stationary throughout the following */
 
@@ -453,27 +483,57 @@ static inline void task_leavegroup(FAR _TCB *ctcb, int status)
  ****************************************************************************/
 
 #if defined(CONFIG_SCHED_WAITPID) && !defined(CONFIG_SCHED_HAVE_PARENT)
-static inline void task_exitwakeup(FAR _TCB *tcb, int status)
+static inline void task_exitwakeup(FAR struct tcb_s *tcb, int status)
 {
-  /* Wakeup any tasks waiting for this task to exit */
+  FAR struct task_group_s *group = tcb->group;
 
-  while (tcb->exitsem.semcount < 0)
+  /* Have we already left the group? */
+
+  if (group)
     {
-      /* "If more than one thread is suspended in waitpid() awaiting
-       *  termination of the same process, exactly one thread will return
-       *  the process status at the time of the target process termination." 
-       *  Hmmm.. what do we return to the others?
+      /* Only tasks (and kernel threads) return valid status.  Record the
+       * exit status when the task exists.  The group, however, may still
+       * be executing.
        */
 
-      if (tcb->stat_loc)
+#ifndef CONFIG_DISABLE_PTHREAD
+      if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD)
+#endif
         {
-          *tcb->stat_loc = status << 8;
-           tcb->stat_loc = NULL;
+          /* Report the exit status.  We do not nullify tg_statloc here
+           * because we want to prent other tasks from registering for
+           * the return status.  There is only one task per task group,
+           * there for, this logic should execute exactly once in the
+           * lifetime of the task group.
+           *
+           * "If more than one thread is suspended in waitpid() awaiting
+           *  termination of the same process, exactly one thread will
+           * return the process status at the time of the target process
+           * termination." 
+           *
+           *  Hmmm.. what do we return to the others?
+           */
+
+          if (group->tg_statloc)
+            {
+              *group->tg_statloc = status << 8;
+            }
         }
 
-      /* Wake up the thread */
+      /* Is this the last thread in the group? */
 
-      sem_post(&tcb->exitsem);
+      if (group->tg_nmembers == 1)
+        {
+          /* Yes.. Wakeup any tasks waiting for this task to exit */
+
+         group->tg_statloc = NULL;
+         while (group->tg_exitsem.semcount < 0)
+            { 
+              /* Wake up the thread */
+
+              sem_post(&group->tg_exitsem);
+            }
+        }
     }
 }
 #else
@@ -490,7 +550,7 @@ static inline void task_exitwakeup(FAR _TCB *tcb, int status)
  * Description:
  *   This function implements some of the internal logic of exit() and
  *   task_delete().  This function performs some cleanup and other actions
- *   required when a task exists:
+ *   required when a task exits:
  *
  *   - All open streams are flushed and closed.
  *   - All functions registered with atexit() and on_exit() are called, in
@@ -507,11 +567,11 @@ static inline void task_exitwakeup(FAR _TCB *tcb, int status)
  *
  ****************************************************************************/
 
-void task_exithook(FAR _TCB *tcb, int status)
+void task_exithook(FAR struct tcb_s *tcb, int status)
 {
   /* Under certain conditions, task_exithook() can be called multiple times.
    * A bit in the TCB was set the first time this function was called.  If
-   * that bit is set, then just ext doing nothing more..
+   * that bit is set, then just exit doing nothing more..
    */
 
   if ((tcb->flags & TCB_FLAG_EXIT_PROCESSING) != 0)
@@ -530,6 +590,12 @@ void task_exithook(FAR _TCB *tcb, int status)
 
   task_onexit(tcb, status);
 
+  /* If the task was terminated by another task, it may be in an unknown
+   * state.  Make some feeble effort to recover the state.
+   */
+
+  task_recover(tcb);
+
   /* Leave the task group */
 
   task_leavegroup(tcb, status);
@@ -543,7 +609,11 @@ void task_exithook(FAR _TCB *tcb, int status)
    */
 
 #if CONFIG_NFILE_STREAMS > 0
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+  (void)lib_flushall(tcb->group->tg_streamlist);
+#else
   (void)lib_flushall(&tcb->group->tg_streamlist);
+#endif
 #endif
 
   /* Leave the task group.  Perhaps discarding any un-reaped child

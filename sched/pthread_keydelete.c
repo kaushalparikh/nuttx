@@ -81,7 +81,7 @@
  *   key = the key to delete
  *
  * Return Value:
- *   Always returns ENOSYSL.
+ *   Always returns ENOSYS.
  *
  * Assumptions:
  *

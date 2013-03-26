@@ -67,11 +67,11 @@
  *
  ****************************************************************************/
 
-void up_release_stack(_TCB *dtcb)
+void up_release_stack(struct tcb_s *dtcb)
 {
   if (dtcb->stack_alloc_ptr)
     {
-      sched_free(dtcb->stack_alloc_ptr);
+      sched_ufree(dtcb->stack_alloc_ptr);
       dtcb->stack_alloc_ptr = NULL;
     }
 

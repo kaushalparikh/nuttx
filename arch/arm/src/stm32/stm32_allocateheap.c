@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/stm32/up_allocateheap.c
  *
- *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
-#include <nuttx/mm.h>
+#include <nuttx/kmalloc.h>
 
 #include <arch/board/board.h>
 
@@ -88,7 +88,7 @@
 #endif
 
 /* For the STM312F10xxx family, all internal SRAM is in one contiguous block
- * starting at g_heapbase and extending through CONFIG_DRAM_END (my apologies for
+ * starting at g_idle_topstack and extending through CONFIG_DRAM_END (my apologies for
  * the bad naming).  In addition, external FSMC SRAM may be available.
  */
 
@@ -118,25 +118,98 @@
 #  undef CONFIG_STM32_CCMEXCLUDE
 #  define CONFIG_STM32_CCMEXCLUDE 1
 
-/* All members of the STM32F20xxx and STM32F40xxx families have 192Kb in three banks:
+/* Members of teh STM32F30xxx family has a variable amount of SRAM from 24
+ * to 40Kb plus 8KB if CCM SRAM.  No external RAM is supported (the F3 family has no
+ * FSMC).
+ *
+ * As a complication, CCM SRAM cannot be used for DMA.  So, if STM32 DMA is enabled, CCM SRAM
+ * should probably be excluded from the heap.
+ */
+
+#elif defined(CONFIG_STM32_STM32F30XX)
+
+   /* Set the end of system SRAM */
+
+#  define SRAM1_END CONFIG_DRAM_END
+
+   /* Set the range of CCM SRAM as well (although we may not use it) */
+
+#  define SRAM2_START 0x10000000
+#  define SRAM2_END   0x10002000
+
+   /* There is no FSMC */
+
+#  undef CONFIG_STM32_FSMC_SRAM
+
+   /* There are 2 possible SRAM configurations:
+    *
+    * Configuration 1. System SRAM (only)
+    *                  CONFIG_MM_REGIONS == 1
+    *                  CONFIG_STM32_CCMEXCLUDE defined
+    * Configuration 2. System SRAM and CCM SRAM
+    *                  CONFIG_MM_REGIONS == 2
+    *                  CONFIG_STM32_CCMEXCLUDE NOT defined
+    */
+
+#    if CONFIG_MM_REGIONS < 2
+       /* Only one memory region.  Force Configuration 1 */
+
+#      ifndef CONFIG_STM32_CCMEXCLUDE
+#        warning "CCM SRAM excluded from the heap"
+#        define CONFIG_STM32_CCMEXCLUDE 1
+#      endif
+
+   /* CONFIG_MM_REGIONS may be 2 if CCM SRAM is included in the head */
+
+#    elif CONFIG_MM_REGIONS >= 2
+#      if CONFIG_MM_REGIONS > 2
+#         error "No more than two memory regions can be supported (CONFIG_MM_REGIONS)"
+#         undef CONFIG_MM_REGIONS
+#         define CONFIG_MM_REGIONS 2
+#      endif
+
+     /* Two memory regions is okay if CCM SRAM is not disabled. */
+
+#      ifdef CONFIG_STM32_CCMEXCLUDE
+
+         /* Configuration 1: CONFIG_MM_REGIONS should have been 2 */
+
+#        error "CONFIG_MM_REGIONS >= 2 but but CCM SRAM is excluded (CONFIG_STM32_CCMEXCLUDE)"
+#        undef CONFIG_MM_REGIONS
+#        define CONFIG_MM_REGIONS 1
+#      else
+
+         /* Configuration 2: DMA should be disabled */
+
+#        ifdef CONFIG_ARCH_DMA
+#          warning "CCM SRAM is included in the heap AND DMA is enabled"
+#        endif
+#      endif
+#    endif
+
+/* All members of the STM32F20xxx and STM32F40xxx families have 128Kb in two
+ * banks:
  *
  * 1) 112Kb of System SRAM beginning at address 0x2000:0000
  * 2)  16Kb of System SRAM beginning at address 0x2001:c000
+ *
+ * The STM32F40xxx family has an additional 64Kb of CCM SRAM for a total of
+ * 192KB.
+ *
  * 3)  64Kb of CCM SRAM beginning at address 0x1000:0000
  *
- * As determined by ld.script, g_heapbase lies in the 112Kb memory
+ * As determined by ld.script, g_idle_topstack lies in the 112Kb memory
  * region and that extends to 0x2001:0000.  But the  first and second memory
  * regions are contiguous and treated as one in this logic that extends to
  * 0x2002:0000.
  *
- * As a complication, it appears that CCM SRAM cannot be used for DMA.  So, if
- * STM32 DMA is enabled, CCM SRAM should probably be excluded from the heap.
+ * As a complication, CCM SRAM cannot be used for DMA.  So, if STM32 DMA is
+ * enabled, CCM SRAM should probably be excluded from the heap.
  *
  * In addition, external FSMC SRAM may be available.
  */
 
 #elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
-
 
    /* The STM32 F2 has no CCM SRAM */
 
@@ -283,18 +356,22 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by
- *   defining CONFIG_HEAP_BASE and CONFIG_HEAP_SIZE.  If these
- *   are not defined, then this function will be called to
- *   dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
  *
  ****************************************************************************/
 
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 {
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size  = SRAM1_END - g_heapbase;
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size  = SRAM1_END - g_idle_topstack;
 }
 
 /****************************************************************************
@@ -312,13 +389,13 @@ void up_addregion(void)
   /* Add the STM32F20xxx/STM32F40xxx CCM SRAM heap region. */
 
 #ifndef CONFIG_STM32_CCMEXCLUDE
-   mm_addregion((FAR void*)SRAM2_START, SRAM2_END-SRAM2_START);
+   kmm_addregion((FAR void*)SRAM2_START, SRAM2_END-SRAM2_START);
 #endif
 
    /* Add the external FSMC SRAM heap region. */
 
 #ifdef CONFIG_STM32_FSMC_SRAM
-   mm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_SIZE);
+   kmm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_SIZE);
 #endif
 }
 #endif

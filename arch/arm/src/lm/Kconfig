@@ -36,6 +36,11 @@ config ARCH_CHIP_LM3S8962
 	select ARCH_CORTEXM3
 	select ARCH_CHIP_LM3S
 
+config ARCH_CHIP_LM4F120
+	bool "LM4F120"
+	select ARCH_CORTEXM4
+	select ARCH_CHIP_LM4F
+
 endchoice
 
 # Chip families
@@ -55,10 +60,6 @@ config LM_REVA2
 	---help---
 		Some early silicon returned an increase LDO voltage or 2.75V to work
 		around a PLL bug
-
-config LM_DFU
-	bool "DFU"
-	default y
 
 menu "Stellaris Peripheral Support"
 

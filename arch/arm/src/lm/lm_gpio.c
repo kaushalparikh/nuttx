@@ -60,6 +60,11 @@
  * configuration of Table 9-1 in the LM3S6918 data sheet.
  */
 
+#define AMSEL_SHIFT            6
+#define AMSEL_1                (1 << AMSEL_SHIFT) /* Set/clear bit in GPIO AMSEL register */
+#define AMSEL_0                0
+#define AMSEL_X                0
+
 #define AFSEL_SHIFT            5
 #define AFSEL_1                (1 << AFSEL_SHIFT) /* Set/clear bit in GPIO AFSEL register */
 #define AFSEL_0                0
@@ -90,29 +95,29 @@
 #define PDR_0                  0
 #define PDR_X                  0
 
-#define GPIO_INPUT_SETBITS     (AFSEL_0 | DIR_0 | ODR_0 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_INPUT_CLRBITS     (AFSEL_1 | DIR_1 | ODR_1 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_INPUT_SETBITS     (AMSEL_0 | AFSEL_0 | DIR_0 | ODR_0 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_INPUT_CLRBITS     (AMSEL_1 | AFSEL_1 | DIR_1 | ODR_1 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_OUTPUT_SETBITS    (AFSEL_0 | DIR_1 | ODR_0 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_OUTPUT_CLRBITS    (AFSEL_1 | DIR_0 | ODR_1 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_OUTPUT_SETBITS    (AMSEL_0 | AFSEL_0 | DIR_1 | ODR_0 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_OUTPUT_CLRBITS    (AMSEL_1 | AFSEL_1 | DIR_0 | ODR_1 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_ODINPUT_SETBITS   (AFSEL_0 | DIR_0 | ODR_1 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_ODINPUT_CLRBITS   (AFSEL_1 | DIR_1 | ODR_0 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_ODINPUT_SETBITS   (AMSEL_0 | AFSEL_0 | DIR_0 | ODR_1 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_ODINPUT_CLRBITS   (AMSEL_1 | AFSEL_1 | DIR_1 | ODR_0 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_ODOUTPUT_SETBITS  (AFSEL_0 | DIR_1 | ODR_1 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_ODOUTPUT_CLRBITS  (AFSEL_1 | DIR_0 | ODR_0 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_ODOUTPUT_SETBITS  (AMSEL_0 | AFSEL_0 | DIR_1 | ODR_1 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_ODOUTPUT_CLRBITS  (AMSEL_1 | AFSEL_1 | DIR_0 | ODR_0 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_PFODIO_SETBITS    (AFSEL_1 | DIR_X | ODR_1 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_PFODIO_CLRBITS    (AFSEL_0 | DIR_X | ODR_0 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_PFODIO_SETBITS    (AMSEL_0 | AFSEL_1 | DIR_X | ODR_1 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_PFODIO_CLRBITS    (AMSEL_1 | AFSEL_0 | DIR_X | ODR_0 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_PFIO_SETBITS      (AFSEL_1 | DIR_X | ODR_0 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_PFIO_CLRBITS      (AFSEL_0 | DIR_X | ODR_1 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_PFIO_SETBITS      (AMSEL_0 | AFSEL_1 | DIR_X | ODR_0 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_PFIO_CLRBITS      (AMSEL_1 | AFSEL_0 | DIR_X | ODR_1 | DEN_0 | PUR_X | PDR_X)
 
-#define GPIO_ANINPUT_SETBITS   (AFSEL_0 | DIR_0 | ODR_0 | DEN_0 | PUR_0 | PDR_0)
-#define GPIO_ANINPUT_CLRBITS   (AFSEL_1 | DIR_1 | ODR_1 | DEN_1 | PUR_1 | PDR_1)
+#define GPIO_ANINPUT_SETBITS   (AMSEL_1 | AFSEL_0 | DIR_0 | ODR_0 | DEN_0 | PUR_0 | PDR_0)
+#define GPIO_ANINPUT_CLRBITS   (AMSEL_0 | AFSEL_1 | DIR_1 | ODR_1 | DEN_1 | PUR_1 | PDR_1)
 
-#define GPIO_INTERRUPT_SETBITS (AFSEL_0 | DIR_0 | ODR_0 | DEN_1 | PUR_X | PDR_X)
-#define GPIO_INTERRUPT_CLRBITS (AFSEL_1 | DIR_1 | ODR_1 | DEN_0 | PUR_X | PDR_X)
+#define GPIO_INTERRUPT_SETBITS (AMSEL_0 | AFSEL_0 | DIR_0 | ODR_0 | DEN_1 | PUR_X | PDR_X)
+#define GPIO_INTERRUPT_CLRBITS (AMSEL_1 | AFSEL_1 | DIR_1 | ODR_1 | DEN_0 | PUR_X | PDR_X)
 
 /****************************************************************************
  * Private Types
@@ -140,23 +145,36 @@ static const struct gpio_func_s g_funcbits[] =
   {GPIO_INTERRUPT_SETBITS, GPIO_INTERRUPT_CLRBITS}, /* GPIO_FUNC_INTERRUPT */
 };
 
-static const uint32_t g_gpiobase[LM_NPORTS] =
+/* NOTE: this is duplicated in lm_dumpgpio.c */
+
+static const uintptr_t g_gpiobase[LM_NPORTS] =
 {
-  /* All support Stellaris parts have at least 7 ports, GPIOA-G */
-
-  LM_GPIOA_BASE, LM_GPIOB_BASE, LM_GPIOC_BASE, LM_GPIOD_BASE,
-  LM_GPIOE_BASE, LM_GPIOF_BASE, LM_GPIOG_BASE,
-
-  /* GPIOH exists on the LM3S6918 and th LM3S6B96, but not on the LM3S6965 or LM3S8962*/
-
-#if LM_NPORTS > 7
-  LM_GPIOH_BASE,
+#if LM_NPORTS > 0
+    LM_GPIOA_BASE
 #endif
-
-  /* GPIOJ exists on the LM3S6B96, but not on the LM3S6918 or LM3S6965 or LM3S8962*/
-
+#if LM_NPORTS > 1
+  , LM_GPIOB_BASE
+#endif
+#if LM_NPORTS > 2
+  , LM_GPIOC_BASE
+#endif
+#if LM_NPORTS > 3
+  , LM_GPIOD_BASE
+#endif
+#if LM_NPORTS > 4
+  , LM_GPIOE_BASE
+#endif
+#if LM_NPORTS > 5
+  , LM_GPIOF_BASE
+#endif
+#if LM_NPORTS > 6
+  , LM_GPIOG_BASE
+#endif
+#if LM_NPORTS > 7
+  , LM_GPIOH_BASE
+#endif
 #if LM_NPORTS > 8
-  LM_GPIOJ_BASE,
+  , LM_GPIOJ_BASE
 #endif
 };
 
@@ -177,13 +195,14 @@ static const uint32_t g_gpiobase[LM_NPORTS] =
  *
  ****************************************************************************/
 
-static uint32_t lm_gpiobaseaddress(unsigned int port)
+static uintptr_t lm_gpiobaseaddress(unsigned int port)
 {
-  uint32_t gpiobase = 0;
+  uintptr_t gpiobase = 0;
   if (port < LM_NPORTS)
     {
       gpiobase = g_gpiobase[port];
     }
+
   return gpiobase;
 }
 
@@ -195,7 +214,8 @@ static uint32_t lm_gpiobaseaddress(unsigned int port)
  *
  ****************************************************************************/
 
-static void lm_gpiofunc(uint32_t base, uint32_t pinno, const struct gpio_func_s *func)
+static void lm_gpiofunc(uint32_t base, uint32_t pinno,
+                        const struct gpio_func_s *func)
 {
   uint32_t setbit;
   uint32_t clrbit;
@@ -302,6 +322,24 @@ static void lm_gpiofunc(uint32_t base, uint32_t pinno, const struct gpio_func_s 
   regval &= ~clrbit;
   regval |= setbit;
   putreg32(regval, base + LM_GPIO_AFSEL_OFFSET);
+
+  /* Set/clear/ignore the GPIO AMSEL bit. "The GPIOAMSEL register controls
+   * isolation circuits to the analog side of a unified I/O pad. Because
+   * the GPIOs may be driven by a 5-V source and affect analog operation,
+   * analog circuitry requires isolation from the pins when they are not
+   * used in their analog function.  Each bit of this register controls the
+   * isolation circuitry for the corresponding GPIO signal.
+   */
+
+#ifdef LM4F
+  setbit = (((uint32_t)func->setbits >> AMSEL_SHIFT) & 1) << pinno;
+  clrbit = (((uint32_t)func->clrbits >> AMSEL_SHIFT) & 1) << pinno;
+
+  regval = getreg32(base + LM_GPIO_AMSEL_OFFSET);
+  regval &= ~clrbit;
+  regval |= setbit;
+  putreg32(regval, base + LM_GPIO_AMSEL_OFFSET);
+#endif
 }
 
 /****************************************************************************
@@ -690,6 +728,46 @@ static inline void lm_interrupt(uint32_t base, uint32_t pin, uint32_t cfgset)
 }
 
 /****************************************************************************
+ * Name: lm_portcontrol
+ *
+ * Description:
+ *   Set the pin alternate function in the port control register.
+ *
+ ****************************************************************************/
+
+#ifdef LM4F
+static inline void lm_portcontrol(uint32_t base, uint32_t pinno,
+                                  uint32_t cfgset,
+                                  const struct gpio_func_s *func)
+{
+  uint32_t alt = 0;
+  uint32_t mask;
+  uint32_t regval;
+
+  /* Is this pin an alternate function pin? */
+
+  if ((func->setbits & AFSEL_1) != 0)
+    {
+      /* Yes, extract the alternate function number from the pin
+       * configuration.
+       */
+
+      alt = (cfgset & GPIO_ALT_MASK) >> GPIO_ALT_SHIFT;
+    }
+
+  /* Set the alternate function in the port control register */
+
+  regval  = getreg32(base + LM_GPIO_PCTL_OFFSET);
+  mask    = GPIO_PCTL_PMC_MASK(pinno);
+  regval &= ~mask;
+  regval |= (alt << GPIO_PCTL_PMC_SHIFT(pinno)) & mask;
+  putreg32(regval, base + LM_GPIO_PCTL_OFFSET);
+}
+#else
+#  define lm_portcontrol(b,p,c,f)
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -707,16 +785,16 @@ int lm_configgpio(uint32_t cfgset)
   unsigned int func;
   unsigned int port;
   unsigned int pinno;
+  uintptr_t    base;
   uint32_t     pin;
-  uint32_t     base;
   uint32_t     regval;
 
   /* Decode the basics */
 
   func  = (cfgset & GPIO_FUNC_MASK) >> GPIO_FUNC_SHIFT;
   port  = (cfgset & GPIO_PORT_MASK) >> GPIO_PORT_SHIFT;
-  pinno = (cfgset & GPIO_NUMBER_MASK);
-  pin   = (1 <<pinno);
+  pinno = (cfgset & GPIO_PIN_MASK);
+  pin   = (1 << pinno);
 
   DEBUGASSERT(func <= GPIO_FUNC_MAX);
 
@@ -743,6 +821,7 @@ int lm_configgpio(uint32_t cfgset)
    */
 
   lm_gpiofunc(base, pinno, &g_funcbits[0]);
+  lm_portcontrol(base, pinno, cfgset, &g_funcbits[0]);
 
   /* Then set up pad strengths and pull-ups.  These setups should be done before
    * setting up the function because some function settings will over-ride these
@@ -755,14 +834,14 @@ int lm_configgpio(uint32_t cfgset)
   /* Then set up the real pin function */
 
   lm_gpiofunc(base, pinno, &g_funcbits[func]);
+  lm_portcontrol(base, pinno, cfgset, &g_funcbits[func]);
 
-  /* Special GPIO digital output pins */
+  /* Special case GPIO digital output pins */
 
   if (func == 1 || func == 3)
     {
       lm_initoutput(cfgset);
     }
-
 
   /* Special setup for interrupt GPIO pins */
 
@@ -787,12 +866,12 @@ void lm_gpiowrite(uint32_t pinset, bool value)
 {
   unsigned int port;
   unsigned int pinno;
-  uint32_t     base;
+  uintptr_t    base;
 
   /* Decode the basics */
 
   port  = (pinset & GPIO_PORT_MASK) >> GPIO_PORT_SHIFT;
-  pinno = (pinset & GPIO_NUMBER_MASK);
+  pinno = (pinset & GPIO_PIN_MASK);
 
   /* Get the base address associated with the GPIO port */
 
@@ -825,12 +904,12 @@ bool lm_gpioread(uint32_t pinset, bool value)
 {
   unsigned int port;
   unsigned int pinno;
-  uint32_t     base;
+  uintptr_t    base;
 
   /* Decode the basics */
 
   port  = (pinset & GPIO_PORT_MASK) >> GPIO_PORT_SHIFT;
-  pinno = (pinset & GPIO_NUMBER_MASK);
+  pinno = (pinset & GPIO_PIN_MASK);
 
   /* Get the base address associated with the GPIO port */
 

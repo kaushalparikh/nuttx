@@ -35,8 +35,6 @@
 
 # Add the spawn C files to the build
 
-ifeq ($(CONFIG_LIBC_EXECFUNCS),y)
-
 CSRCS += lib_psfa_addaction.c lib_psfa_addclose.c lib_psfa_adddup2.c
 CSRCS += lib_psfa_addopen.c lib_psfa_destroy.c lib_psfa_init.c
 
@@ -45,8 +43,9 @@ CSRCS += lib_psfa_dump.c
 endif
 
 CSRCS += lib_psa_getflags.c lib_psa_getschedparam.c lib_psa_getschedpolicy.c
-CSRCS += lib_psa_init.c lib_psa_setflags.c lib_psa_setschedparam.c
-CSRCS += lib_psa_setschedpolicy.c
+CSRCS += lib_psa_getstacksize.c lib_psa_init.c lib_psa_setflags.c
+CSRCS += lib_psa_setschedparam.c lib_psa_setschedpolicy.c
+CSRCS += lib_psa_setstacksize.c
 
 ifneq ($(CONFIG_DISABLE_SIGNALS),y)
 CSRCS += lib_psa_getsigmask.c lib_psa_setsigmask.c
@@ -60,4 +59,3 @@ endif
 
 DEPPATH += --dep-path spawn
 VPATH += :spawn
-endif

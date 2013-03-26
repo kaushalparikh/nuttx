@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/lpc43xx/lpc43_allocateheap.c
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
-#include <nuttx/mm.h>
+#include <nuttx/kmalloc.h>
 #include <arch/board/board.h>
 
 #include "chip.h"
@@ -211,10 +211,10 @@
  * thread is the thread that the system boots on and, eventually, becomes the
  * idle, do nothing task that runs only when there is nothing else to run.
  * The heap continues from there until the configured end of memory.
- * g_heapbase is the beginning of this heap region (not necessarily aligned).
+ * g_idle_topstack is the beginning of this heap region (not necessarily aligned).
  */
 
-const uint32_t g_heapbase = (uint32_t)&_ebss + CONFIG_IDLETHREAD_STACKSIZE;
+const uint32_t g_idle_topstack = (uint32_t)&_ebss + CONFIG_IDLETHREAD_STACKSIZE;
 
 /****************************************************************************
  * Private Functions
@@ -228,10 +228,14 @@ const uint32_t g_heapbase = (uint32_t)&_ebss + CONFIG_IDLETHREAD_STACKSIZE;
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by
- *   defining CONFIG_HEAP_BASE and CONFIG_HEAP_SIZE.  If these
- *   are not defined, then this function will be called to
- *   dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
  *
  ****************************************************************************/
 
@@ -240,8 +244,8 @@ void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
   /* Start with the first SRAM region */
 
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size = CONFIG_DRAM_END - g_heapbase;
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size = CONFIG_DRAM_END - g_idle_topstack;
 }
 
 /************************************************************************
@@ -259,7 +263,7 @@ void up_addregion(void)
 #if CONFIG_MM_REGIONS > 1
  /* Add the next SRAM region (which should exist) */
  
- mm_addregion((FAR void*)MM_REGION2_BASE, MM_REGION2_SIZE);
+ kmm_addregion((FAR void*)MM_REGION2_BASE, MM_REGION2_SIZE);
 
 #ifdef MM_REGION3_BASE
  /* Add the third SRAM region (which will not exist in configuration B) */
@@ -267,12 +271,12 @@ void up_addregion(void)
 #if CONFIG_MM_REGIONS > 2
  /* Add the third SRAM region (which may not exist) */
  
- mm_addregion((FAR void*)MM_REGION3_BASE, MM_REGION3_SIZE);
+ kmm_addregion((FAR void*)MM_REGION3_BASE, MM_REGION3_SIZE);
 
 #if CONFIG_MM_REGIONS > 3 && defined(MM_DMAHEAP_BASE)
  /* Add the DMA region (which may not be available) */
  
- mm_addregion((FAR void*)MM_DMAHEAP_BASE, MM_DMAHEAP_SIZE);
+ kmm_addregion((FAR void*)MM_DMAHEAP_BASE, MM_DMAHEAP_SIZE);
 
 #endif /* CONFIG_MM_REGIONS > 3 && defined(MM_DMAHEAP_BASE) */
 #endif /* CONFIG_MM_REGIONS > 2 */
@@ -281,7 +285,7 @@ void up_addregion(void)
 #if CONFIG_MM_REGIONS > 2 && defined(MM_DMAHEAP_BASE)
  /* Add the DMA region (which may not be available) */
  
- mm_addregion((FAR void*)MM_DMAHEAP_BASE, MM_DMAHEAP_SIZE);
+ kmm_addregion((FAR void*)MM_DMAHEAP_BASE, MM_DMAHEAP_SIZE);
 
 #endif /* CONFIG_MM_REGIONS > 3 && defined(MM_DMAHEAP_BASE) */
 #endif /* MM_REGION3_BASE */

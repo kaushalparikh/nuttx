@@ -85,16 +85,16 @@
  ****************************************************************************/
 
 #if CONFIG_NFILE_DESCRIPTORS > 0 && !defined(CONFIG_FDCLONE_DISABLE)
-static inline void sched_dupfiles(FAR _TCB *tcb)
+static inline void sched_dupfiles(FAR struct task_tcb_s *tcb)
 {
   /* The parent task is the one at the head of the ready-to-run list */
 
-  FAR _TCB *rtcb = (FAR _TCB*)g_readytorun.head;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
   FAR struct file *parent;
   FAR struct file *child;
   int i;
 
-  DEBUGASSERT(tcb && tcb->group && rtcb->group);
+  DEBUGASSERT(tcb && tcb->cmn.group && rtcb->group);
 
   /* Duplicate the file descriptors.  This will be either all of the
    * file descriptors or just the first three (stdin, stdout, and stderr)
@@ -105,7 +105,7 @@ static inline void sched_dupfiles(FAR _TCB *tcb)
    /* Get pointers to the parent and child task file lists */
 
   parent = rtcb->group->tg_filelist.fl_files;
-  child  = tcb->group->tg_filelist.fl_files;
+  child  = tcb->cmn.group->tg_filelist.fl_files;
 
   /* Check each file in the parent file list */
 
@@ -143,11 +143,11 @@ static inline void sched_dupfiles(FAR _TCB *tcb)
  ****************************************************************************/
 
 #if CONFIG_NSOCKET_DESCRIPTORS > 0 && !defined(CONFIG_SDCLONE_DISABLE)
-static inline void sched_dupsockets(FAR _TCB *tcb)
+static inline void sched_dupsockets(FAR struct task_tcb_s *tcb)
 {
   /* The parent task is the one at the head of the ready-to-run list */
 
-  FAR _TCB *rtcb = (FAR _TCB*)g_readytorun.head;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
   FAR struct socket *parent;
   FAR struct socket *child;
   int i;
@@ -156,12 +156,12 @@ static inline void sched_dupsockets(FAR _TCB *tcb)
    * task.
    */
 
-  DEBUGASSERT(tcb && tcb->group && rtcb->group);
+  DEBUGASSERT(tcb && tcb->cmn.group && rtcb->group);
 
   /* Get pointers to the parent and child task socket lists */
 
   parent = rtcb->group->tg_socketlist.sl_sockets;
-  child  = tcb->group->tg_socketlist.sl_sockets;
+  child  = tcb->cmn.group->tg_socketlist.sl_sockets;
 
   /* Check each socket in the parent socket list */
 
@@ -206,12 +206,15 @@ static inline void sched_dupsockets(FAR _TCB *tcb)
  *
  ****************************************************************************/
 
-int group_setuptaskfiles(FAR _TCB *tcb)
+int group_setuptaskfiles(FAR struct task_tcb_s *tcb)
 {
 #if CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0
-  FAR struct task_group_s *group = tcb->group;
+  FAR struct task_group_s *group = tcb->cmn.group;
 
   DEBUGASSERT(group);
+#endif
+#ifndef CONFIG_DISABLE_PTHREAD
+  DEBUGASSERT((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD);
 #endif
 
 #if CONFIG_NFILE_DESCRIPTORS > 0
@@ -243,4 +246,5 @@ int group_setuptaskfiles(FAR _TCB *tcb)
 #endif
 }
 
-#endif /* CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0*/
+#endif /* CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0 */
+

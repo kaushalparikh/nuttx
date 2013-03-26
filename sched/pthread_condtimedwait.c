@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/pthread_condtimedwait.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,12 +46,14 @@
 #include <signal.h>
 #include <time.h>
 #include <errno.h>
+#include <assert.h>
 #include <wdog.h>
 #include <debug.h>
 
 #include "os_internal.h"
 #include "pthread_internal.h"
 #include "clock_internal.h"
+#include "sig_internal.h"
 
 /****************************************************************************
  * Definitions
@@ -94,6 +96,48 @@
 
 static void pthread_condtimedout(int argc, uint32_t pid, uint32_t signo)
 {
+#ifdef HAVE_GROUP_MEMBERS
+
+  FAR struct tcb_s *tcb;
+  siginfo_t info;
+
+  /* The logic below if equivalent to sigqueue(), but uses sig_tcbdispatch()
+   * instead of sig_dispatch().  This avoids the group signal deliver logic
+   * and assures, instead, that the signal is delivered specifically to this
+   * thread that is known to be waiting on the signal.
+   */
+
+  /* Get the waiting TCB.  sched_gettcb() might return NULL if the task has
+   * exited for some reason.
+   */
+
+  tcb = sched_gettcb((pid_t)pid);
+  if (tcb)
+    {
+      /* Create the siginfo structure */
+
+      info.si_signo           = signo;
+      info.si_code            = SI_QUEUE;
+      info.si_value.sival_ptr = NULL;
+#ifdef CONFIG_SCHED_HAVE_PARENT
+      info.si_pid             = (pid_t)pid;
+      info.si_status          = OK;
+#endif
+
+      /* Process the receipt of the signal.  The scheduler is not locked as
+       * is normally the case when this function is called because we are in
+       * a watchdog timer interrupt handler.
+       */
+
+      (void)sig_tcbdispatch(tcb, &info);
+    }
+
+#else /* HAVE_GROUP_MEMBERS */
+
+  /* Things are a little easier if there are not group members.  We can just
+   * use sigqueue().
+   */
+
 #ifdef CONFIG_CAN_PASS_STRUCTS
   union sigval value;
 
@@ -104,6 +148,8 @@ static void pthread_condtimedout(int argc, uint32_t pid, uint32_t signo)
 #else
   (void)sigqueue((int)pid, (int)signo, NULL);
 #endif
+
+#endif /* HAVE_GROUP_MEMBERS */
 }
 
 /****************************************************************************
@@ -134,14 +180,16 @@ static void pthread_condtimedout(int argc, uint32_t pid, uint32_t signo)
 int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
                            FAR const struct timespec *abstime)
 {
-  WDOG_ID         wdog;
-  int             ticks;
-  int             mypid = (int)getpid();
-  irqstate_t      int_state;
-  int             ret = OK;
-  int             status;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s *)g_readytorun.head;
+  int ticks;
+  int mypid = (int)getpid();
+  irqstate_t int_state;
+  int ret = OK;
+  int status;
 
   sdbg("cond=0x%p mutex=0x%p abstime=0x%p\n", cond, mutex, abstime);
+
+  DEBUGASSERT(rtcb->waitdog == NULL);
 
   /* Make sure that non-NULL references were provided. */
 
@@ -170,8 +218,8 @@ int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
     {
       /* Create a watchdog */
 
-      wdog = wd_create();
-      if (!wdog)
+      rtcb->waitdog = wd_create();
+      if (!rtcb->waitdog)
         {
           ret = EINVAL;
         }
@@ -235,7 +283,7 @@ int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
                     {
                       /* Start the watchdog */
 
-                      wd_start(wdog, ticks, (wdentry_t)pthread_condtimedout,
+                      wd_start(rtcb->waitdog, ticks, (wdentry_t)pthread_condtimedout,
                                2, (uint32_t)mypid, (uint32_t)SIGCONDTIMEDOUT);
 
                       /* Take the condition semaphore.  Do not restore interrupts
@@ -298,7 +346,8 @@ int pthread_cond_timedwait(FAR pthread_cond_t *cond, FAR pthread_mutex_t *mutex,
 
           /* We no longer need the watchdog */
 
-          wd_delete(wdog);
+          wd_delete(rtcb->waitdog);
+          rtcb->waitdog = NULL;
         }
     }
 

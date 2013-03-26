@@ -77,7 +77,7 @@
 #include "up_arch.h"
 
 #include "chip.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 #include "stm32_gpio.h"
 #include "stm32_dma.h"
 #include "stm32_spi.h"
@@ -130,7 +130,7 @@
 
 /* DMA channel configuration */
 
-#if defined(CONFIG_STM32_STM32F10XX)
+#if defined(CONFIG_STM32_STM32F10XX) || defined(CONFIG_STM32_STM32F30XX)
 #  define SPI_RXDMA16_CONFIG        (SPI_DMA_PRIO|DMA_CCR_MSIZE_16BITS|DMA_CCR_PSIZE_16BITS|DMA_CCR_MINC            )
 #  define SPI_RXDMA8_CONFIG         (SPI_DMA_PRIO|DMA_CCR_MSIZE_8BITS |DMA_CCR_PSIZE_8BITS |DMA_CCR_MINC            )
 #  define SPI_RXDMA16NULL_CONFIG    (SPI_DMA_PRIO|DMA_CCR_MSIZE_8BITS |DMA_CCR_PSIZE_16BITS                         )
@@ -511,7 +511,7 @@ static void spi_dmarxwait(FAR struct stm32_spidev_s *priv)
    * must not really have completed???
    */
 
-  while (sem_wait(&priv->rxsem) != 0 && priv->rxresult == 0)
+  while (sem_wait(&priv->rxsem) != 0 || priv->rxresult == 0)
     {
       /* The only case that an error should occur here is if the wait was awakened
        * by a signal.
@@ -537,7 +537,7 @@ static void spi_dmatxwait(FAR struct stm32_spidev_s *priv)
    * must not really have completed???
    */
 
-  while (sem_wait(&priv->txsem) != 0 && priv->txresult == 0)
+  while (sem_wait(&priv->txsem) != 0 || priv->txresult == 0)
     {
       /* The only case that an error should occur here is if the wait was awakened
        * by a signal.
@@ -731,6 +731,7 @@ static void spi_dmatxsetup(FAR struct stm32_spidev_s *priv, FAR const void *txbu
 #ifdef CONFIG_STM32_SPI_DMA
 static inline void spi_dmarxstart(FAR struct stm32_spidev_s *priv)
 {
+  priv->rxresult = 0;
   stm32_dmastart(priv->rxdma, spi_dmarxcallback, priv, false);
 }
 #endif
@@ -746,6 +747,7 @@ static inline void spi_dmarxstart(FAR struct stm32_spidev_s *priv)
 #ifdef CONFIG_STM32_SPI_DMA
 static inline void spi_dmatxstart(FAR struct stm32_spidev_s *priv)
 {
+  priv->txresult = 0;
   stm32_dmastart(priv->txdma, spi_dmatxcallback, priv, false);
 }
 #endif
@@ -775,7 +777,7 @@ static void spi_modifycr1(FAR struct stm32_spidev_s *priv, uint16_t setbits, uin
   spi_putreg(priv, STM32_SPI_CR1_OFFSET, cr1);
 }
 
-/****************************************************************************
+/************************************************************************************
  * Name: spi_lock
  *
  * Description:
@@ -794,7 +796,7 @@ static void spi_modifycr1(FAR struct stm32_spidev_s *priv, uint16_t setbits, uin
  * Returned Value:
  *   None
  *
- ****************************************************************************/
+ ************************************************************************************/
 
 #ifndef CONFIG_SPI_OWNBUS
 static int spi_lock(FAR struct spi_dev_s *dev, bool lock)
@@ -1047,12 +1049,14 @@ static void spi_setbits(FAR struct spi_dev_s *dev, int nbits)
           return;
         }
 
-        spi_modifycr1(priv, setbits, clrbits);
-
-        /* Save the selection so the subsequence re-configurations will be faster */
+      spi_modifycr1(priv, 0, SPI_CR1_SPE);
+      spi_modifycr1(priv, setbits, clrbits);
+      spi_modifycr1(priv, SPI_CR1_SPE, 0);
+      
+      /* Save the selection so the subsequence re-configurations will be faster */
 
 #ifndef CONFIG_SPI_OWNBUS
-        priv->nbits = nbits;
+      priv->nbits = nbits;
     }
 #endif
 }
@@ -1076,6 +1080,7 @@ static void spi_setbits(FAR struct spi_dev_s *dev, int nbits)
 static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
 {
   FAR struct stm32_spidev_s *priv = (FAR struct stm32_spidev_s *)dev;
+  uint32_t regval;
   uint16_t ret;
 
   DEBUGASSERT(priv && priv->spibase);
@@ -1083,11 +1088,15 @@ static uint16_t spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
   spi_writeword(priv, wd);
   ret = spi_readword(priv);
 
-  spivdbg("Sent: %04x Return: %04x\n", wd, ret);
+  /* Check and clear any error flags (Reading from the SR clears the error flags) */
+
+  regval = spi_getreg(priv, STM32_SPI_SR_OFFSET);
+  spivdbg("Sent: %04x Return: %04x Status: %02x\n", wd, ret, regval);
+
   return ret;
 }
 
-/*************************************************************************
+/************************************************************************************
  * Name: spi_exchange (no DMA)
  *
  * Description:

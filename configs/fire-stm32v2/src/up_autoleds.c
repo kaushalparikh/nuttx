@@ -2,7 +2,7 @@
  * configs/fire-stm32v2/src/up_autoleds.c
  * arch/arm/src/board/up_autoleds.c
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,20 +50,18 @@
 #include "chip.h"
 #include "up_arch.h"
 #include "up_internal.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 #include "fire-internal.h"
 
 /****************************************************************************
  * Definitions
  ****************************************************************************/
 
-/* Enables debug output from this file (needs CONFIG_DEBUG with
- * CONFIG_DEBUG_VERBOSE too)
+/* CONFIG_DEBUG_LEDS enables debug output from this file (needs CONFIG_DEBUG
+ * with CONFIG_DEBUG_VERBOSE too)
  */
 
-#undef LED_DEBUG  /* Define to enable debug */
-
-#ifdef LED_DEBUG
+#ifdef CONFIG_DEBUG_LEDS
 #  define leddbg  lldbg
 #  define ledvdbg llvdbg
 #else

@@ -1,7 +1,7 @@
 /************************************************************************
  * sched/sig_unmaskpendingsignal.c
  *
- *   Copyright (C) 2007, 2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,10 +80,10 @@
 
 void sig_unmaskpendingsignal(void)
 {
-   FAR _TCB       *rtcb = (FAR _TCB*)g_readytorun.head;
-   sigset_t        unmaskedset;
+   FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
+   sigset_t unmaskedset;
    FAR sigpendq_t *pendingsig;
-   int             signo;
+   int signo;
 
    /* Prohibit any context switches until we are done with this.
     * We may still be performing signal operations from interrupt
@@ -122,9 +122,14 @@ void sig_unmaskpendingsignal(void)
 
           if ((pendingsig = sig_removependingsignal(rtcb, signo)) != NULL)
             {
-              /* If there is one, then process it like a normal signal */
+              /* If there is one, then process it like a normal signal.
+               * Since the signal was pending, then unblocked on this
+               * thread, we can skip the normal group signal dispatching
+               * rules; there can be no other recipient for the signal
+               * other than this thread.
+               */
 
-              sig_received(rtcb, &pendingsig->info);
+              sig_tcbdispatch(rtcb, &pendingsig->info);
 
               /* Then remove it from the pending signal list */
 

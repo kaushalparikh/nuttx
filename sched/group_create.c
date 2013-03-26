@@ -133,7 +133,7 @@ void group_assigngid(FAR struct task_group_s *group)
           /* Does a task group with this ID already exist? */
 
           irqrestore(flags);
-          if (group_find(gid) == NULL)
+          if (group_findbygid(gid) == NULL)
             {
               /* Now assign this ID to the group and return */
 
@@ -174,37 +174,71 @@ void group_assigngid(FAR struct task_group_s *group)
  *
  *****************************************************************************/
 
-int group_allocate(FAR _TCB *tcb)
+int group_allocate(FAR struct task_tcb_s *tcb)
 {
+  FAR struct task_group_s *group;
   int ret;
 
-  DEBUGASSERT(tcb && !tcb->group);
+  DEBUGASSERT(tcb && !tcb->cmn.group);
 
   /* Allocate the group structure and assign it to the TCB */
 
-  tcb->group = (FAR struct task_group_s *)kzalloc(sizeof(struct task_group_s));
-  if (!tcb->group)
+  group = (FAR struct task_group_s *)kzalloc(sizeof(struct task_group_s));
+  if (!group)
     {
       return -ENOMEM;
     }
+
+#if CONFIG_NFILE_STREAMS > 0 && defined(CONFIG_NUTTX_KERNEL) && \
+    defined(CONFIG_MM_KERNEL_HEAP)
+
+  /* In a flat, single-heap build.  The stream list is allocated with the
+   * group structure.  But in a kernel build with a kernel allocator, it
+   * must be separately allocated using a user-space allocator.
+   */
+
+  group->tg_streamlist = (FAR struct streamlist *)
+    kuzalloc(sizeof(struct streamlist));
+
+  if (!group->tg_streamlist)
+    {
+      kfree(group);
+      return -ENOMEM;
+    }
+
+#endif
+
+  /* Attach the group to the TCB */
+
+  tcb->cmn.group = group;
 
   /* Assign the group a unique ID.  If g_gidcounter were to wrap before we
    * finish with task creation, that would be a problem.
    */
 
 #ifdef HAVE_GROUP_MEMBERS
-  group_assigngid(tcb->group);
+  group_assigngid(group);
 #endif
 
   /* Duplicate the parent tasks envionment */
 
-  ret = env_dup(tcb->group);
+  ret = env_dup(group);
   if (ret < 0)
     {
-      kfree(tcb->group);
-      tcb->group = NULL;
+#if CONFIG_NFILE_STREAMS > 0 && defined(CONFIG_NUTTX_KERNEL) && \
+    defined(CONFIG_MM_KERNEL_HEAP)
+      kufree(group->tg_streamlist);
+#endif
+      kfree(group);
+      tcb->cmn.group = NULL;
       return ret;
     }
+
+  /* Initialize the pthread join semaphore */
+
+#ifndef CONFIG_DISABLE_PTHREAD
+  (void)sem_init(&group->tg_joinsem, 0, 1);
+#endif
 
   return OK;
 }
@@ -230,15 +264,15 @@ int group_allocate(FAR _TCB *tcb)
  *
  *****************************************************************************/
 
-int group_initialize(FAR _TCB *tcb)
+int group_initialize(FAR struct task_tcb_s *tcb)
 {
   FAR struct task_group_s *group;
 #ifdef HAVE_GROUP_MEMBERS
   irqstate_t flags;
 #endif
 
-  DEBUGASSERT(tcb && tcb->group);
-  group = tcb->group;
+  DEBUGASSERT(tcb && tcb->cmn.group);
+  group = tcb->cmn.group;
 
 #ifdef HAVE_GROUP_MEMBERS
   /* Allocate space to hold GROUP_INITIAL_MEMBERS members of the group */
@@ -246,13 +280,13 @@ int group_initialize(FAR _TCB *tcb)
   group->tg_members = (FAR pid_t *)kmalloc(GROUP_INITIAL_MEMBERS*sizeof(pid_t));
   if (!group->tg_members)
     {
-      free(group);
+      kfree(group);
       return -ENOMEM;
     }
 
-  /* Assign the PID of this new task as a member of the group*/
+  /* Assign the PID of this new task as a member of the group. */
 
-  group->tg_members[0] = tcb->pid;
+  group->tg_members[0] = tcb->cmn.pid;
 
   /* Initialize the non-zero elements of group structure and assign it to
    * the tcb.
@@ -269,8 +303,21 @@ int group_initialize(FAR _TCB *tcb)
 
 #endif
 
-  group->tg_nmembers = 1; /* Number of members in the group */
+  /* Save the ID of the main task within the group of threads.  This needed
+   * for things like SIGCHILD.  It ID is also saved in the TCB of the main
+   * task but is also retained in the group which may persist after the main
+   * task has exited.
+   */
+
+#if !defined(CONFIG_DISABLE_PTHREAD) && defined(CONFIG_SCHED_HAVE_PARENT)
+  group->tg_task = tcb->cmn.pid;
+#endif
+
+  /* Mark that there is one member in the group, the main task */
+
+  group->tg_nmembers = 1;
   return OK;
 }
 
 #endif /* HAVE_TASK_GROUP */
+

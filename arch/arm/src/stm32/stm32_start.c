@@ -2,7 +2,7 @@
  * arch/arm/src/stm32/stm32_start.c
  * arch/arm/src/chip/stm32_start.c
  *
- *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,6 +34,10 @@
  *
  ****************************************************************************/
 
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
+
 #include <nuttx/config.h>
 
 #include <stdint.h>
@@ -46,12 +50,16 @@
 #include "up_arch.h"
 #include "up_internal.h"
 
-#include "stm32_internal.h"
+#include "stm32.h"
 #include "stm32_gpio.h"
 
 #ifdef CONFIG_ARCH_FPU
 #  include "nvic.h"
 #endif
+
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
 
 /****************************************************************************
  * Name: showprogress
@@ -66,10 +74,6 @@
 #else
 #  define showprogress(c)
 #endif
-
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
 
 /****************************************************************************
  * Name: stm32_fpuconfig

@@ -284,7 +284,7 @@ defconfig -- This is a configuration file similar to the Linux
     CONFIG_MM_REGIONS - If the architecture includes multiple
       regions of memory to allocate from, this specifies the
       number of memory regions that the memory manager must
-      handle and enables the API mm_addregion(start, end);
+      handle and enables the API mm_addregion(heap, start, end);
     CONFIG_MM_SMALL - Each memory allocation has a small allocation
       overhead.  The size of that overhead is normally determined by
       the "width" of the address support by the MCU.  MCUs that support
@@ -1671,8 +1671,6 @@ defconfig -- This is a configuration file similar to the Linux
       for the main user thread that begins at the user_start() entry point.
     CONFIG_PTHREAD_STACK_MIN - Minimum pthread stack size
     CONFIG_PTHREAD_STACK_DEFAULT - Default pthread stack size
-    CONFIG_HEAP_BASE - The beginning of the heap
-    CONFIG_HEAP_SIZE - The size of the heap
 
 appconfig -- This is another configuration file that is specific to the
   application.  This file is copied into the application build directory
@@ -1781,6 +1779,12 @@ configs/lm3s6965-ek
 configs/lm3s8962-ek
   Stellaris LMS38962 Evaluation Kit.
 
+configs/lm4f120-launchpad
+  This is the port of NuttX to the Stellaris LM4F120 LaunchPad.  The
+  Stellaris® LM4F120 LaunchPad Evaluation Board is a low-cost evaluation
+  platform for ARM® Cortex™-M4F-based microcontrollers from Texas\
+  Instruments.
+
 configs/lpcxpresso-lpc1768
   Embedded Artists base board with NXP LPCExpresso LPC1768.  This board
   is based on the NXP LPC1768.  The Code Red toolchain is used by default.
@@ -1845,6 +1849,10 @@ configs/nucleus2g
   This port uses the Nucleus 2G board (with Babel CAN board).  This board
   features an NXP LPC1768 processor.  See the 2G website (http://www.2g-eng.com/)
   for more information about the Nucleus 2G.
+
+configs/nutiny-nuc120
+  This is the port of NuttX to the NuvoTon NuTiny-SDK-NUC120 board.  This
+  board has the NUC120LE3AN chip with a built-in NuLink debugger.
 
 configs/olimex-lpc1766stk
   This port uses the Olimex LPC1766-STK board and a GNU GCC toolchain* under
@@ -2035,6 +2043,10 @@ configs/zp214xpa
   This port is for the NXP LPC2148 as provided on the The0.net
   ZPA213X/4XPA development board. Includes support for the
   UG-2864AMBAG01 OLED also from The0.net
+
+configs/zkit-arm-1769
+  Zilogic System's ARM development Kit, ZKIT-ARM-1769.  This board is based
+  on the NXP LPC1769.  The Nuttx Buildroot toolchain is used by default.
 
 Configuring NuttX
 ^^^^^^^^^^^^^^^^^

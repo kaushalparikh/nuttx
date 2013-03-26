@@ -77,7 +77,7 @@
 
 FAR char *getenv(const char *name)
 {
-  FAR _TCB *rtcb;
+  FAR struct tcb_s *rtcb;
   FAR struct task_group_s *group;
   FAR char *pvar;
   FAR char *pvalue = NULL;
@@ -91,10 +91,10 @@ FAR char *getenv(const char *name)
       goto errout;
     }
 
-  /* Get a reference to the thread-private environ in the TCB.*/
+  /* Get a reference to the thread-private environ in the TCB. */
 
   sched_lock();
-  rtcb = (FAR _TCB*)g_readytorun.head;
+  rtcb = (FAR struct tcb_s*)g_readytorun.head;
   group = rtcb->group;
 
   /* Check if the variable exists */
@@ -130,6 +130,4 @@ errout:
 }
 
 #endif /* CONFIG_DISABLE_ENVIRON */
-
-
 

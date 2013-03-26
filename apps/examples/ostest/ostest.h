@@ -111,6 +111,10 @@ int dev_null(void);
 
 void fpu_test(void);
 
+/* restart.c ****************************************************************/
+
+void restart_test(void);
+
 /* waitpid.c ****************************************************************/
 
 #ifdef CONFIG_SCHED_WAITPID
@@ -171,7 +175,8 @@ void priority_inheritance(void);
 
 /* vfork.c ******************************************************************/
 
-#ifdef CONFIG_ARCH_HAVE_VFORK
+#if defined(CONFIG_ARCH_HAVE_VFORK) && defined(CONFIG_SCHED_WAITPID) && \
+   !defined(CONFIG_DISABLE_SIGNALS)
 int vfork_test(void);
 #endif
 

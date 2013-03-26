@@ -11,6 +11,10 @@ menu "Examples"
 source "$APPSDIR/examples/Kconfig"
 endmenu
 
+menu "Graphics Support"
+source "$APPSDIR/graphics/Kconfig"
+endmenu
+
 menu "Interpreters"
 source "$APPSDIR/interpreters/Kconfig"
 endmenu
@@ -19,7 +23,7 @@ menu "Network Utilities"
 source "$APPSDIR/netutils/Kconfig"
 endmenu
 
-menu "ModBus"
+menu "FreeModBus"
 source "$APPSDIR/modbus/Kconfig"
 endmenu
 

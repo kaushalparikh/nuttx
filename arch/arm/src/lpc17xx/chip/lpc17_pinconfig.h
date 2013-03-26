@@ -1,5 +1,5 @@
 /************************************************************************************
- * arch/arm/src/lpc17xx/chip/lp17_pinconfig.h
+ * arch/arm/src/lpc17xx/chip/lpc17_pinconfig.h
  *
  *   Copyright (C) 2009-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -41,6 +41,10 @@
  ************************************************************************************/
 
 #include <nuttx/config.h>
+
+/* This file is only a thin shell that includes the correct pin configuration
+ * definitions for the selected LPC17xx family.
+ */
 
 #include <arch/lpc17xx/chip.h>
 

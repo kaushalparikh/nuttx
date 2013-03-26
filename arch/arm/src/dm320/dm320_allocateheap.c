@@ -1,7 +1,7 @@
 /************************************************************
  * dm320/dm320_allocateheap.c
  *
- *   Copyright (C) 2007 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -68,16 +68,23 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by
- *   defining CONFIG_HEAP_BASE and CONFIG_HEAP_SIZE.  If these
- *   are not defined, then this function will be called to
- *   dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside
+ *   the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both
+ *   kernel- and user-space heaps (CONFIG_MM_KERNEL_HEAP=y),
+ *   this function provides the size of the unprotected,
+ *   user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel
+ *   heap must be allocated (and protected) by an analogous
+ *   up_allocate_kheap().
  *
  ************************************************************/
 
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 {
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size  = (DM320_SDRAM_VADDR + CONFIG_DRAM_SIZE) - g_heapbase;
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size  = (DM320_SDRAM_VADDR + CONFIG_DRAM_SIZE) - g_idle_topstack;
 }

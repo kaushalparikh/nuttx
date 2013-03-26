@@ -40,35 +40,18 @@
 #include <nuttx/config.h>
 
 #include <sys/wait.h>
-#include <unistd.h>
-#include <semaphore.h>
-#include <signal.h>
-#include <sched.h>
-#include <fcntl.h>
 #include <spawn.h>
-#include <errno.h>
-#include <assert.h>
 #include <debug.h>
 
 #include <nuttx/binfmt/binfmt.h>
-#include <nuttx/spawn.h>
 
 #include "os_internal.h"
 #include "group_internal.h"
+#include "spawn_internal.h"
 
 /****************************************************************************
  * Private Types
  ****************************************************************************/
-
-struct spawn_parms_s
-{
-  int result;
-  FAR pid_t *pid;
-  FAR const char *path;
-  FAR const posix_spawn_file_actions_t *file_actions;
-  FAR const posix_spawnattr_t *attr;
-  FAR char *const *argv;
-};
 
 /****************************************************************************
  * Public Data
@@ -78,47 +61,12 @@ struct spawn_parms_s
  * Private Data
  ****************************************************************************/
 
-static sem_t g_ps_parmsem = SEM_INITIALIZER(1);
-#ifndef CONFIG_SCHED_WAITPID
-static sem_t g_ps_execsem = SEM_INITIALIZER(0);
-#endif
-static struct spawn_parms_s g_ps_parms;
-
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: spawn_semtake and spawn_semgive
- *
- * Description:
- *   Give and take semaphores
- *
- * Input Parameters:
- *
- *   sem - The semaphore to act on.
- *
- * Returned Value:
- *   None
- *
- ****************************************************************************/
-
-static void spawn_semtake(FAR sem_t *sem)
-{
-  int ret;
-
-  do
-    {
-      ret = sem_wait(sem);
-      ASSERT(ret == 0 || errno == EINTR);
-    }
-  while (ret != 0);
-}
-
-#define spawn_semgive(sem) sem_post(sem)
-
-/****************************************************************************
- * Name: spawn_exec
+ * Name: posix_spawn_exec
  *
  * Description:
  *   Execute the task from the file system.
@@ -156,11 +104,10 @@ static void spawn_semtake(FAR sem_t *sem)
  *
  ****************************************************************************/
 
-static int spawn_exec(FAR pid_t *pidp, FAR const char *path,
-                      FAR const posix_spawnattr_t *attr,
-                      FAR char *const argv[])
+static int posix_spawn_exec(FAR pid_t *pidp, FAR const char *path,
+                            FAR const posix_spawnattr_t *attr,
+                            FAR char * const argv[])
 {
-  struct sched_param param;
   FAR const struct symtab_s *symtab;
   int nsymbols;
   int pid;
@@ -181,7 +128,7 @@ static int spawn_exec(FAR pid_t *pidp, FAR const char *path,
 
   /* Start the task */
 
-  pid = exec(path, (FAR const char **)argv, symtab, nsymbols);
+  pid = exec(path, (FAR char * const *)argv, symtab, nsymbols);
   if (pid < 0)
     {
       ret = errno;
@@ -203,50 +150,7 @@ static int spawn_exec(FAR pid_t *pidp, FAR const char *path,
 
   if (attr)
     {
-      /* If we are only setting the priority, then call sched_setparm()
-       * to set the priority of the of the new task.
-       */
-
-      if ((attr->flags & POSIX_SPAWN_SETSCHEDPARAM) != 0)
-        {
-          /* Get the priority from the attrributes */
-
-          param.sched_priority = attr->priority;
-
-          /* If we are setting *both* the priority and the scheduler,
-           * then we will call sched_setscheduler() below.
-           */
-
-          if ((attr->flags & POSIX_SPAWN_SETSCHEDULER) == 0)
-            {
-              svdbg("Setting priority=%d for pid=%d\n",
-                    param.sched_priority, pid);
-
-              (void)sched_setparam(pid, &param);
-            }
-        }
-
-      /* If we are only changing the scheduling policy, then reset
-       * the priority to the default value (the same as this thread) in
-       * preparation for the sched_setscheduler() call below.
-       */
-
-      else if ((attr->flags & POSIX_SPAWN_SETSCHEDULER) != 0)
-        {
-          (void)sched_getparam(0, &param);
-        }
-
-      /* Are we setting the scheduling policy?  If so, use the priority
-       * setting determined above.
-       */
-
-      if ((attr->flags & POSIX_SPAWN_SETSCHEDULER) != 0)
-        {
-          svdbg("Setting policy=%d priority=%d for pid=%d\n",
-                attr->policy, param.sched_priority, pid);
-
-          (void)sched_setscheduler(pid, attr->policy, &param);
-        }
+      (void)spawn_execattrs(pid, attr);
     }
 
   /* Re-enable pre-emption and return */
@@ -257,97 +161,20 @@ errout:
 }
 
 /****************************************************************************
- * Name: spawn_close, spawn_dup2, and spawn_open
- *
- * Description:
- *   Implement individual file actions
- *
- * Input Parameters:
- *   action - describes the action to be performed
- *
- * Returned Value:
- *   posix_spawn() and posix_spawnp() will return zero on success.
- *   Otherwise, an error number will be returned as the function return
- *   value to indicate the error.
- *
- ****************************************************************************/
-
-static inline int spawn_close(FAR struct spawn_close_file_action_s *action)
-{
-  /* The return value from close() is ignored */
-
-  svdbg("Closing fd=%d\n", action->fd);
-
-  (void)close(action->fd);
-  return OK;
-}
-
-static inline int spawn_dup2(FAR struct spawn_dup2_file_action_s *action)
-{
-  int ret;
-
-  /* Perform the dup */
-
-  svdbg("Dup'ing %d->%d\n", action->fd1, action->fd2);
-
-  ret = dup2(action->fd1, action->fd2);
-  if (ret < 0)
-    {
-      int errcode = errno;
-
-      sdbg("ERROR: dup2 failed: %d\n", errcode);
-      return errcode;
-    }
-
-  return OK;
-}
-
-static inline int spawn_open(FAR struct spawn_open_file_action_s *action)
-{
-  int fd;
-  int ret = OK;
-
-  /* Open the file */
-
-  svdbg("Open'ing path=%s oflags=%04x mode=%04x\n",
-        action->path, action->oflags, action->mode);
-
-  fd = open(action->path, action->oflags, action->mode);
-  if (fd < 0)
-    {
-      ret = errno;
-      sdbg("ERROR: open failed: %d\n", ret);
-    }
-
-  /* Does the return file descriptor happen to match the required file
-   * desciptor number?
-   */
-
-  else if (fd != action->fd)
-    {
-      /* No.. dup2 to get the correct file number */
-
-      svdbg("Dup'ing %d->%d\n", fd, action->fd);
-
-      ret = dup2(fd, action->fd);
-      if (ret < 0)
-        {
-          ret = errno;
-          sdbg("ERROR: dup2 failed: %d\n", ret);
-        }
-
-      svdbg("Closing fd=%d\n", fd);
-      close(fd);
-    }
-
-  return ret;
-}
-
-/****************************************************************************
- * Name: spawn_proxy
+ * Name: posix_spawn_proxy
  *
  * Description:
  *   Perform file_actions, then execute the task from the file system.
+ *
+ *   Do we really need this proxy task?  Isn't that wasteful?
+ *
+ *   Q: Why not use a starthook so that there is callout from task_start()
+ *      to perform these operations after the file is loaded from
+ *      the file system?
+ *   A: That existing task_starthook() implementation cannot be used in
+ *      this context; any of task_starthook() will also conflict with
+ *      binfmt's use of the start hook to call C++ static initializers.
+ *      task_restart() would also be an issue.
  *
  * Input Parameters:
  *   Standard task start-up parameters
@@ -357,11 +184,9 @@ static inline int spawn_open(FAR struct spawn_open_file_action_s *action)
  *
  ****************************************************************************/
 
-static int spawn_proxy(int argc, char *argv[])
+static int posix_spawn_proxy(int argc, FAR char *argv[])
 {
-  FAR struct spawn_general_file_action_s *entry;
-  FAR const posix_spawnattr_t *attr = g_ps_parms.attr;
-  int ret = OK;
+  int ret;
 
   /* Perform file actions and/or set a custom signal mask.  We get here only
    * if the file_actions parameter to posix_spawn[p] was non-NULL and/or the
@@ -369,62 +194,22 @@ static int spawn_proxy(int argc, char *argv[])
    */
 
 #ifndef CONFIG_DISABLE_SIGNALS
-  DEBUGASSERT((g_ps_parms.file_actions && *g_ps_parms.file_actions) ||
-              (attr && (attr->flags & POSIX_SPAWN_SETSIGMASK) != 0));
+  DEBUGASSERT(g_spawn_parms.file_actions ||
+              (g_spawn_parms.attr &&
+              (g_spawn_parms.attr->flags & POSIX_SPAWN_SETSIGMASK) != 0));
 #else
-  DEBUGASSERT(g_ps_parms.file_actions && *g_ps_parms.file_actions);
+  DEBUGASSERT(g_spawn_parms.file_actions);
 #endif
 
-  /* Check if we need to change the signal mask */
+  /* Set the attributes and perform the file actions as appropriate */
 
-#ifndef CONFIG_DISABLE_SIGNALS
-  if (attr && (attr->flags & POSIX_SPAWN_SETSIGMASK) != 0)
-    {
-      (void)sigprocmask(SIG_SETMASK, &attr->sigmask, NULL);
-    }
-
-  /* Were we also requested to perform file actions? */
-
-  if (g_ps_parms.file_actions)
-#endif
-    {
-      /* Execute each file action */
-
-      for (entry = (FAR struct spawn_general_file_action_s *)*g_ps_parms.file_actions;
-           entry && ret == OK;
-           entry = entry->flink)
-        {
-          switch (entry->action)
-            {
-            case SPAWN_FILE_ACTION_CLOSE:
-              ret = spawn_close((FAR struct spawn_close_file_action_s *)entry);
-              break;
-
-            case SPAWN_FILE_ACTION_DUP2:
-              ret = spawn_dup2((FAR struct spawn_dup2_file_action_s *)entry);
-              break;
-
-            case SPAWN_FILE_ACTION_OPEN:
-              ret = spawn_open((FAR struct spawn_open_file_action_s *)entry);
-              break;
-
-            case SPAWN_FILE_ACTION_NONE:
-            default:
-              sdbg("ERROR: Unknown action: %d\n", entry->action);
-              ret = EINVAL;
-              break;
-            }
-        }
-    }
-
-  /* Check for failures */
-
+  ret = spawn_proxyattrs(g_spawn_parms.attr, g_spawn_parms.file_actions);
   if (ret == OK)
     {
       /* Start the task */
 
-      ret = spawn_exec(g_ps_parms.pid, g_ps_parms.path, attr,
-                       g_ps_parms.argv);
+      ret = posix_spawn_exec(g_spawn_parms.pid, g_spawn_parms.u.posix.path,
+                             g_spawn_parms.attr, g_spawn_parms.argv);
 
 #ifdef CONFIG_SCHED_HAVE_PARENT
       if (ret == OK)
@@ -433,7 +218,7 @@ static int spawn_proxy(int argc, char *argv[])
            * What should we do in the event of a failure?
            */
 
-          int tmp = task_reparent(0, *g_ps_parms.pid);
+          int tmp = task_reparent(0, *g_spawn_parms.pid);
           if (tmp < 0)
             {
               sdbg("ERROR: task_reparent() failed: %d\n", tmp);
@@ -446,9 +231,9 @@ static int spawn_proxy(int argc, char *argv[])
    * what we need to do.
    */
 
-  g_ps_parms.result = ret;
+  g_spawn_parms.result = ret;
 #ifndef CONFIG_SCHED_WAITPID
-  spawn_semgive(&g_ps_execsem);
+  spawn_semgive(&g_spawn_execsem);
 #endif
   return OK;
 }
@@ -585,7 +370,7 @@ int posix_spawn(FAR pid_t *pid, FAR const char *path,
   if (file_actions ==  NULL || *file_actions == NULL)
 #endif
     {
-      return spawn_exec(pid, path, attr, argv);
+      return posix_spawn_exec(pid, path, attr, argv);
     }
 
   /* Otherwise, we will have to go through an intermediary/proxy task in order
@@ -601,16 +386,16 @@ int posix_spawn(FAR pid_t *pid, FAR const char *path,
 
   /* Get exclusive access to the global parameter structure */
 
-  spawn_semtake(&g_ps_parmsem);
+  spawn_semtake(&g_spawn_parmsem);
 
   /* Populate the parameter structure */
 
-  g_ps_parms.result       = ENOSYS;
-  g_ps_parms.pid          = pid;
-  g_ps_parms.path         = path;
-  g_ps_parms.file_actions = file_actions;
-  g_ps_parms.attr         = attr;
-  g_ps_parms.argv         = argv;
+  g_spawn_parms.result       = ENOSYS;
+  g_spawn_parms.pid          = pid;
+  g_spawn_parms.file_actions = file_actions ? *file_actions : NULL;
+  g_spawn_parms.attr         = attr;
+  g_spawn_parms.argv         = argv;
+  g_spawn_parms.u.posix.path = path;
 
   /* Get the priority of this (parent) task */
 
@@ -620,12 +405,12 @@ int posix_spawn(FAR pid_t *pid, FAR const char *path,
       int errcode = errno;
 
       sdbg("ERROR: sched_getparam failed: %d\n", errcode);
-      spawn_semgive(&g_ps_parmsem);
+      spawn_semgive(&g_spawn_parmsem);
       return errcode;
     }
 
-  /* Disable pre-emption so that the proxy does not run until we waitpid
-   * is called.  This is probably unnecessary since the spawn_proxy has
+  /* Disable pre-emption so that the proxy does not run until waitpid
+   * is called.  This is probably unnecessary since the posix_spawn_proxy has
    * the same priority as this thread; it should be schedule behind this
    * task in the ready-to-run list.
    */
@@ -638,13 +423,14 @@ int posix_spawn(FAR pid_t *pid, FAR const char *path,
    * task.
    */
 
-  proxy = TASK_CREATE("spawn_proxy", param.sched_priority,
-                      CONFIG_POSIX_SPAWN_STACKSIZE, (main_t)spawn_proxy,
-                      (FAR const char **)NULL);
+  proxy = TASK_CREATE("posix_spawn_proxy", param.sched_priority,
+                      CONFIG_POSIX_SPAWN_PROXY_STACKSIZE,
+                      (main_t)posix_spawn_proxy,
+                      (FAR char * const *)NULL);
   if (proxy < 0)
     {
       ret = get_errno();
-      sdbg("ERROR: Failed to start spawn_proxy: %d\n", ret);
+      sdbg("ERROR: Failed to start posix_spawn_proxy: %d\n", ret);
 
       goto errout_with_lock;
     }
@@ -659,17 +445,17 @@ int posix_spawn(FAR pid_t *pid, FAR const char *path,
        goto errout_with_lock;
      }
 #else
-   spawn_semtake(&g_ps_execsem);
+   spawn_semtake(&g_spawn_execsem);
 #endif
 
    /* Get the result and relinquish our access to the parameter structure */
 
-   ret = g_ps_parms.result;
+   ret = g_spawn_parms.result;
 
 errout_with_lock:
 #ifdef CONFIG_SCHED_WAITPID
   sched_unlock();
 #endif
-  spawn_semgive(&g_ps_parmsem);
+  spawn_semgive(&g_spawn_parmsem);
   return ret;
 }

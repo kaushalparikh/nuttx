@@ -2,7 +2,7 @@
  * arch/arm/src/lpc17xx/lpc17_start.c
  * arch/arm/src/chip/lpc17_start.c
  *
- *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010, 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +52,11 @@
 
 #include "lpc17_clockconfig.h"
 #include "lpc17_lowputc.h"
+#include "lpc17_userspace.h"
+
+#ifdef CONFIG_ARCH_FPU
+#  include "nvic.h"
+#endif
 
 /****************************************************************************
  * Private Definitions
@@ -84,6 +89,96 @@
 #endif
 
 /****************************************************************************
+ * Name: lpc17_fpuconfig
+ *
+ * Description:
+ *   Configure the FPU.  Relative bit settings:
+ *
+ *     CPACR:  Enables access to CP10 and CP11
+ *     CONTROL.FPCA: Determines whether the FP extension is active in the
+ *       current context:
+ *     FPCCR.ASPEN:  Enables automatic FP state preservation, then the
+ *       processor sets this bit to 1 on successful completion of any FP
+ *       instruction.
+ *     FPCCR.LSPEN:  Enables lazy context save of FP state. When this is
+ *       done, the processor reserves space on the stack for the FP state,
+ *       but does not save that state information to the stack.
+ *
+ *  Software must not change the value of the ASPEN bit or LSPEN bit while either:
+ *   - the CPACR permits access to CP10 and CP11, that give access to the FP
+ *     extension, or
+ *   - the CONTROL.FPCA bit is set to 1
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_ARCH_FPU
+#ifdef CONFIG_ARMV7M_CMNVECTOR
+
+static inline void lpc17_fpuconfig(void)
+{
+  uint32_t regval;
+
+  /* Set CONTROL.FPCA so that we always get the extended context frame
+   * with the volatile FP registers stacked above the basic context.
+   */
+
+  regval = getcontrol(); 
+  regval |= (1 << 2);
+  setcontrol(regval);
+
+  /* Ensure that FPCCR.LSPEN is disabled, so that we don't have to contend
+   * with the lazy FP context save behaviour.  Clear FPCCR.ASPEN since we
+   * are going to turn on CONTROL.FPCA for all contexts.
+   */
+
+  regval = getreg32(NVIC_FPCCR);
+  regval &= ~((1 << 31) | (1 << 30));
+  putreg32(regval, NVIC_FPCCR);
+
+  /* Enable full access to CP10 and CP11 */
+
+  regval = getreg32(NVIC_CPACR);
+  regval |= ((3 << (2*10)) | (3 << (2*11)));
+  putreg32(regval, NVIC_CPACR);
+}
+
+#else
+
+static inline void lpc17_fpuconfig(void)
+{
+  uint32_t regval;
+
+  /* Clear CONTROL.FPCA so that we do not get the extended context frame
+   * with the volatile FP registers stacked in the saved context.
+   */
+
+  regval = getcontrol(); 
+  regval &= ~(1 << 2);
+  setcontrol(regval);
+
+  /* Ensure that FPCCR.LSPEN is disabled, so that we don't have to contend
+   * with the lazy FP context save behaviour.  Clear FPCCR.ASPEN since we
+   * are going to keep CONTROL.FPCA off for all contexts.
+   */
+
+  regval = getreg32(NVIC_FPCCR);
+  regval &= ~((1 << 31) | (1 << 30));
+  putreg32(regval, NVIC_FPCCR);
+
+  /* Enable full access to CP10 and CP11 */
+
+  regval = getreg32(NVIC_CPACR);
+  regval |= ((3 << (2*10)) | (3 << (2*11)));
+  putreg32(regval, NVIC_CPACR);
+}
+
+#endif
+
+#else
+#  define lpc17_fpuconfig()
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
@@ -103,6 +198,7 @@ void __start(void)
   /* Configure the uart so that we can get debug output as soon as possible */
 
   lpc17_clockconfig();
+  lpc17_fpuconfig();
   lpc17_lowsetup();
   showprogress('A');
 
@@ -114,6 +210,7 @@ void __start(void)
     {
       *dest++ = 0;
     }
+
   showprogress('B');
 
   /* Move the intialized data section from his temporary holding spot in
@@ -126,6 +223,7 @@ void __start(void)
     {
       *dest++ = *src++;
     }
+
   showprogress('C');
 
   /* Perform early serial initialization */
@@ -135,10 +233,21 @@ void __start(void)
 #endif
   showprogress('D');
 
+  /* For the case of the separate user-/kernel-space build, perform whatever
+   * platform specific initialization of the user memory is required.
+   * Normally this just means initializing the user space .data and .bss
+   * segements.
+   */
+
+#ifdef CONFIG_NUTTX_KERNEL
+  lpc17_userspace();
+  showprogress('E');
+#endif
+
   /* Initialize onboard resources */
 
   lpc17_boardinitialize();
-  showprogress('E');
+  showprogress('F');
 
   /* Then start NuttX */
 

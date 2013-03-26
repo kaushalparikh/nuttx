@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/arm/src/sam3u/sam3u_internal.h
  *
- *   Copyright (C) 2009-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -409,7 +409,8 @@ struct sam3u_dmaregs_s
 #undef EXTERN
 #if defined(__cplusplus)
 #define EXTERN extern "C"
-extern "C" {
+extern "C"
+{
 #else
 #define EXTERN extern
 #endif
@@ -431,7 +432,7 @@ extern "C" {
  *
  ************************************************************************************/
 
-EXTERN void sam3u_clockconfig(void);
+void sam3u_clockconfig(void);
 
 /************************************************************************************
  * Name: sam3u_lowsetup
@@ -443,7 +444,7 @@ EXTERN void sam3u_clockconfig(void);
  *
  ************************************************************************************/
 
-EXTERN void sam3u_lowsetup(void);
+void sam3u_lowsetup(void);
 
 /****************************************************************************
  * Name: sam3u_userspace
@@ -452,41 +453,41 @@ EXTERN void sam3u_lowsetup(void);
  *   For the case of the separate user-/kernel-space build, perform whatever
  *   platform specific initialization of the user memory is required.
  *   Normally this just means initializing the user space .data and .bss
- *   segements.
+ *   segments.
  *
  ****************************************************************************/
 
 #ifdef CONFIG_NUTTX_KERNEL
-EXTERN void sam3u_userspace(void);
+void sam3u_userspace(void);
 #endif
 
 /****************************************************************************
  * Name: sam3u_mpuinitialize
  *
  * Description:
- *   Configure the MPU to permit user-space access to only restricted SAM3U
+ *   Configure the MPU to permit user-space access to only unrestricted SAM3U
  *   resources.
  *
  ****************************************************************************/
 
 #ifdef CONFIG_NUTTX_KERNEL
-EXTERN void sam3u_mpuinitialize(void);
+void sam3u_mpuinitialize(void);
 #else
 #  define sam3u_mpuinitialize()
 #endif
 
 /****************************************************************************
- * Name: sam3u_mpuheap
+ * Name: sam3u_mpu_uheap
  *
  * Description:
- *  Map a heap region.
+ *  Map the user heap region.
  *
  ****************************************************************************/
 
 #ifdef CONFIG_NUTTX_KERNEL
-EXTERN void sam3u_mpuheap(uintptr_t start, size_t size);
+void sam3u_mpu_uheap(uintptr_t start, size_t size);
 #else
-#  define sam3u_mpuheap(start,size)
+#  define sam3u_mpu_uheap(start,size)
 #endif
 
 /************************************************************************************
@@ -498,7 +499,7 @@ EXTERN void sam3u_mpuheap(uintptr_t start, size_t size);
  ************************************************************************************/
 
 #ifdef CONFIG_GPIO_IRQ
-EXTERN void sam3u_gpioirqinitialize(void);
+void sam3u_gpioirqinitialize(void);
 #else
 #  define sam3u_gpioirqinitialize()
 #endif
@@ -511,7 +512,7 @@ EXTERN void sam3u_gpioirqinitialize(void);
  *
  ************************************************************************************/
 
-EXTERN int sam3u_configgpio(uint16_t cfgset);
+int sam3u_configgpio(uint16_t cfgset);
 
 /************************************************************************************
  * Name: sam3u_gpiowrite
@@ -521,7 +522,7 @@ EXTERN int sam3u_configgpio(uint16_t cfgset);
  *
  ************************************************************************************/
 
-EXTERN void sam3u_gpiowrite(uint16_t pinset, bool value);
+void sam3u_gpiowrite(uint16_t pinset, bool value);
 
 /************************************************************************************
  * Name: sam3u_gpioread
@@ -531,7 +532,7 @@ EXTERN void sam3u_gpiowrite(uint16_t pinset, bool value);
  *
  ************************************************************************************/
 
-EXTERN bool sam3u_gpioread(uint16_t pinset);
+bool sam3u_gpioread(uint16_t pinset);
 
 /************************************************************************************
  * Name: sam3u_gpioirq
@@ -542,7 +543,7 @@ EXTERN bool sam3u_gpioread(uint16_t pinset);
  ************************************************************************************/
 
 #ifdef CONFIG_GPIO_IRQ
-EXTERN void sam3u_gpioirq(uint16_t pinset);
+void sam3u_gpioirq(uint16_t pinset);
 #else
 #  define sam3u_gpioirq(pinset)
 #endif
@@ -556,7 +557,7 @@ EXTERN void sam3u_gpioirq(uint16_t pinset);
  ************************************************************************************/
 
 #ifdef CONFIG_GPIO_IRQ
-EXTERN void sam3u_gpioirqenable(int irq);
+void sam3u_gpioirqenable(int irq);
 #else
 #  define sam3u_gpioirqenable(irq)
 #endif
@@ -570,7 +571,7 @@ EXTERN void sam3u_gpioirqenable(int irq);
  ************************************************************************************/
 
 #ifdef CONFIG_GPIO_IRQ
-EXTERN void sam3u_gpioirqdisable(int irq);
+void sam3u_gpioirqdisable(int irq);
 #else
 #  define sam3u_gpioirqdisable(irq)
 #endif
@@ -584,7 +585,7 @@ EXTERN void sam3u_gpioirqdisable(int irq);
  ************************************************************************************/
 
 #ifdef CONFIG_DEBUG_GPIO
-EXTERN int sam3u_dumpgpio(uint32_t pinset, const char *msg);
+int sam3u_dumpgpio(uint32_t pinset, const char *msg);
 #else
 #  define sam3u_dumpgpio(p,m)
 #endif
@@ -609,7 +610,7 @@ EXTERN int sam3u_dumpgpio(uint32_t pinset, const char *msg);
  *
  ****************************************************************************/
 
-EXTERN DMA_HANDLE sam3u_dmachannel(uint32_t dmach_flags);
+DMA_HANDLE sam3u_dmachannel(uint32_t dmach_flags);
 
 /****************************************************************************
  * Name: sam3u_dmafree
@@ -624,7 +625,7 @@ EXTERN DMA_HANDLE sam3u_dmachannel(uint32_t dmach_flags);
  *
  ****************************************************************************/
 
-EXTERN void sam3u_dmafree(DMA_HANDLE handle);
+void sam3u_dmafree(DMA_HANDLE handle);
 
 /****************************************************************************
  * Name: sam3u_dmatxsetup
@@ -637,8 +638,8 @@ EXTERN void sam3u_dmafree(DMA_HANDLE handle);
  *
  ****************************************************************************/
 
-EXTERN int sam3u_dmatxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
-                            size_t nbytes);
+int sam3u_dmatxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
+                     size_t nbytes);
 
 /****************************************************************************
  * Name: sam3u_dmarxsetup
@@ -651,8 +652,8 @@ EXTERN int sam3u_dmatxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
  *
  ****************************************************************************/
 
-EXTERN int sam3u_dmarxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
-                            size_t nbytes);
+int sam3u_dmarxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
+                     size_t nbytes);
 
 /****************************************************************************
  * Name: sam3u_dmastart
@@ -662,7 +663,7 @@ EXTERN int sam3u_dmarxsetup(DMA_HANDLE handle, uint32_t paddr, uint32_t maddr,
  *
  ****************************************************************************/
 
-EXTERN int sam3u_dmastart(DMA_HANDLE handle, dma_callback_t callback, void *arg);
+int sam3u_dmastart(DMA_HANDLE handle, dma_callback_t callback, void *arg);
 
 /****************************************************************************
  * Name: sam3u_dmastop
@@ -674,7 +675,7 @@ EXTERN int sam3u_dmastart(DMA_HANDLE handle, dma_callback_t callback, void *arg)
  *
  ****************************************************************************/
 
-EXTERN void sam3u_dmastop(DMA_HANDLE handle);
+void sam3u_dmastop(DMA_HANDLE handle);
 
 /****************************************************************************
  * Name: sam3u_dmasample
@@ -685,7 +686,7 @@ EXTERN void sam3u_dmastop(DMA_HANDLE handle);
  ****************************************************************************/
 
 #ifdef CONFIG_DEBUG_DMA
-EXTERN void sam3u_dmasample(DMA_HANDLE handle, struct sam3u_dmaregs_s *regs);
+void sam3u_dmasample(DMA_HANDLE handle, struct sam3u_dmaregs_s *regs);
 #else
 #  define sam3u_dmasample(handle,regs)
 #endif
@@ -699,8 +700,8 @@ EXTERN void sam3u_dmasample(DMA_HANDLE handle, struct sam3u_dmaregs_s *regs);
  ****************************************************************************/
 
 #ifdef CONFIG_DEBUG_DMA
-EXTERN void sam3u_dmadump(DMA_HANDLE handle, const struct sam3u_dmaregs_s *regs,
-                          const char *msg);
+void sam3u_dmadump(DMA_HANDLE handle, const struct sam3u_dmaregs_s *regs,
+                   const char *msg);
 #else
 #  define sam3u_dmadump(handle,regs,msg)
 #endif
@@ -720,7 +721,7 @@ EXTERN void sam3u_dmadump(DMA_HANDLE handle, const struct sam3u_dmaregs_s *regs,
  ****************************************************************************/
 
 struct sdio_dev_s; /* See include/nuttx/sdio.h */
-EXTERN FAR struct sdio_dev_s *sdio_initialize(int slotno);
+FAR struct sdio_dev_s *sdio_initialize(int slotno);
 
 /****************************************************************************
  * Name: sdio_mediachange
@@ -741,7 +742,7 @@ EXTERN FAR struct sdio_dev_s *sdio_initialize(int slotno);
  *
  ****************************************************************************/
 
-EXTERN void sdio_mediachange(FAR struct sdio_dev_s *dev, bool cardinslot);
+void sdio_mediachange(FAR struct sdio_dev_s *dev, bool cardinslot);
 
 /****************************************************************************
  * Name: sdio_wrprotect
@@ -759,7 +760,7 @@ EXTERN void sdio_mediachange(FAR struct sdio_dev_s *dev, bool cardinslot);
  *
  ****************************************************************************/
 
-EXTERN void sdio_wrprotect(FAR struct sdio_dev_s *dev, bool wrprotect);
+void sdio_wrprotect(FAR struct sdio_dev_s *dev, bool wrprotect);
 
 /****************************************************************************
  * Name:  sam3u_spicsnumber, sam3u_spiselect, sam3u_spistatus, and
@@ -825,7 +826,7 @@ enum spi_dev_e;
  *
  ****************************************************************************/
 
-EXTERN int sam3u_spicsnumber(enum spi_dev_e devid);
+int sam3u_spicsnumber(enum spi_dev_e devid);
 
 /****************************************************************************
  * Name: sam3u_spiselect
@@ -853,7 +854,7 @@ EXTERN int sam3u_spicsnumber(enum spi_dev_e devid);
  *
  ****************************************************************************/
 
-EXTERN void sam3u_spiselect(enum spi_dev_e devid, bool selected);
+void sam3u_spiselect(enum spi_dev_e devid, bool selected);
 
 /****************************************************************************
  * Name: sam3u_spistatus
@@ -870,7 +871,7 @@ EXTERN void sam3u_spiselect(enum spi_dev_e devid, bool selected);
  *
  ****************************************************************************/
 
-EXTERN uint8_t sam3u_spistatus(FAR struct spi_dev_s *dev, enum spi_dev_e devid);
+uint8_t sam3u_spistatus(FAR struct spi_dev_s *dev, enum spi_dev_e devid);
 
 /****************************************************************************
  * Name: sam3u_spicmddata
@@ -897,7 +898,7 @@ EXTERN uint8_t sam3u_spistatus(FAR struct spi_dev_s *dev, enum spi_dev_e devid);
  ****************************************************************************/
 
 #ifdef CONFIG_SPI_CMDDATA
-EXTERN int sam3u_spicmddata(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool cmd);
+int sam3u_spicmddata(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool cmd);
 #endif
 #endif /* CONFIG_SAM3U_SPI */
 

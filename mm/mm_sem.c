@@ -1,7 +1,7 @@
 /****************************************************************************
  * mm/mm_sem.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,14 +37,13 @@
  * Included Files
  ****************************************************************************/
 
-#include "mm_environment.h"
+#include <nuttx/config.h>
 
 #include <unistd.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <assert.h>
 
-#include "mm_internal.h"
+#include <nuttx/mm.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -72,13 +71,6 @@
  * Private Data
  ****************************************************************************/
 
-/* Mutually exclusive access to this data set is enforced with
- * the following (un-named) semaphore. */
-
-static sem_t g_mm_semaphore;
-static pid_t g_holder;
-static int   g_counts_held;
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -91,16 +83,16 @@ static int   g_counts_held;
  *
  ****************************************************************************/
 
-void mm_seminitialize(void)
+void mm_seminitialize(FAR struct mm_heap_s *heap)
 {
   /* Initialize the MM semaphore to one (to support one-at-a-time access to
    * private data sets.
    */
 
-  (void)sem_init(&g_mm_semaphore, 0, 1);
+  (void)sem_init(&heap->mm_semaphore, 0, 1);
 
-  g_holder      = -1;
-  g_counts_held = 0;
+  heap->mm_holder      = -1;
+  heap->mm_counts_held = 0;
 }
 
 /****************************************************************************
@@ -114,37 +106,35 @@ void mm_seminitialize(void)
  *
  ****************************************************************************/
 
-#ifndef MM_TEST
-int mm_trysemaphore(void)
+int mm_trysemaphore(FAR struct mm_heap_s *heap)
 {
   pid_t my_pid = getpid();
 
   /* Do I already have the semaphore? */
 
-  if (g_holder == my_pid)
+  if (heap->mm_holder == my_pid)
     {
       /* Yes, just increment the number of references that I have */
 
-      g_counts_held++;
+      heap->mm_counts_held++;
       return OK;
     }
   else
     {
       /* Try to take the semaphore (perhaps waiting) */
 
-      if (sem_trywait(&g_mm_semaphore) != 0)
+      if (sem_trywait(&heap->mm_semaphore) != 0)
        {
          return ERROR;
        }
 
       /* We have it.  Claim the stak and return */
 
-      g_holder      = my_pid;
-      g_counts_held = 1;
+      heap->mm_holder      = my_pid;
+      heap->mm_counts_held = 1;
       return OK;
     }
 }
-#endif
 
 /****************************************************************************
  * Name: mm_takesemaphore
@@ -155,39 +145,39 @@ int mm_trysemaphore(void)
  *
  ****************************************************************************/
 
-void mm_takesemaphore(void)
+void mm_takesemaphore(FAR struct mm_heap_s *heap)
 {
   pid_t my_pid = getpid();
 
   /* Do I already have the semaphore? */
 
-  if (g_holder == my_pid)
+  if (heap->mm_holder == my_pid)
     {
       /* Yes, just increment the number of references that I have */
 
-      g_counts_held++;
+      heap->mm_counts_held++;
     }
   else
     {
       /* Take the semaphore (perhaps waiting) */
 
       msemdbg("PID=%d taking\n", my_pid);
-      while (sem_wait(&g_mm_semaphore) != 0)
+      while (sem_wait(&heap->mm_semaphore) != 0)
         {
           /* The only case that an error should occur here is if
            * the wait was awakened by a signal.
            */
 
-          ASSERT(mm_errno == EINTR);
+          ASSERT(errno == EINTR);
         }
 
       /* We have it.  Claim the stake and return */
 
-      g_holder      = my_pid;
-      g_counts_held = 1;
+      heap->mm_holder      = my_pid;
+      heap->mm_counts_held = 1;
     }
 
-  msemdbg("Holder=%d count=%d\n", g_holder, g_counts_held);
+  msemdbg("Holder=%d count=%d\n", heap->mm_holder, heap->mm_counts_held);
 }
 
 /****************************************************************************
@@ -198,7 +188,7 @@ void mm_takesemaphore(void)
  *
  ****************************************************************************/
 
-void mm_givesemaphore(void)
+void mm_givesemaphore(FAR struct mm_heap_s *heap)
 {
 #ifdef CONFIG_DEBUG
   pid_t my_pid = getpid();
@@ -206,42 +196,25 @@ void mm_givesemaphore(void)
 
   /* I better be holding at least one reference to the semaphore */
 
-  DEBUGASSERT(g_holder == my_pid);
+  DEBUGASSERT(heap->mm_holder == my_pid);
 
   /* Do I hold multiple references to the semphore */
 
-  if (g_counts_held > 1)
+  if (heap->mm_counts_held > 1)
     {
       /* Yes, just release one count and return */
 
-      g_counts_held--;
-      msemdbg("Holder=%d count=%d\n", g_holder, g_counts_held);
+      heap->mm_counts_held--;
+      msemdbg("Holder=%d count=%d\n", heap->mm_holder, heap->mm_counts_held);
     }
   else
     {
       /* Nope, this is the last reference I have */
 
       msemdbg("PID=%d giving\n", my_pid);
-      g_holder      = -1;
-      g_counts_held = 0;
-      ASSERT(sem_post(&g_mm_semaphore) == 0);
+      heap->mm_holder      = -1;
+      heap->mm_counts_held = 0;
+      ASSERT(sem_post(&heap->mm_semaphore) == 0);
     }
 }
-
-/****************************************************************************
- * Name: mm_getsemaphore
- *
- * Description:
- *   Return the current value of the MM semaphore (for test purposes only)
- *
- ****************************************************************************/
-
-#ifdef MM_TEST
-int mm_getsemaphore(void)
-{
-  int sval;
-  sem_getvalue(&g_mm_semaphore, &sval);
-  return sval;
-}
-#endif
 

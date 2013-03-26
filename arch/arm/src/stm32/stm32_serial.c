@@ -138,7 +138,7 @@
 #      error "USART6 DMA channel not defined (DMAMAP_USART6_RX)"
 #    endif
 
-#  elif defined(CONFIG_STM32_STM32F10XX)
+#  elif defined(CONFIG_STM32_STM32F10XX) || defined(CONFIG_STM32_STM32F30XX)
 
 #    if defined(CONFIG_USART1_RXDMA) || defined(CONFIG_USART2_RXDMA) || \
       defined(CONFIG_USART3_RXDMA)
@@ -173,7 +173,7 @@
 /* DMA priority */
 
 #  ifndef CONFIG_USART_DMAPRIO
-#    if defined(CONFIG_STM32_STM32F10XX)
+#    if defined(CONFIG_STM32_STM32F10XX) || defined(CONFIG_STM32_STM32F30XX)
 #      define CONFIG_USART_DMAPRIO  DMA_CCR_PRIMED
 #    elif defined(CONFIG_STM32_STM32F20XX) || defined(CONFIG_STM32_STM32F40XX)
 #      define CONFIG_USART_DMAPRIO  DMA_SCR_PRIMED
@@ -181,7 +181,7 @@
 #      error "Unknown STM32 DMA"
 #    endif
 #  endif
-#  if defined(CONFIG_STM32_STM32F10XX)
+#    if defined(CONFIG_STM32_STM32F10XX) || defined(CONFIG_STM32_STM32F30XX)
 #    if (CONFIG_USART_DMAPRIO & ~DMA_CCR_PL_MASK) != 0
 #      error "Illegal value for CONFIG_USART_DMAPRIO"
 #    endif
@@ -876,20 +876,20 @@ static inline void up_disableusartint(struct up_dev_s *priv, uint16_t *ie)
 
       /* USART interrupts:
        *
-       * Enable             Bit Status          Meaning                        Usage
-       * ------------------ --- --------------- ------------------------------ ----------
-       * USART_CR1_IDLEIE    4  USART_SR_IDLE   Idle Line Detected             (not used)
-       * USART_CR1_RXNEIE    5  USART_SR_RXNE   Received Data Ready to be Read
-       * "              "       USART_SR_ORE    Overrun Error Detected
-       * USART_CR1_TCIE      6  USART_SR_TC     Transmission Complete          (used only for RS-485)
-       * USART_CR1_TXEIE     7  USART_SR_TXE    Transmit Data Register Empty
-       * USART_CR1_PEIE      8  USART_SR_PE     Parity Error
+       * Enable             Status          Meaning                        Usage
+       * ------------------ --------------- ------------------------------ ----------
+       * USART_CR1_IDLEIE   USART_SR_IDLE   Idle Line Detected             (not used)
+       * USART_CR1_RXNEIE   USART_SR_RXNE   Received Data Ready to be Read
+       * "              "   USART_SR_ORE    Overrun Error Detected
+       * USART_CR1_TCIE     USART_SR_TC     Transmission Complete          (used only for RS-485)
+       * USART_CR1_TXEIE    USART_SR_TXE    Transmit Data Register Empty
+       * USART_CR1_PEIE     USART_SR_PE     Parity Error
        *
-       * USART_CR2_LBDIE     6  USART_SR_LBD    Break Flag                     (not used)
-       * USART_CR3_EIE       0  USART_SR_FE     Framing Error
-       * "           "          USART_SR_NE     Noise Error
-       * "           "          USART_SR_ORE    Overrun Error Detected
-       * USART_CR3_CTSIE    10  USART_SR_CTS    CTS flag                       (not used)
+       * USART_CR2_LBDIE    USART_SR_LBD    Break Flag                     (not used)
+       * USART_CR3_EIE      USART_SR_FE     Framing Error
+       * "           "      USART_SR_NE     Noise Error
+       * "           "      USART_SR_ORE    Overrun Error Detected
+       * USART_CR3_CTSIE    USART_SR_CTS    CTS flag                       (not used)
        */
 
       cr1 = up_serialin(priv, STM32_USART_CR1_OFFSET);
@@ -939,6 +939,68 @@ static int up_dma_nextrx(struct up_dev_s *priv)
 #ifndef CONFIG_SUPPRESS_UART_CONFIG
 static void up_setspeed(struct uart_dev_s *dev)
 {
+#ifdef CONFIG_STM32_STM32F30XX
+
+  /* This first implementation is for U[S]ARTs that support oversampling
+   * by 8 in additional to the standard oversampling by 16.
+   */
+
+  struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
+  uint32_t usartdiv8;
+  uint32_t cr1;
+  uint32_t brr;
+
+  /* In case of oversampling by 8, the equation is:
+   *
+   *   baud      = 2 * fCK / usartdiv8
+   *   usartdiv8 = 2 * fCK / baud
+   */
+
+   usartdiv8 = ((priv->apbclock << 1) + (priv->baud >> 1)) / priv->baud;
+
+  /* Baud rate for standard USART (SPI mode included):
+   *
+   * In case of oversampling by 16, the equation is:
+   *   baud       = fCK / usartdiv16
+   *   usartdiv16 = fCK / baud
+   *              = 2 * usartdiv8
+   */
+
+   /* Use oversamply by 8 only if the divisor is small.  But what is small? */
+
+   cr1 = up_serialin(priv, STM32_USART_CR1_OFFSET);
+   if (usartdiv8 > 100)
+     {
+       /* Use usartdiv16 */
+
+       brr  = (usartdiv8 + 1) >> 1;
+
+       /* Clear oversampling by 8 to enable oversampling by 16 */
+
+       cr1 &= ~USART_CR1_OVER8;
+     }
+   else
+     {
+       DEBUGASSERT(usartdiv8 >= 8);
+
+       /* Perform mysterious operations on bits 0-3 */
+
+       brr  = ((usartdiv8 & 0xfff0) | ((usartdiv8 & 0x000f) >> 1));
+
+       /* Set oversampling by 8 */
+
+       cr1 |= USART_CR1_OVER8;
+     }
+
+   up_serialout(priv, STM32_USART_CR1_OFFSET, cr1);
+   up_serialout(priv, STM32_USART_BRR_OFFSET, brr);
+
+#else
+
+  /* This second implementation is for U[S]ARTs that support fractional
+   * dividers.
+   */
+
   struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
   uint32_t usartdiv32;
   uint32_t mantissa;
@@ -973,6 +1035,8 @@ static void up_setspeed(struct uart_dev_s *dev)
    fraction   = (usartdiv32 - (mantissa << 5) + 1) >> 1;
    brr       |= fraction << USART_BRR_FRAC_SHIFT;
    up_serialout(priv, STM32_USART_BRR_OFFSET, brr);
+
+#endif
 }
 #endif
 
@@ -1031,6 +1095,7 @@ static int up_setup(struct uart_dev_s *dev)
     {
       regval |= USART_CR2_STOP2;
     }
+
   up_serialout(priv, STM32_USART_CR2_OFFSET, regval);
 
   /* Configure CR1 */
@@ -1077,6 +1142,7 @@ static int up_setup(struct uart_dev_s *dev)
   regval      = up_serialin(priv, STM32_USART_CR1_OFFSET);
   regval     |= (USART_CR1_UE|USART_CR1_TE|USART_CR1_RE);
   up_serialout(priv, STM32_USART_CR1_OFFSET, regval);
+
 #endif
 
   /* Set up the cached interrupt enables value */
@@ -1119,7 +1185,7 @@ static int up_dma_setup(struct uart_dev_s *dev)
   /* Configure for circular DMA reception into the RX fifo */
 
   stm32_dmasetup(priv->rxdma,
-                 priv->usartbase + STM32_USART_DR_OFFSET,
+                 priv->usartbase + STM32_USART_RDR_OFFSET,
                  (uint32_t)priv->rxfifo,
                  RXDMA_BUFFER_SIZE,
                  SERIAL_DMA_CONTROL_WORD);
@@ -1290,20 +1356,20 @@ static int up_interrupt_common(struct up_dev_s *priv)
 
       /* USART interrupts:
        *
-       * Enable             Bit Status          Meaning                         Usage
-       * ------------------ --- --------------- ------------------------------- ----------
-       * USART_CR1_IDLEIE    4  USART_SR_IDLE   Idle Line Detected              (not used)
-       * USART_CR1_RXNEIE    5  USART_SR_RXNE   Received Data Ready to be Read
-       * "              "       USART_SR_ORE    Overrun Error Detected
-       * USART_CR1_TCIE      6  USART_SR_TC     Transmission Complete           (used only for RS-485)
-       * USART_CR1_TXEIE     7  USART_SR_TXE    Transmit Data Register Empty
-       * USART_CR1_PEIE      8  USART_SR_PE     Parity Error
+       * Enable             Status          Meaning                         Usage
+       * ------------------ --------------- ------------------------------- ----------
+       * USART_CR1_IDLEIE   USART_SR_IDLE   Idle Line Detected              (not used)
+       * USART_CR1_RXNEIE   USART_SR_RXNE   Received Data Ready to be Read
+       * "              "   USART_SR_ORE    Overrun Error Detected
+       * USART_CR1_TCIE     USART_SR_TC     Transmission Complete           (used only for RS-485)
+       * USART_CR1_TXEIE    USART_SR_TXE    Transmit Data Register Empty
+       * USART_CR1_PEIE     USART_SR_PE     Parity Error
        *
-       * USART_CR2_LBDIE     6  USART_SR_LBD    Break Flag                      (not used)
-       * USART_CR3_EIE       0  USART_SR_FE     Framing Error
-       * "           "          USART_SR_NE     Noise Error
-       * "           "          USART_SR_ORE    Overrun Error Detected
-       * USART_CR3_CTSIE    10  USART_SR_CTS    CTS flag                        (not used)
+       * USART_CR2_LBDIE    USART_SR_LBD    Break Flag                      (not used)
+       * USART_CR3_EIE      USART_SR_FE     Framing Error
+       * "           "      USART_SR_NE     Noise Error
+       * "           "      USART_SR_ORE    Overrun Error Detected
+       * USART_CR3_CTSIE    USART_SR_CTS    CTS flag                        (not used)
        *
        * NOTE: Some of these status bits must be cleared by explicity writing zero
        * to the SR register: USART_SR_CTS, USART_SR_LBD. Note of those are currently
@@ -1343,6 +1409,14 @@ static int up_interrupt_common(struct up_dev_s *priv)
 
       else if ((priv->sr & (USART_SR_ORE | USART_SR_NE | USART_SR_FE)) != 0)
         {
+#ifdef CONFIG_STM32_STM32F30XX
+          /* These errors are cleared by writing the corresponding bit to the
+           * interrupt clear register (ICR).
+           */
+
+          up_serialout(priv, STM32_USART_ICR_OFFSET,
+                      (USART_ICR_NCF | USART_ICR_ORECF | USART_ICR_FECF));
+#else
           /* If an error occurs, read from DR to clear the error (data has
            * been lost).  If ORE is set along with RXNE then it tells you
            * that the byte *after* the one in the data register has been
@@ -1351,7 +1425,8 @@ static int up_interrupt_common(struct up_dev_s *priv)
            * good byte will be lost.
            */
 
-          (void)up_serialin(priv, STM32_USART_DR_OFFSET);
+          (void)up_serialin(priv, STM32_USART_RDR_OFFSET);
+#endif
         }
 
       /* Handle outgoing, transmit bytes */
@@ -1510,20 +1585,20 @@ static int up_ioctl(struct file *filep, int cmd, unsigned long arg)
 static int up_receive(struct uart_dev_s *dev, uint32_t *status)
 {
   struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
-  uint32_t dr;
+  uint32_t rdr;
 
   /* Get the Rx byte */
 
-  dr       = up_serialin(priv, STM32_USART_DR_OFFSET);
+  rdr      = up_serialin(priv, STM32_USART_RDR_OFFSET);
 
   /* Get the Rx byte plux error information.  Return those in status */
 
-  *status  = priv->sr << 16 | dr;
+  *status  = priv->sr << 16 | rdr;
   priv->sr = 0;
 
   /* Then return the actual received byte */
 
-  return dr & 0xff;
+  return rdr & 0xff;
 }
 #endif
 
@@ -1544,17 +1619,17 @@ static void up_rxint(struct uart_dev_s *dev, bool enable)
 
   /* USART receive interrupts:
    *
-   * Enable             Bit Status          Meaning                         Usage
-   * ------------------ --- --------------- ------------------------------- ----------
-   * USART_CR1_IDLEIE    4  USART_SR_IDLE   Idle Line Detected              (not used)
-   * USART_CR1_RXNEIE    5  USART_SR_RXNE   Received Data Ready to be Read
-   * "              "       USART_SR_ORE    Overrun Error Detected
-   * USART_CR1_PEIE      8  USART_SR_PE     Parity Error
+   * Enable             Status          Meaning                         Usage
+   * ------------------ --------------- ------------------------------- ----------
+   * USART_CR1_IDLEIE   USART_SR_IDLE   Idle Line Detected              (not used)
+   * USART_CR1_RXNEIE   USART_SR_RXNE   Received Data Ready to be Read
+   * "              "   USART_SR_ORE    Overrun Error Detected
+   * USART_CR1_PEIE     USART_SR_PE     Parity Error
    *
-   * USART_CR2_LBDIE     6  USART_SR_LBD    Break Flag                      (not used)
-   * USART_CR3_EIE       0  USART_SR_FE     Framing Error
-   * "           "          USART_SR_NE     Noise Error
-   * "           "          USART_SR_ORE    Overrun Error Detected
+   * USART_CR2_LBDIE    USART_SR_LBD    Break Flag                      (not used)
+   * USART_CR3_EIE      USART_SR_FE     Framing Error
+   * "           "      USART_SR_NE     Noise Error
+   * "           "      USART_SR_ORE    Overrun Error Detected
    */
 
   flags = irqsave();
@@ -1693,7 +1768,7 @@ static void up_send(struct uart_dev_s *dev, int ch)
   if (priv->rs485_dir_gpio != 0)
     stm32_gpiowrite(priv->rs485_dir_gpio, priv->rs485_dir_polarity);
 #endif
-  up_serialout(priv, STM32_USART_DR_OFFSET, (uint32_t)ch);
+  up_serialout(priv, STM32_USART_TDR_OFFSET, (uint32_t)ch);
 }
 
 /****************************************************************************
@@ -1711,11 +1786,11 @@ static void up_txint(struct uart_dev_s *dev, bool enable)
 
   /* USART transmit interrupts:
    *
-   * Enable             Bit Status          Meaning                      Usage
-   * ------------------ --- --------------- ---------------------------- ----------
-   * USART_CR1_TCIE      6  USART_SR_TC     Transmission Complete        (used only for RS-485)
-   * USART_CR1_TXEIE     7  USART_SR_TXE    Transmit Data Register Empty
-   * USART_CR3_CTSIE    10  USART_SR_CTS    CTS flag                     (not used)
+   * Enable             Status          Meaning                      Usage
+   * ------------------ --------------- ---------------------------- ----------
+   * USART_CR1_TCIE     USART_SR_TC     Transmission Complete        (used only for RS-485)
+   * USART_CR1_TXEIE    USART_SR_TXE    Transmit Data Register Empty
+   * USART_CR3_CTSIE    USART_SR_CTS    CTS flag                     (not used)
    */
 
   flags = irqsave();

@@ -112,11 +112,15 @@
 
 /* Macros to handle saving and restoring interrupt state.  In the current ARM
  * model, the state is always copied to and from the stack and TCB.  In the
- * Cortex-M3 model, the state is copied from the stack to the TCB, but only
- * a referenced is passed to get the state from the TCB.
+ * Cortex-M0/3 model, the state is copied from the stack to the TCB, but only
+ * a referenced is passed to get the state from the TCB.  Cortex-M4 is the
+ * same, but may have additional complexity for floating point support in
+ * some configurations.
  */
 
-#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
+    defined(CONFIG_ARCH_CORTEXM4)
+
 #  if defined(CONFIG_ARCH_FPU) && !defined(CONFIG_ARMV7M_CMNVECTOR)
 #    define up_savestate(regs) \
        do { \
@@ -128,9 +132,12 @@
 #    define up_savestate(regs)  up_copystate(regs, (uint32_t*)current_regs)
 #  endif
 #  define up_restorestate(regs) (current_regs = regs)
+
 #else
+
 #  define up_savestate(regs)    up_copystate(regs, (uint32_t*)current_regs)
 #  define up_restorestate(regs) up_copystate((uint32_t*)current_regs, regs)
+
 #endif
 
 /****************************************************************************
@@ -159,12 +166,13 @@ extern volatile uint32_t *current_regs;
  * CONFIG_DRAM_END
  */
 
-extern const uint32_t g_heapbase;
+extern const uint32_t g_idle_topstack;
 
 /* Address of the saved user stack pointer */
 
 #if CONFIG_ARCH_INTERRUPTSTACK > 3
-#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
+    defined(CONFIG_ARCH_CORTEXM4)
 extern uint32_t g_intstackbase;
 #  else
 extern uint32_t g_userstack;
@@ -232,74 +240,80 @@ extern uint32_t _eramfuncs;       /* Copy destination start address in RAM */
 
 /* Low level initialization provided by board-level logic ******************/
 
-extern void up_boot(void);
+void up_boot(void);
 
 /* Context switching */
 
-extern void up_copystate(uint32_t *dest, uint32_t *src);
-extern void up_decodeirq(uint32_t *regs);
-extern int  up_saveusercontext(uint32_t *saveregs);
-extern void up_fullcontextrestore(uint32_t *restoreregs) noreturn_function;
-extern void up_switchcontext(uint32_t *saveregs, uint32_t *restoreregs);
+void up_copystate(uint32_t *dest, uint32_t *src);
+void up_decodeirq(uint32_t *regs);
+int  up_saveusercontext(uint32_t *saveregs);
+void up_fullcontextrestore(uint32_t *restoreregs) noreturn_function;
+void up_switchcontext(uint32_t *saveregs, uint32_t *restoreregs);
 
 /* Signal handling **********************************************************/
 
-extern void up_sigdeliver(void);
+void up_sigdeliver(void);
 
 /* Power management *********************************************************/
 
 #ifdef CONFIG_PM
-extern void up_pminitialize(void);
+void up_pminitialize(void);
 #else
 #  define up_pminitialize()
 #endif
 
-#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
-extern void up_systemreset(void) noreturn_function;
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
+    defined(CONFIG_ARCH_CORTEXM4)
+void up_systemreset(void) noreturn_function;
 #endif
 
 /* Interrupt handling *******************************************************/
 
-extern void up_irqinitialize(void);
-extern void up_maskack_irq(int irq);
+void up_irqinitialize(void);
+void up_maskack_irq(int irq);
 
-#if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
+#if defined(CONFIG_ARCH_CORTEXM0) || defined(CONFIG_ARCH_CORTEXM3) || \
+    defined(CONFIG_ARCH_CORTEXM4)
 
-extern uint32_t *up_doirq(int irq, uint32_t *regs);
-extern int  up_svcall(int irq, FAR void *context);
-extern int  up_hardfault(int irq, FAR void *context);
-extern int  up_memfault(int irq, FAR void *context);
+uint32_t *up_doirq(int irq, uint32_t *regs);
+int  up_svcall(int irq, FAR void *context);
+int  up_hardfault(int irq, FAR void *context);
 
-#else /* CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+#  if defined(CONFIG_ARCH_CORTEXM3) || defined(CONFIG_ARCH_CORTEXM4)
 
-extern void up_doirq(int irq, uint32_t *regs);
+int  up_memfault(int irq, FAR void *context);
+
+#  endif /* CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+#else /* CONFIG_ARCH_CORTEXM0 || CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+
+void up_doirq(int irq, uint32_t *regs);
 #ifdef CONFIG_PAGING
-extern void up_pginitialize(void);
-extern uint32_t *up_va2pte(uintptr_t vaddr);
-extern void up_dataabort(uint32_t *regs, uint32_t far, uint32_t fsr);
+void up_pginitialize(void);
+uint32_t *up_va2pte(uintptr_t vaddr);
+void up_dataabort(uint32_t *regs, uint32_t far, uint32_t fsr);
 #else /* CONFIG_PAGING */
 # define up_pginitialize()
-extern void up_dataabort(uint32_t *regs);
+void up_dataabort(uint32_t *regs);
 #endif /* CONFIG_PAGING */
-extern void up_prefetchabort(uint32_t *regs);
-extern void up_syscall(uint32_t *regs);
-extern void up_undefinedinsn(uint32_t *regs);
+void up_prefetchabort(uint32_t *regs);
+void up_syscall(uint32_t *regs);
+void up_undefinedinsn(uint32_t *regs);
 
-#endif /* CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
+#endif /* CONFIG_ARCH_CORTEXM0 || CONFIG_ARCH_CORTEXM3 || CONFIG_ARCH_CORTEXM4 */
 
-extern void up_vectorundefinsn(void);
-extern void up_vectorswi(void);
-extern void up_vectorprefetch(void);
-extern void up_vectordata(void);
-extern void up_vectoraddrexcptn(void);
-extern void up_vectorirq(void);
-extern void up_vectorfiq(void);
+void up_vectorundefinsn(void);
+void up_vectorswi(void);
+void up_vectorprefetch(void);
+void up_vectordata(void);
+void up_vectoraddrexcptn(void);
+void up_vectorirq(void);
+void up_vectorfiq(void);
 
 /* Floating point unit ******************************************************/
 
 #ifdef CONFIG_ARCH_FPU
-extern void up_savefpu(uint32_t *regs);
-extern void up_restorefpu(const uint32_t *regs);
+void up_savefpu(uint32_t *regs);
+void up_restorefpu(const uint32_t *regs);
 #else
 #  define up_savefpu(regs)
 #  define up_restorefpu(regs)
@@ -307,18 +321,18 @@ extern void up_restorefpu(const uint32_t *regs);
 
 /* System timer *************************************************************/
 
-extern void up_timerinit(void);
-extern int  up_timerisr(int irq, uint32_t *regs);
+void up_timerinit(void);
+int  up_timerisr(int irq, uint32_t *regs);
 
 /* Low level serial output **************************************************/
 
-extern void up_lowputc(char ch);
-extern void up_puts(const char *str);
-extern void up_lowputs(const char *str);
+void up_lowputc(char ch);
+void up_puts(const char *str);
+void up_lowputs(const char *str);
 
 #if CONFIG_NFILE_DESCRIPTORS > 0
-extern void up_earlyserialinit(void);
-extern void up_serialinit(void);
+void up_earlyserialinit(void);
+void up_serialinit(void);
 #else
 # define up_earlyserialinit()
 # define up_serialinit()
@@ -327,7 +341,7 @@ extern void up_serialinit(void);
 /* Defined in drivers/lowconsole.c */
 
 #ifdef CONFIG_DEV_LOWCONSOLE
-extern void lowconsole_init(void);
+void lowconsole_init(void);
 #else
 # define lowconsole_init()
 #endif
@@ -335,7 +349,7 @@ extern void lowconsole_init(void);
 /* DMA **********************************************************************/
 
 #ifdef CONFIG_ARCH_DMA
-extern void weak_function up_dmainitialize(void);
+void weak_function up_dmainitialize(void);
 #endif
 
 /* Memory management ********************************************************/
@@ -348,14 +362,14 @@ void up_addregion(void);
 
 /* Watchdog timer ***********************************************************/
 
-extern void up_wdtinit(void);
+void up_wdtinit(void);
 
 /* LED interfaces provided by board-level logic *****************************/
 
 #ifdef CONFIG_ARCH_LEDS
-extern void up_ledinit(void);
-extern void up_ledon(int led);
-extern void up_ledoff(int led);
+void up_ledinit(void);
+void up_ledon(int led);
+void up_ledoff(int led);
 #else
 # define up_ledinit()
 # define up_ledon(led)
@@ -371,7 +385,7 @@ extern void up_ledoff(int led);
  */
 
 #ifdef CONFIG_NET
-extern void up_netinitialize(void);
+void up_netinitialize(void);
 #else
 # define up_netinitialize()
 #endif
@@ -379,8 +393,8 @@ extern void up_netinitialize(void);
 /* USB **********************************************************************/
 
 #ifdef CONFIG_USBDEV
-extern void up_usbinitialize(void);
-extern void up_usbuninitialize(void);
+void up_usbinitialize(void);
+void up_usbuninitialize(void);
 #else
 # define up_usbinitialize()
 # define up_usbuninitialize()
@@ -389,7 +403,7 @@ extern void up_usbuninitialize(void);
 /* Random Number Generator (RNG) ********************************************/
 
 #ifdef CONFIG_DEV_RANDOM
-extern void up_rnginitialize(void);
+void up_rnginitialize(void);
 #endif
 
 /****************************************************************************
@@ -409,9 +423,9 @@ extern void up_rnginitialize(void);
  ****************************************************************************/
 
 #if defined(CONFIG_DEBUG) && defined(CONFIG_DEBUG_STACK)
-extern size_t up_check_stack(void);
-extern size_t up_check_tcbstack(FAR _TCB);
-extern size_t up_check_tcbstack_remain(FAR _TCB);
+size_t up_check_stack(void);
+size_t up_check_tcbstack(FAR struct tcb_s);
+size_t up_check_tcbstack_remain(FAR struct tcb_s);
 #endif
 
 #endif /* __ASSEMBLY__ */

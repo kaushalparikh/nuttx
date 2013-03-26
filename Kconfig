@@ -150,7 +150,7 @@ config BUILD_2PASS
 if BUILD_2PASS
 config PASS1_TARGET
 	string "Pass one target"
-	default ""
+	default "all"
 	---help---
 		The name of the first pass build target.  This
 		can be specific build target, a special build target (all, default, etc.)
@@ -180,6 +180,17 @@ config NUTTX_KERNEL
 	default n
 	---help---
 		Builds NuttX as a separately compiled kernel.
+
+config NUTTX_USERSPACE
+	hex "Beginning of user-space blob"
+	default 0x0
+	depends on NUTTX_KERNEL
+	---help---
+		In the kernel build, the NuttX kernel and the user-space blob are
+		built separately linked objects.  NUTTX_USERSPACE provides the
+		address where the user-space blob is loaded into memory.  NuttX will
+		expect to find and instance of struct userspace_s at this location.
+
 endif
 endmenu
 
@@ -381,6 +392,13 @@ config DEBUG_LCD
 	---help---
 		Enable low level debug SYSLOG output from the LCD driver (disabled by default)
 
+config DEBUG_LEDS
+	bool "Enable Low-level LED Debug Output"
+	default n
+	depends on ARCH_HAVE_LEDS
+	---help---
+		Enable low level debug from board-specific LED logic
+
 config DEBUG_INPUT
 	bool "Enable Input Device Debug Output"
 	default n
@@ -409,6 +427,13 @@ config DEBUG_SPI
 	depends on SPI
 	---help---
 		Enable I2C driver debug SYSLOG output (disabled by default)
+
+config DEBUG_CAN
+	bool "Enable CAN Debug Output"
+	default n
+	depends on CAN
+	---help---
+		Enable CAN driver debug SYSLOG output (disabled by default)
 
 config DEBUG_DMA
 	bool "Enable DMA Debug Output"
@@ -444,6 +469,9 @@ endmenu
 
 menu "RTOS Features"
 source sched/Kconfig
+if NUTTX_KERNEL
+source syscall/Kconfig
+endif
 endmenu
 
 menu "Device Drivers"

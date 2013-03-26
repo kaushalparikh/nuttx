@@ -211,27 +211,44 @@ static int uart_putxmitchar(FAR uart_dev_t *dev, int ch)
            */
 
           flags = irqsave();
-          dev->xmitwaiting = true;
 
-          /* Wait for some characters to be sent from the buffer with the TX
-           * interrupt enabled.  When the TX interrupt is enabled, uart_xmitchars
-           * should execute and remove some of the data from the TX buffer.
+#ifdef CONFIG_SERIAL_REMOVABLE
+          /* Check if the removable device is no longer connected while we
+           * have interrupts off.  We do not want the transition to occur
+           * as a race condition before we begin the wait.
            */
 
-          uart_enabletxint(dev);
-          ret = uart_takesem(&dev->xmitsem, true);
-          uart_disabletxint(dev);
+          if (dev->disconnected)
+            {
+              ret = -ENOTCONN;
+            }
+          else
+#endif
+            {
+              /* Wait for some characters to be sent from the buffer with
+               * the TX interrupt enabled.  When the TX interrupt is
+               * enabled, uart_xmitchars should execute and remove some
+               * of the data from the TX buffer.
+               */
+
+              dev->xmitwaiting = true;
+              uart_enabletxint(dev);
+              ret = uart_takesem(&dev->xmitsem, true);
+              uart_disabletxint(dev);
+            }
+
           irqrestore(flags);
 
 #ifdef CONFIG_SERIAL_REMOVABLE
-          /* Check if the removable device is no longer connected */
+          /* Check if the removable device was disconnected while we were
+           * waiting.
+           */
 
           if (dev->disconnected)
             {
               return -ENOTCONN;
             }
 #endif
-
           /* Check if we were awakened by signal. */
 
           if (ret < 0)
@@ -342,7 +359,9 @@ static ssize_t uart_write(FAR struct file *filep, FAR const char *buffer, size_t
 
 #ifdef CONFIG_SERIAL_REMOVABLE
   /* If the removable device is no longer connected, refuse to write to the
-   * device.
+   * device.  This check occurs after taking the xmit.sem because the
+   * disconnection event might have occurred while we were waiting for
+   * access to the transmit buffers.
    */
 
   if (dev->disconnected)
@@ -377,8 +396,12 @@ static ssize_t uart_write(FAR struct file *filep, FAR const char *buffer, size_t
           ret = uart_putxmitchar(dev, ch);
         }
 
-      /* Were we awakened by a signal?  That should be the only condition that
-       * uart_putxmitchar() should return an error.
+      /* uart_putxmitchar() might return an error under one of two
+       * conditions:  (1) The wait for buffer space might have been
+       * interrupted by a signal (ret should be -EINTR), or (2) if
+       * CONFIG_SERIAL_REMOVABLE is defined, then uart_putxmitchar()
+       * might also return if the serial device was disconnected
+       * (with -ENOTCONN).
        */
 
       if (ret < 0)
@@ -390,19 +413,19 @@ static ssize_t uart_write(FAR struct file *filep, FAR const char *buffer, size_t
 
           if (buflen < nread)
             {
-              /* Some data was transferred.  Return the number of bytes that were
-               * successfully transferred.
+              /* Some data was transferred.  Return the number of bytes that
+               * were successfully transferred.
                */
 
               nread -= buflen;
             }
           else
             {
-              /* No data was transferred. Return -EINTR.  The VFS layer will
-               * set the errno value appropriately).
+              /* No data was transferred. Return the negated errno value.
+               * The VFS layer will set the errno value appropriately).
                */
  
-              nread = -EINTR;
+              nread = ret;
             }
 
           break;
@@ -444,16 +467,6 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
       return ret;
     }
 
-#ifdef CONFIG_SERIAL_REMOVABLE
-  /* If the removable device is no longer connected, refuse to read from the device */
-
-  if (dev->disconnected)
-    {
-      uart_givesem(&dev->recv.sem);
-      return -ENOTCONN;
-    }
-#endif
-
   /* Loop while we still have data to copy to the receive buffer.
    * we add data to the head of the buffer; uart_xmitchars takes the
    * data from the end of the buffer.
@@ -461,6 +474,22 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
 
   while (recvd < buflen)
     {
+#ifdef CONFIG_SERIAL_REMOVABLE
+      /* If the removable device is no longer connected, refuse to read any
+       * further from the device.
+       */
+
+      if (dev->disconnected)
+        {
+          if (recvd == 0)
+            {
+              recvd = -ENOTCONN;
+            }
+
+          break;
+        }
+#endif
+
       /* Check if there is more data to return in the circular buffer.
        * NOTE: Rx interrupt handling logic may aynchronously increment
        * the head index but must not modify the tail index.  The tail
@@ -499,7 +528,7 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
        * return what we have.
        */
 
-      else if (filep->f_oflags & O_NONBLOCK)
+      else if ((filep->f_oflags & O_NONBLOCK) != 0)
         {
           /* If nothing was transferred, then return the -EAGAIN
            * error (not zero which means end of file).
@@ -509,6 +538,7 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
             {
               recvd = -EAGAIN;
             }
+
           break;
        }
 #else
@@ -530,7 +560,7 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
        * wait.
        */
 
-      else if (filep->f_oflags & O_NONBLOCK)
+      else if ((filep->f_oflags & O_NONBLOCK) != 0)
         {
           /* Break out of the loop returning -EAGAIN */
 
@@ -560,19 +590,35 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
                */
 
               flags = irqsave();
-              dev->recvwaiting = true;
               uart_enablerxint(dev);
 
-              /* Now wait with the Rx interrupt re-enabled.  NuttX will
-               * automatically re-enable global interrupts when this thread
-               * goes to sleep.
+#ifdef CONFIG_SERIAL_REMOVABLE
+              /* Check again if the removable device is still connected
+               * while we have interrupts off.  We do not want the transition
+               * to occur as a race condition before we begin the wait.
                */
 
-              ret = uart_takesem(&dev->recvsem, true);
+              if (dev->disconnected)
+                {
+                  ret = -ENOTCONN;
+                }
+              else
+#endif
+               {
+                  /* Now wait with the Rx interrupt re-enabled.  NuttX will
+                   * automatically re-enable global interrupts when this
+                   * thread goes to sleep.
+                   */
+
+                  dev->recvwaiting = true;
+                  ret = uart_takesem(&dev->recvsem, true);
+                }
+
               irqrestore(flags);
 
               /* Was a signal received while waiting for data to be
-               * received?  Was a removable device disconnected?
+               * received?  Was a removable device disconnected while
+               * we were waiting?
                */
 
 #ifdef CONFIG_SERIAL_REMOVABLE
@@ -840,6 +886,7 @@ static int uart_close(FAR struct file *filep)
     {
       uart_shutdown(dev);  /* Disable the UART */
     }
+
   irqrestore(flags);
 
   uart_givesem(&dev->closesem);
@@ -861,15 +908,6 @@ static int uart_open(FAR struct file *filep)
   uint8_t       tmp;
   int           ret;
 
-#ifdef CONFIG_SERIAL_REMOVABLE
-  /* If the removable device is no longer connected, refuse to open the device */
-
-  if (dev->disconnected)
-    {
-      return -ENOTCONN;
-    }
-#endif
-
   /* If the port is the middle of closing, wait until the close is finished.
    * If a signal is received while we are waiting, then return EINTR.
    */
@@ -881,6 +919,19 @@ static int uart_open(FAR struct file *filep)
 
       return ret;
     }
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+  /* If the removable device is no longer connected, refuse to open the
+   * device.  We check this after obtaining the close semaphore because
+   * we might have been waiting when the device was disconnected.
+   */
+
+  if (dev->disconnected)
+    {
+      ret = -ENOTCONN;
+      goto errout_with_sem;
+    }
+#endif
 
   /* Start up serial port */
   /* Increment the count of references to the device. */
@@ -1058,7 +1109,9 @@ void uart_connected(FAR uart_dev_t *dev, bool connected)
 {
   irqstate_t flags;
 
-  /* Is the device disconnected? */
+  /* Is the device disconnected?  Interrupts are disabled because this
+   * function may be called from interrupt handling logic.
+   */
 
   flags = irqsave();
   dev->disconnected = !connected;

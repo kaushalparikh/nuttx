@@ -81,7 +81,7 @@
 
 int env_dup(FAR struct task_group_s *group)
 {
-  FAR _TCB *ptcb = (FAR _TCB*)g_readytorun.head;
+  FAR struct tcb_s *ptcb = (FAR struct tcb_s*)g_readytorun.head;
   FAR char *envp = NULL;
   size_t envlen;
   int ret = OK;
@@ -101,7 +101,7 @@ int env_dup(FAR struct task_group_s *group)
       /* Yes..The parent task has an environment, duplicate it */
 
       envlen = ptcb->group->tg_envsize;
-      envp   = (FAR char *)kmalloc(envlen);
+      envp   = (FAR char *)kumalloc(envlen);
       if (!envp)
         {
           ret = -ENOMEM;

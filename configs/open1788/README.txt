@@ -8,10 +8,267 @@ NXP LPC1788 MCU
 CONTENTS
 ========
 
+  o LEDs
+  o Buttons
+  o FPU
+  o Using OpenOCD with the Olimex ARM-USB-OCD
   o Configuration
 
-CONFIGURURATION
-===============
+LEDs
+====
+
+The Open1788 base board has four user LEDs
+
+  LED1 : Connected to P1[14]
+  LED2 : Connected to P0[16]
+  LED3 : Connected to P1[13]
+  LED4 : Connected to P4[27]
+
+If CONFIG_ARCH_LEDS is not defined, then the user can control the LEDs in
+any way using the defitions provided in the board.h header file.
+
+If CONFIG_ARCH_LEDs is defined, then NuttX will control the 3 LEDs on the
+WaveShare Open1788K.  The following definitions describe how NuttX controls
+the LEDs:
+                             LED1 LED2 LED3 LED4
+  LED_STARTED                OFF  OFF  OFF  OFF
+  LED_HEAPALLOCATE           ON   OFF  OFF  OFF
+  LED_IRQSENABLED            OFF   ON  OFF  OFF
+  LED_STACKCREATED           ON    ON  OFF  OFF
+  LED_INIRQ                  LED3 glows, on while in interupt
+  LED_SIGNAL                 LED3 glows, on while in signal handler
+  LED_ASSERTION              LED3 glows, on while in assertion
+  LED_PANIC                  LED3 Flashes at 2Hz
+  LED_IDLE                   LED glows, ON while sleeping
+
+Buttons
+=======
+
+The Open1788K supports several buttons:
+
+  USER1           : Connected to P4[26]
+  USER2           : Connected to P2[22]
+  USER3           : Connected to P0[10]
+
+And a Joystick
+
+  JOY_A           : Connected to P2[25]
+  JOY_B           : Connected to P2[26]
+  JOY_C           : Connected to P2[23]
+  JOY_D           : Connected to P2[19]
+  JOY_CTR         : Connected to P0[14]
+
+These can be accessed using the definitions and interfaces defined in the
+board.h header file.
+
+FPU
+===
+
+FPU Configuration Options
+-------------------------
+
+There are two version of the FPU support built into the LPC17xx port.
+
+1. Lazy Floating Point Register Save.
+
+   This is an untested implementation that saves and restores FPU registers
+   only on context switches.  This means: (1) floating point registers are
+   not stored on each context switch and, hence, possibly better interrupt
+   performance.  But, (2) since floating point registers are not saved,
+   you cannot use floating point operations within interrupt handlers.
+
+   This logic can be enabled by simply adding the following to your .config
+   file:
+
+   CONFIG_ARCH_FPU=y
+
+2. Non-Lazy Floating Point Register Save
+
+   Mike Smith has contributed an extensive re-write of the ARMv7-M exception
+   handling logic. This includes verified support for the FPU.  These changes
+   have not yet been incorporated into the mainline and are still considered
+   experimental.  These FPU logic can be enabled with:
+
+   CONFIG_ARCH_FPU=y
+   CONFIG_ARMV7M_CMNVECTOR=y
+
+   You will probably also changes to the ld.script in if this option is selected.
+   This should work:
+
+   -ENTRY(_stext)
+   +ENTRY(__start)         /* Treat __start as the anchor for dead code stripping */
+   +EXTERN(_vectors)       /* Force the vectors to be included in the output */
+
+CFLAGS
+------
+
+Only the Atollic toolchain has built-in support for the Cortex-M4 FPU.  You will see
+the following lines in each Make.defs file:
+
+  ifeq ($(CONFIG_STM32_ATOLLIC_LITE),y)
+    # Atollic toolchain under Windows
+    ...
+  ifeq ($(CONFIG_ARCH_FPU),y)
+    ARCHCPUFLAGS = -mcpu=cortex-m4 -mthumb -march=armv7e-m -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+  else
+    ARCHCPUFLAGS = -mcpu=cortex-m3 -mthumb -mfloat-abi=soft
+  endif
+  endif
+
+If you are using a toolchain other than the Atollic toolchain, then to use the FPU
+you will also have to modify the CFLAGS to enable compiler support for the ARMv7-M
+FPU.  As of this writing, there are not many GCC toolchains that will support the
+ARMv7-M FPU.  
+
+As a minimum you will need to add CFLAG options to (1) enable hardware floating point
+code generation, and to (2) select the FPU implementation.  You might try the same
+options as used with the Atollic toolchain in the Make.defs file:
+
+  ARCHCPUFLAGS = -mcpu=cortex-m4 -mthumb -march=armv7e-m -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+
+Configuration Changes
+---------------------
+
+Below are all of the configuration changes that I had to make to configs/stm3240g-eval/nsh2
+in order to successfully build NuttX using the Atollic toolchain WITH FPU support:
+
+  -CONFIG_ARCH_FPU=n              : Enable FPU support
+  +CONFIG_ARCH_FPU=y
+
+  -CONFIG_STM32_CODESOURCERYW=y   : Disable the CodeSourcery toolchain
+  +CONFIG_STM32_CODESOURCERYW=n
+
+  -CONFIG_STM32_ATOLLIC_LITE=n   : Enable *one* the Atollic toolchains
+   CONFIG_STM32_ATOLLIC_PRO=n
+  -CONFIG_STM32_ATOLLIC_LITE=y   : The "Lite" version
+   CONFIG_STM32_ATOLLIC_PRO=n    : The "Pro" version
+
+  -CONFIG_INTELHEX_BINARY=y       : Suppress generation FLASH download formats
+  +CONFIG_INTELHEX_BINARY=n       : (Only necessary with the "Lite" version)
+
+  -CONFIG_HAVE_CXX=y              : Suppress generation of C++ code
+  +CONFIG_HAVE_CXX=n              : (Only necessary with the "Lite" version)
+
+See the section above on Toolchains, NOTE 2, for explanations for some of
+the configuration settings.  Some of the usual settings are just not supported
+by the "Lite" version of the Atollic toolchain.
+
+Using OpenOCD with the Olimex ARM-USB-OCD
+=========================================
+
+  Building OpenOCD under Cygwin:
+
+    Refer to configs/olimex-lpc1766stk/README.txt
+
+  Installing OpenOCD in Ubuntu Linux:
+
+    sudo apt-get install openocd
+
+  Helper Scripts.
+
+    I have been using the Olimex ARM-USB-OCD debugger.  OpenOCD
+    requires a configuration file.  I keep the one I used last here:
+    
+      configs/open1788/tools/open1788.cfg
+
+    However, the "correct" configuration script to use with OpenOCD may
+    change as the features of OpenOCD evolve.  So you should at least
+    compare that open1788.cfg file with configuration files in
+    /usr/share/openocd/scripts.  As of this writing, the configuration
+    files of interest were:
+
+      /usr/local/share/openocd/scripts/interface/openocd-usb.cfg
+        This is the configuration file for the Olimex ARM-USB-OCD
+        debugger.  Select a different file if you are using some
+        other debugger supported by OpenOCD.
+
+      /usr/local/share/openocd/scripts/board/?
+        I don't see a board configuration file for the WaveShare
+        Open1788 board.
+
+      /usr/local/share/openocd/scripts/target/lpc1788.cfg
+        This is the configuration file for the the LPC1788 target.
+        It just sets up a few parameters then sources lpc17xx.cfg
+
+      /usr/local/share/openocd/scripts/target/lpc17xx.cfg
+        This is the generic LPC configuration for the LPC17xx
+        family.  It is included by lpc1788.cfg.
+
+    NOTE:  These files could also be located under /usr/share in some
+    installations.  They could be most anywhwere if you are using a
+    windows version of OpenOCD.
+ 
+      configs/open1788/tools/open1788.cfg
+        This is simply openocd-usb.cfg, lpc1788.cfg, and lpc17xx.cfg
+        concatenated into one file for convenience.  Don't use it
+        unless you have to.
+
+    There is also a script on the tools/ directory that I use to start
+    the OpenOCD daemon on my system called oocd.sh.  That script will
+    probably require some modifications to work in another environment:
+  
+    - Possibly the value of OPENOCD_PATH and TARGET_PATH
+    - It assumes that the correct script to use is the one at
+      configs/open1788/tools/open1788.cfg
+
+  Starting OpenOCD
+
+    Then you should be able to start the OpenOCD daemon as follows.  This
+    assumes that you have already CD'ed to the NuttX build directory:
+
+      . ./setenv.sh
+      oocd.sh $PWD
+
+    The setenv.sh script is a convenience script that you may choose to
+    use or not.  It simply sets up the PATH variable so that you can
+    automatically find oocd.sh.  You could also do:
+
+      configs/open1788/tools/oocd.sh $PWD
+
+  Connecting GDB
+
+    Once the OpenOCD daemon has been started, you can connect to it via
+    GDB using the following GDB command:
+
+      arm-nuttx-elf-gdb
+      (gdb) target remote localhost:3333
+
+    NOTE:  The name of your GDB program may differ.  For example, with the
+    CodeSourcery toolchain, the ARM GDB would be called arm-none-eabi-gdb.
+
+    OpenOCD will support several special 'monitor' sub-commands.  You can
+    use the 'monitor' (or simply 'mon') command to invoke these sub-
+    commands. These GDB commands will send comments to the OpenOCD monitor.
+    Here are a couple that you will need to use:
+  
+     (gdb) monitor reset
+     (gdb) monitor halt
+
+    NOTES:
+    1. The MCU must be halted using 'monitor halt' prior to loading code.
+    2. 'monitor reset' will restart the processor after loading code.
+    3. The 'monitor' command can be abbreviated as just 'mon'.
+
+    After starting GDB, you can load the NuttX ELF file:
+
+      (gdb) mon halt
+      (gdb) load nuttx
+
+    NOTES:
+    1. NuttX should have been built so that it has debugging symbols
+       (by setting CONFIG_DEBUG_SYMBOLS=y in the .config file).
+    2. The MCU must be halted prior to loading code.
+    3. I find that there are often undetected write failures.  I usually
+       load nuttx twice to assure good FLASH contents:
+ 
+      (gdb) mon halt
+      (gdb) load nuttx
+      (gdb) mon reset
+      (gdb) mon halt
+      (gdb) load nuttx
+
+CONFIGURATION
+=============
 
   ostest
   ------ 
@@ -35,4 +292,78 @@ CONFIGURURATION
        CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot toolchain
        CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : Older, OABI toolchain
 
+  knsh
+  ----
+    This is identical to the nsh configuration below except that NuttX
+    is built as a kernel-mode, monolithic module and the user applications
+    are built separately.  It is recommends to use a special make command;
+    not just 'make' but make with the following two arguments:
 
+        make pass1 pass2
+
+    In the normal case (just 'make'), make will attempt to build both user-
+    and kernel-mode blobs more or less interleaved.  This actual works!
+    However, for me it is very confusing so I prefer the above make command:
+    Make the user-space binaries first (pass1), then make the the kernel-space
+    binaries (pass2)
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Uses the older, OABI, buildroot toolchain.  But that is easily
+       reconfigured:
+
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot toolchain
+       CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : Older, OABI toolchain
+
+    3. At the end of the build, there will be several files in the top-level
+       NuttX build directory:
+
+       PASS1:
+         nuttx_user.elf    - The pass1 user-space ELF file
+         nuttx_user.hex    - The pass1 Intel HEX format file (selected in defconfig)
+         User.map          - Symbols in the user-space ELF file
+
+       PASS2:
+         nuttx             - The pass2 kernel-space ELF file
+         nuttx.hex         - The pass2 Intel HEX file (selected in defconfig)
+         System.map        - Symbols in the kernel-space ELF file
+
+       Loading these .elf files with OpenOCD is tricky.  It appears to me
+       that when nuttx_user.elf is loaded, it destroys the the nuttx image
+       in FLASH.  But loading the nuttx ELF does not harm the nuttx_user.elf
+       in FLASH.  Conclusion:  Always load nuttx_user.elf before nuttx.
+
+       Just to complicate matters, it is sometimes the case that you need
+       load objects twice to account for write failures.  I have not yet
+       found a simple foolproof way to reliably get the code into FLASH.
+
+  nsh
+  ---
+    Configures the NuttShell (nsh) located at examples/nsh.  The
+    Configuration enables both the serial NSH interface.
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools//README.txt.
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Uses the older, OABI, buildroot toolchain.  But that is easily
+       reconfigured:
+
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot toolchain
+       CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : Older, OABI toolchain

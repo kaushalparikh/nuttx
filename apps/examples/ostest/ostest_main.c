@@ -329,6 +329,12 @@ static int user_main(int argc, char *argv[])
       check_test_memory_usage();
 #endif
 
+      /* Checkout task_restart() */
+
+      printf("\nuser_main: task_restart test\n");
+      restart_test();
+      check_test_memory_usage();
+
 #ifdef CONFIG_SCHED_WAITPID
       /* Check waitpid() and friends */
 
@@ -445,7 +451,8 @@ static int user_main(int argc, char *argv[])
       check_test_memory_usage();
 #endif /* CONFIG_PRIORITY_INHERITANCE && !CONFIG_DISABLE_SIGNALS && !CONFIG_DISABLE_PTHREAD */
 
-#ifdef CONFIG_ARCH_HAVE_VFORK
+#if defined(CONFIG_ARCH_HAVE_VFORK) && defined(CONFIG_SCHED_WAITPID) && \
+   !defined(CONFIG_DISABLE_SIGNALS)
       printf("\nuser_main: vfork() test\n");
       vfork_test();
 #endif
@@ -503,7 +510,7 @@ static void stdio_test(void)
  * ostest_main
  ****************************************************************************/
 
-int ostest_main(int argc, char *argv[])
+int ostest_main(int argc, FAR char *argv[])
 {
   int result;
 
@@ -546,9 +553,11 @@ int ostest_main(int argc, char *argv[])
   /* Verify that we can spawn a new task */
 
 #ifndef CONFIG_CUSTOM_STACK
-  result = task_create("ostest", PRIORITY, STACKSIZE, user_main, g_argv);
+  result = task_create("ostest", PRIORITY, STACKSIZE, user_main,
+                       (FAR char * const *)g_argv);
 #else
-  result = task_create("ostest", PRIORITY, user_main, g_argv);
+  result = task_create("ostest", PRIORITY, user_main,
+                       (FAR char * const *)g_argv);
 #endif
   if (result == ERROR)
     {

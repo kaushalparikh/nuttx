@@ -1,7 +1,7 @@
 /************************************************************
  * up_allocateheap.c
  *
- *   Copyright (C) 2007 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,14 @@
  ************************************************************/
 
 #include <nuttx/config.h>
+
 #include <sys/types.h>
 #include <sched.h>
 #include <debug.h>
+
 #include <nuttx/arch.h>
-#include <nuttx/mm.h>
+#include <nuttx/kmalloc.h>
+
 #include "os_internal.h"
 #include "up_internal.h"
 #include "up_mem.h"
@@ -67,10 +70,8 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by
- *   defining CONFIG_HEAP_BASE and CONFIG_HEAP_SIZE.  If these
- *   are not defined, then this function will be called to
- *   dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside
+ *   the heap region.
  *
  ************************************************************/
 
@@ -84,6 +85,6 @@ void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 #if CONFIG_MM_REGIONS > 1
 void up_addregion(void)
 {
-  mm_addregion((FAR void*)UP_HEAP2_BASE, UP_HEAP2_END - UP_HEAP2_BASE);
+  kmm_addregion((FAR void*)UP_HEAP2_BASE, UP_HEAP2_END - UP_HEAP2_BASE);
 }
 #endif

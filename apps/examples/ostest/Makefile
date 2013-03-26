@@ -46,7 +46,7 @@ STACKSIZE	= 2048
 # NuttX OS Test
 
 ASRCS		=
-CSRCS		= ostest_main.c dev_null.c
+CSRCS		= ostest_main.c dev_null.c restart.c
 
 ifeq ($(CONFIG_ARCH_FPU),y)
 CSRCS		+= fpu.c
@@ -89,7 +89,9 @@ CSRCS		+= posixtimer.c
 endif
 
 ifeq ($(CONFIG_ARCH_HAVE_VFORK),y)
+ifeq ($(CONFIG_SCHED_WAITPID),y)
 CSRCS		+= vfork.c
+endif
 endif
 
 ifneq ($(CONFIG_DISABLE_SIGNALS),y)

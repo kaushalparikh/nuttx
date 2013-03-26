@@ -4096,4 +4096,239 @@
 	  STM32F4. Includes untested additions for the F1 implementation as
 	  well.  From Petteri Aimonen.
 
-6.26 2013-xx-xx Gregory Nutt <gnutt@nuttx.org>
+6.26 2013-03-15 Gregory Nutt <gnutt@nuttx.org>
+
+	* drivers/serial/serial.c:  Correct some race conditions when checking
+	  for disconnection of a removable serial device.
+	* sched/task_posixspawn.c, task_spawn.c, task_spawnparms.c and
+	  spawn_internal.h:  Create new interface task_spawn() that is
+	  like posix_spawn(), but uses entry point addresses like
+	  task_create().
+	* Corrected all argv[] arguments. Should be char * const *, not
+	  const char **.
+	* sched/pthread* and include/nuttx/sched: Move pthread join data
+	  and pthread key calculation data into the "task group" structure.
+	* sched/atexit.c, on_exit.c, task_exithook.c and include/nuttx/sched.h:
+	  Move atexit and on_exit data structures to task group.  These
+	  callbacks are only issued now when the final member of the task
+	  group exits.
+	* sched/waitpid.c, task_exithook.c and include/nuttx/sched.h:
+	  Move waitpid data data structures to task group.  Callers of
+	  of waitpid() are now only awakened whent he final thread of the
+	  task group exits.
+	* sched/mq_descreate.c, mq_open.c, mq_remove.c, group_leave.c, and
+	  include/nuttx/sched.h:  Move list of opened message queues to
+	  the task group structures.  Now all message queues opened by
+	  members of the group are closed when the last member of the group
+	  exits.
+	* includes/nuttx/sched.h and Lots of files:  Change name of _TCB to
+	  struct tcb_s so that (1) it is consitent with other NuttX naming and
+	  so that (2) the naming can handle some upcoming changes.
+	* includes/nuttx/sched.h and sched/:  There are three TCB structures:
+	  struct tcb_s is a generic common version, struct task_tcb_s is a
+	  version for tasks and kernel threads and pthread_tcb_s is a version
+	  for pthreads.  By dividing the TCB structure into these variants,
+	  pthreads do not have to be burdened by task-specific data structures
+	  (and vice versa).
+	* sched/task_exithook.c adn group_create.c:  Fix an error, the
+	  task within the task group may exit early leaving a pthread to
+	  exit the task group last.  In this case, we need to remember the
+	  the PID of the main task in the task group and use that PID for
+	  signalling SIGCHILD to the parent task group.
+	* included/nuttx/sched.h and sched/sig*.c:  Numerous changes to the
+	  signal deliver logic so that the delivery of signals to threads
+	  within a task group will be compliant with delivery of signals
+	  to threads within a POSIX process.
+	* sched/mq_recover.c and task_exithook.c:  Add logic to handle the
+	  case where a task is deleted (or pthread canceled) while it is
+	  waiting on a message queue.  task_delete() and pthread_cancel()
+	  are dangerous interfaces.  This is only one feeble recover measure
+	  of *many* that would be needed to do this safely.
+	* sched/group_killchildren.c, task_recover.c, group_foreachchild.c,
+	  sched/restart.c, sched/task_delete.c, and others:  Beef up logic
+	  to better support task deletion and pthread cancellation.  Needed
+	  to pass need OS test case for task_restart().
+	* sched/include/sched.h and all timed functions in sched/:  Move
+	  timer from local variables to TCB.  This is needed so that if a
+	  task is canceled or restarted while it is waiting for a timed
+	  event, we can gracefully recover.  We can't let the timer expire
+	  after the task has been deleted.
+	* arch/arm/include/stm32 and arch/arm/src/stm32:  Add support for
+	  the STM32 F3 family (still missing some things).
+	* configs/stm32f3discovery:  This will (eventually) be support for
+	  the STM32F3Discovery board.
+	* STM32 F3 and STM32F3Discovery port is complete a ready for test.
+	* arch/arm/src/lpc17xx: Add support for the Cortex-M4 FPU and
+	  Mikes "common vector" logic.  The LPC1788 is going to need
+	  these things.
+	* arch/arm/src/stm32/stm32_spi.c:  Fix SPI DMA logic that does
+	  not work if sem_wait() is interrupt by a signal.  From Petteri
+	  Aimonen.
+	* drivers/input/max11802.c: MAX11802: Fix a timing bug that
+	  corrupted coordinates.  From Petteri Aimonen.
+	* drivers/mmcsd/mmcsd_spi.c:  Use SPI locking so that MMC/SD can
+	  exist on the same bus as other SPI devices.  From Petteri
+	  Aimonen.
+	* graphics/nxfonts/nxfonts_sans17x22.h: Small mod to hyphen in
+	  sans17x22 font.  The hyphen did not have any space on its sides.
+	  This caused it to run together with other characters so that for
+	  example "+-" would look weird. From Petteri Aimonen.
+	* mm/mm_mallinfo.c:  Take MM semaphore in mm_mallinfo. From Petteri
+	  Aimonen.
+	* configs/stm32f3discovery/nsh/defconfig:  Disable SPI.  It is not
+	  used.
+	* drivers/mtd/sst39vf:  Add a driver for the SST29VF NOR FLASH parts.
+	* sched/os_start.c:  Add an additional call-out to support board-
+	  specific driver initialization during the start phase:  If
+	  CONFIG_BOARD_INITIALIZE is defined, then an additioinal
+	  initialization function called board_initialize() will be called
+	  just after up_initialize() is called and just before the initial
+	  application is started.
+	* arch/arm/src/stm32/stm32_otgfsdev.c, drivers/usbdev/usbdev_trprintf.c,
+	  and include/nuttx/usb/usbdev_trace.h:  Add logic to support decoding
+	  of device-specific trace events to make the trace ouput more readable.
+	  From Petteri Aimonen.
+	* arch/arm/src/stm32/stm32_otgfsdev.c:  Need to manually set CNAK in
+	  the case where we are waiting for a SETUP command with DATA.  Otherwise,
+	  the core may NAK further transactions.  From Petteri Aimonen.
+	* arch/arm/src/stm32/stm32_otgfsdev.c: Add logic to prevent premature
+	  to IDLE state.  This change (plus the previous) was necessary to get
+	  the CDC/ACM driver working the certain STM32 F4 hardware (but not others).
+	  These changes appear to prevent certain race conditions that may or may
+	  not cause USB problems.  From Petteri Aimonen.
+	* arch/arm/include/armv6-m and arch/arm/src/armv6-m: First cut at support
+	  for the Cortex-M0
+	* configs/nutiny-nuc120, arch/arm/include/nu1xx, and arch/arm/src/nuc1xx:
+	  Support for Nuvoton NuTiny NUC120.
+	* 2013-02-22:  the Cortex-M0, NuvoTron NUC1xx, and NuTiny-SDK-NUC120 port
+	  is code complete and ready for testing.
+	* configs/ekk-lm3s9b96/ostest and nsh:  All EKK-LM3S9B96 configurations
+	  converted to use the mconf configuration tool.
+	* configs/zkit-arm-1769:  Add support for Zilogic System's ARM development
+	  Kit, ZKIT-ARM-1769.  From Rashid.
+	* configs/zkit-arm-1769/hello:  Add a "Hello, World!" configuration for
+	  the KBIT-ARM-1769 board.  From Rashid.
+	* configs/zkit-arm-1769/thttpd:  Add a THTTPD configuration for the
+	  KBIT-ARM-1769 board.  From Rashid.
+	* 2013-02-27: All configurations for the Cortex-M0 NuTINY-SDK-NUC120
+	  appear to be functional and stable.
+	* configs/zkit-arm-1769/nsh:  Add an NSH configuration for the
+	  KBIT-ARM-1769 board.  From Rashid.
+	* arch/arm/src/stm32/stm32_otgfsdev.c:  Fixes from Petterri Aimonen
+	  related to corner cases that can cause infinite interrupts.
+	* drivers/usbdev/usbmsc_scsi.c:  Change to allow the full name in the
+	  USB descriptor but a truncated, 8-byte name in the SCSI field.
+	  From Petteri Aimonen.
+	* arch/arm/src/stm32/stm32_spi.c: Need to clear error flags to prevent
+	  corruption of subsequent transfers.  Also, bit count should not be
+	  changed while the SPI peripheral is enabled.  From Petteri Aimonen.
+	* drivers/mmcsd/mmcsd_spi.c:  When bus is shared, the speed has to be
+	  set every time.  Also SD cards require a few dummy clocks to react
+	  into CS release.  From Petteri Aimonen.
+	* configs/lm4f120-launchpad: In initial configuration for testing
+	  the LM4F120 LaunchPad port.  This is to support testing only and
+	  is not yet a functional board port (as of 2013-03-01).
+	* arch/arm/include/lm/lm4f_irq.h and arch/arm/src/lm/chip/lm4f_vector.h:
+	  Add interrupt vector/IRQ number definitions for the LM4F120.
+	* arch/arm/src/stm32f20xxx_dma.c and stm32f40xxx_dma.c:  Fix a typo
+	  in assigned base register addresses for each DMA channel.  From
+	  Yan T.
+	* Several build fixes from Mike Smith were incorporated.  These were
+	  mostly compilation errors introduced into the system because of the
+	  large number of recent changes with broad scope (2013-03-04).
+	* configs/zkit-arm-17969/src/up_can.c:  Add CAN support to the
+	  Zilogics Technologies ZKIT-ARM-1769 board (From Rashid Fatah, (2013-03-04)).
+	* arch/arm/src/lpc17/lpc17*_clockconfig.c:  The WaveShare Open1788
+	  board now boots and passes the OS test.  This is the work of
+	  Rommel Marcelo (2013-03-04).
+	* arch/arm/src/lm/lm_gpio.c, lm_gpio.h, and chip/lm4f_pinconfig.h
+	  Extend GPIO logic to handle LM4F.  Add LM4F pin configuration header
+	  file (2013-03-04).
+	* configs/open1788:  Enable LED support in all configurations.
+	  (2013-03-04)
+	* configs/open1788/nsh:  NSH configuration verified function.  By Rommel
+	  Marcelo (2013-03-05).
+	* configs/open1788/src/lpc17_nsh.c:  Use the SD card interface, not SPI
+	  to interface with SD cards (2013-03-05.
+	* arch/arm/src/lpc17xx/lpc17_sdcard.c and header files:  Clone the STM32
+	  SD card interface to the LPC1788.  It appears to be the same IP.
+	  (2013-03-05)
+	* libc/wqueue:  Work queue logic moved from sched/ to libc/wqueue.  It
+	  is not really core OS functionality and this move helps prepare for
+	  user-space work queues. (2013-03-05)
+	* libc/wqueue:  Implemented user-space work queues.  These will not
+	  get tested until the next time I attempt a NuttX kernel build.
+	  (2013-03-05).
+	* arch/arm: Correct some bad syscall dispatching logic.  This change
+	  cannot be fully tested until there is a fielded NuttX kernel build.
+	  (2013-03-06).
+	* net/net_poll.c:  Correct logic that checks if the socket is
+	  disconnected when the poll is setup.  That is bad logic:  Listen
+	  sockets, for example, are not connected.  In that case, the purpose of
+	  the poll is to wait for connection events.  As a result of this,
+	  poll/select would return immediately with POLLHUP with it was used to
+	  detect connection events.  This fix for now was to check instead if
+	  the socket is closed (meaning that it was connected at one time but
+	  was closed by the remote peer).  That excludes the listen socket which
+	  was never connected.  This does introduce a new problem, however.  If
+	  the socket was not closed, but lost the connection through an abnormal
+	  event, then poll/select will hang.  That needs to be revisited.
+	  (2013-03-07)
+	* fs/fs_select.c:  Was not checking if the timeout parameter was NULL
+	  but would, instead, setup a bogus timeout based on whatever it found at
+	  address zero.  Also, improved some of the memory allocation logic so
+	  that it will not use so much memory. (2013-03-07)
+	* net/net_poll.c:  Handle the missing case.  Now tests for not connected
+	  AND not listening.  I think that now covers all of the cases including
+	  the missing case noted above. (2013-03-07)
+	* mm/:  Move all memory manager globals into a structure.  A reference
+	  to this structure is now passed internally between mm APIs. This
+	  change will (eventually) support multiple heaps and heap allocators.
+	  (2013-03-08).
+	* mm/ and include/nuttx/mm.h:  Implement support for multiple heaps.
+	  (2013-03-08).
+	* arch/*/src: xyz_addregion() needs to call kmm_addregion, not mm_addregion.
+	  (2013-03-08).
+	* sched/kmm*.c:  Move this garbage kmm*.c file to mm/. until I decide what
+	  to do with them (which is probably to just delete them). (2013-03-08).
+	* mm/mm_test.c and Makefile.test:  Deleted the memory test.  This was
+	  a good test and helped me a lot when I wrote the memory manager, but
+	  now it is in the way and paralyzing other efforts.  So the memory unit
+	  test was deleted. (2013-03-08)
+	* sched/sched_free.c:  Rename sched_free() to sched_ufree(); Add
+	  sched_kfree() to handler deferred kernel heap allocations. (2013-03-10)
+	* arch/:  User user-accessible heap to allocate all stacks. (2013-03-10)
+	* arch/arm/src/sam3u:  The AT91SAM3U will now support a kernel heap if
+	  so configured. (2013-03-10)
+	* configs/sam3u-ek/knsh:  This configuration was converted to use the
+	  kconfigs-frontends build tool. (2013-03-10)
+	* configs/*/include/user_map.h and include/nuttx/userspace.h:  Remove
+	  the very kludgy user_map.h file and replace it with a header that
+	  is expected at the beginning of the user-space blob. (2013-03-10)
+	* configs/sam3u-ek/kernel/up_userspace.c:  This is the header for
+	  the SAM3U-EK's user space.  (2013-03-10)
+	* sched/os_bringup.c:  In the kernel build, os_bringup() now uses the
+	  user-space header to automatically start the user-space work queue,
+	  if so configured. (2013-03-10)
+	* arch/arm/src/lpc17xx/lpc17_mpuinit.c and lpc17_userpace.c:  Add
+	  support for the MPU and kernel build for the LPC17xx family.
+	  (2013-03-11)
+	* configs/open1788/kernel and knsh:  Add kernel build support and
+	  a kernel NSH configuration for the WaveShare Open1788 board.
+	  (2013-03-11)
+	* configs/sam3u_ek/kernel, knsh, and scripts:  Move some files around
+	  for better supportability. (2013-03-11)
+	* configs/open1788/kernel, knsh, and scripts:  Add a kernel mode build
+	  configuration for the WaveShare Open1788 board. (2013-03-11)
+	* arch/arm/src/armv7-m/up_mpu.c:  Several fixes to MPU logic.
+	  (2013-03-12).
+	* arch/arm, configs/sam3u-ek, configs/open1788:  Fix memory map for
+	  kernel mode build; Some regions were overlapping. (2013-03-13).
+	* arch/:  Rename g_heapbase to g_idle_topstack.  This is the same value
+	  however:  The top of the IDLE stack is the same as the base of the
+	  heap in the flat build.  But not in the kernel build:  The base of
+	  the heap is elsewhere so the naming was wrong. (2013-03-13).
+	* libc/stdlib/lib_itoa.c:  Implementation of itoa() contributed by
+	  Ryan Sundberg. (2013-03-14).
+
+6.27 2013-xx-xx Gregory Nutt <gnutt@nuttx.org>

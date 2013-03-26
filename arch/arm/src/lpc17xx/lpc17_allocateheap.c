@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/lpc17xx/lpc17_allocateheap.c
  *
- *   Copyright (C) 2010-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,16 +43,18 @@
 #include <debug.h>
 
 #include <nuttx/arch.h>
-#include <nuttx/mm.h>
+#include <nuttx/kmalloc.h>
 #include <arch/board/board.h>
 
 #include "chip.h"
+#include "mpu.h"
 #include "up_arch.h"
 #include "up_internal.h"
 
 #include "chip/lpc17_memorymap.h"
 #include "lpc17_emacram.h"
 #include "lpc17_ohciram.h"
+#include "lpc17_mpuinit.h"
 
 /****************************************************************************
  * Private Definitions
@@ -182,19 +184,122 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by
- *   defining CONFIG_HEAP_BASE and CONFIG_HEAP_SIZE.  If these
- *   are not defined, then this function will be called to
- *   dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
+ *
+ *   The following memory map is assumed for the flat build:
+ *
+ *     .data region.  Size determined at link time.
+ *     .bss  region  Size determined at link time.
+ *     IDLE thread stack.  Size determined by CONFIG_IDLETHREAD_STACKSIZE.
+ *     Heap.  Extends to the end of SRAM.
+ *
+ *   The following memory map is assumed for the kernel build:
+ *
+ *     Kernel .data region.  Size determined at link time.
+ *     Kernel .bss  region  Size determined at link time.
+ *     Kernel IDLE thread stack.  Size determined by CONFIG_IDLETHREAD_STACKSIZE.
+ *     Padding for alignment
+ *     User .data region.  Size determined at link time.
+ *     User .bss region  Size determined at link time.
+ *     Kernel heap.  Size determined by CONFIG_MM_KERNEL_HEAPSIZE.
+ *     User heap.  Extends to the end of SRAM.
  *
  ****************************************************************************/
 
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 {
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+  /* Get the unaligned size and position of the user-space heap.
+   * This heap begins after the user-space .bss section at an offset
+   * of CONFIG_MM_KERNEL_HEAPSIZE (subject to alignment).
+   */
+
+  uintptr_t ubase = (uintptr_t)USERSPACE->us_bssend + CONFIG_MM_KERNEL_HEAPSIZE;
+  size_t    usize = CONFIG_DRAM_END - ubase;
+  int       log2;
+
+  DEBUGASSERT(ubase < (uintptr_t)CONFIG_DRAM_END);
+
+  /* Adjust that size to account for MPU alignment requirements.
+   * NOTE that there is an implicit assumption that the CONFIG_DRAM_END
+   * is aligned to the MPU requirement.
+   */
+
+  log2  = (int)mpu_log2regionfloor(usize);
+  DEBUGASSERT((CONFIG_DRAM_END & ((1 << log2) - 1)) == 0);
+
+  usize = (1 << log2);
+  ubase = CONFIG_DRAM_END - usize;
+
+  /* Return the user-space heap settings */
+
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size = CONFIG_DRAM_END - g_heapbase;
+  *heap_start = (FAR void*)ubase;
+  *heap_size  = usize;
+
+  /* Allow user-mode access to the user heap memory */
+
+   lpc17_mpu_uheap((uintptr_t)ubase, usize);
+#else
+
+  /* Return the heap settings */
+
+  up_ledon(LED_HEAPALLOCATE);
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size  = CONFIG_DRAM_END - g_idle_topstack;
+#endif
 }
+
+/****************************************************************************
+ * Name: up_allocate_kheap
+ *
+ * Description:
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function allocates
+ *   (and protects) the kernel-space heap.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+void up_allocate_kheap(FAR void **heap_start, size_t *heap_size)
+{
+  /* Get the unaligned size and position of the user-space heap.
+   * This heap begins after the user-space .bss section at an offset
+   * of CONFIG_MM_KERNEL_HEAPSIZE (subject to alignment).
+   */
+
+  uintptr_t ubase = (uintptr_t)USERSPACE->us_bssend + CONFIG_MM_KERNEL_HEAPSIZE;
+  size_t    usize = CONFIG_DRAM_END - ubase;
+  int       log2;
+
+  DEBUGASSERT(ubase < (uintptr_t)CONFIG_DRAM_END);
+
+  /* Adjust that size to account for MPU alignment requirements.
+   * NOTE that there is an implicit assumption that the CONFIG_DRAM_END
+   * is aligned to the MPU requirement.
+   */
+
+  log2  = (int)mpu_log2regionfloor(usize);
+  DEBUGASSERT((CONFIG_DRAM_END & ((1 << log2) - 1)) == 0);
+
+  usize = (1 << log2);
+  ubase = CONFIG_DRAM_END - usize;
+
+  /* Return the kernel heap settings (i.e., the part of the heap region
+   * that was not dedicated to the user heap).
+   */
+
+  *heap_start = (FAR void*)USERSPACE->us_bssend;
+  *heap_size  = ubase - (uintptr_t)USERSPACE->us_bssend;
+}
+#endif
 
 /************************************************************************
  * Name: up_addregion
@@ -221,10 +326,18 @@ void up_addregion(void)
    */
 
 #ifdef LPC17_AHB_HEAPBASE
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
 
-  /* Yes... Add the AHB SRAM heap region. */
+  /* Yes.. allow user-mode access to the AHB SRAM user heap memory */
 
-   mm_addregion((FAR void*)LPC17_AHB_HEAPBASE, LPC17_AHB_HEAPSIZE);
+   lpc17_mpu_uheap((uintptr_t)LPC17_AHB_HEAPBASE, LPC17_AHB_HEAPSIZE);
+
+#endif
+
+  /* Add the AHB SRAM user heap region. */
+
+   kumm_addregion((FAR void*)LPC17_AHB_HEAPBASE, LPC17_AHB_HEAPSIZE);
+
 #endif
 }
 #endif

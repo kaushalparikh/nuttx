@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/sig_pending.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -89,8 +89,8 @@
 
 int sigpending(FAR sigset_t *set)
 {
-  FAR _TCB *rtcb = (FAR _TCB*)g_readytorun.head;
-  int       ret  = ERROR;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
+  int ret = ERROR;
 
   if (set)
     {
@@ -109,16 +109,19 @@ int sigpending(FAR sigset_t *set)
  *
  ****************************************************************************/
 
-sigset_t sig_pendingset(FAR _TCB *stcb)
+sigset_t sig_pendingset(FAR struct tcb_s *stcb)
 {
-  sigset_t        sigpendset;
+  FAR struct task_group_s *group = stcb->group;
+  sigset_t sigpendset;
   FAR sigpendq_t *sigpend;
-  irqstate_t      saved_state;
+  irqstate_t saved_state;
+
+  DEBUGASSERT(group);
 
   sigpendset = NULL_SIGNAL_SET;
 
   saved_state = irqsave();
-  for (sigpend = (FAR sigpendq_t*)stcb->sigpendingq.head;
+  for (sigpend = (FAR sigpendq_t*)group->sigpendingq.head;
        (sigpend); sigpend = sigpend->flink)
     {
       sigaddset(&sigpendset, sigpend->info.si_signo);

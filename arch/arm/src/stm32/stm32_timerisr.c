@@ -51,7 +51,7 @@
 #include "up_arch.h"
 
 #include "chip.h"
-#include "stm32_internal.h"
+#include "stm32.h"
 
 /****************************************************************************
  * Definitions
@@ -77,7 +77,7 @@
 #  define SYSTICK_RELOAD ((STM32_HCLK_FREQUENCY / CLK_TCK) - 1)
 #endif
 
-/* The size of the reload field is 24 bits.  Verify taht the reload value
+/* The size of the reload field is 24 bits.  Verify that the reload value
  * will fit in the reload register.
  */
 

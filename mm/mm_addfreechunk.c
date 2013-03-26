@@ -1,7 +1,7 @@
 /****************************************************************************
  * mm/mm_addfreechunk.c
  *
- *   Copyright (C) 2007, 2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,8 +37,9 @@
  * Included Files
  ****************************************************************************/
 
-#include "mm_environment.h"
-#include "mm_internal.h"
+#include <nuttx/config.h>
+
+#include <nuttx/mm.h>
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -61,7 +62,7 @@
  *
  ****************************************************************************/
 
-void mm_addfreechunk(FAR struct mm_freenode_s *node)
+void mm_addfreechunk(FAR struct mm_heap_s *heap, FAR struct mm_freenode_s *node)
 {
   FAR struct mm_freenode_s *next;
   FAR struct mm_freenode_s *prev;
@@ -72,7 +73,7 @@ void mm_addfreechunk(FAR struct mm_freenode_s *node)
 
   /* Now put the new node int the next */
 
-  for (prev = &g_nodelist[ndx], next = g_nodelist[ndx].flink;
+  for (prev = &heap->mm_nodelist[ndx], next = heap->mm_nodelist[ndx].flink;
        next && next->size && next->size < node->size;
        prev = next, next = next->flink);
 

@@ -1,4 +1,4 @@
-NuttX TODO List (Last updated January 30, 2013)
+NuttX TODO List (Last updated March 8, 2013)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file summarizes known NuttX bugs, limitations, inconsistencies with 
@@ -6,9 +6,9 @@ standards, things that could be improved, and ideas for enhancements.
 
 nuttx/
 
- (11)  Task/Scheduler (sched/)
+ (10)  Task/Scheduler (sched/)
   (2)  Memory Managment (mm/)
-  (3)  Signals (sched/, arch/)
+  (4)  Signals (sched/, arch/)
   (2)  pthreads (sched/)
   (2)  C++ Support
   (6)  Binary loaders (binfmt/)
@@ -21,7 +21,7 @@ nuttx/
   (1)  Documentation (Documentation/)
   (7)  Build system / Toolchains
   (5)  Linux/Cywgin simulation (arch/sim)
-  (5)  ARM (arch/arm/)
+  (4)  ARM (arch/arm/)
   (1)  ARM/C5471 (arch/arm/src/c5471/)
   (3)  ARM/DM320 (arch/arm/src/dm320/)
   (2)  ARM/i.MX (arch/arm/src/imx/)
@@ -31,7 +31,7 @@ nuttx/
   (0)  ARM/LPC43x (arch/arm/src/lpc43xx/)
   (3)  ARM/STR71x (arch/arm/src/str71x/)
   (3)  ARM/LM3S6918 (arch/arm/src/lm/)
-  (5)  ARM/STM32 (arch/arm/src/stm32/)
+  (6)  ARM/STM32 (arch/arm/src/stm32/)
   (3)  AVR (arch/avr)
   (0)  Intel x86 (arch/x86)
   (5)  8051 / MCS51 (arch/8051/)
@@ -45,7 +45,7 @@ nuttx/
 apps/
 
   (5)  Network Utilities (apps/netutils/)
-  (5)  NuttShell (NSH) (apps/nshlib)
+  (4)  NuttShell (NSH) (apps/nshlib)
   (1)  System libraries apps/system (apps/system)
   (5)  Other Applications & Tests (apps/examples/)
 
@@ -99,7 +99,7 @@ o Task/Scheduler (sched/)
   Status:      Open.
   Priority:    Medium Low.
 
-  Title:       ON-DEMAND PAGE INCOMPLETE
+  Title:       ON-DEMAND PAGING INCOMPLETE
   Description: On-demand paging has recently been incorporated into the RTOS.
                The design of this feature is described here:
                http://www.nuttx.org/NuttXDemandPaging.html.
@@ -125,23 +125,6 @@ o Task/Scheduler (sched/)
   Description: timer_getoverrun() (sched/timer_getoverrun.c) is not implemented.
   Status:      Open
   Priority:    Low -- There is no plan to implement this.
-
-  Title:       USER-SPACE WORK QUEUES
-  Description: There has been some use of work queues that has crept into some
-               user code.  I am thinking of NxWidgets::CNxTimer.  That timer
-               logic was originally implemented (correctly) using POSIX timers,
-               but was re-implemented using timed work.
-
-               The issue is that NxWidgets::CNxTimer is a user-space application
-               but the work queues are an OS internal feature.  This will be a
-               problem for KERNEL builds.  Hooks and definitions have been added
-               in include/nuttx/wqueue.h to support a user-space work queue, but
-               the corresponding logic has not been implemented.
-
-               The work queue logic will need to be moved from sched/ to libc/wqueue/
-  Status:      Open.  No work will probably be done until a functional KERNEL build
-               that includes NxWisges::CNxTimer is needed.
-  Priority:    Medium Low for now
 
   Title:       INCOMPATIBILITES WITH execv() AND execl()
   Description: Simplified 'execl()' and 'execv()' functions are provided by
@@ -186,9 +169,9 @@ o Task/Scheduler (sched/)
                posix_spawn().  However, posix_spawn uses the non-standard, internal
                NuttX interface task_reparent() to replace the childs parent task
                with the caller of posix_spawn().  That cannot be done with vfork()
-               because we don't know what vfor() is going to do.
+               because we don't know what vfork() is going to do.
 
-               Any solution to this is either very difficult or impossible with
+               Any solution to this is either very difficult or impossible without
                an MMU.
   Status:      Open
   Priority:    Low (it might as well be low since it isn't going to be fixed).
@@ -198,9 +181,10 @@ o Task/Scheduler (sched/)
                bug-for-bug compatibility, the same errno should be shared by
                the task and each thread that it creates.  It is *very* easy
                to make this change:  Just move the pterrno field from
-               _TCB to struct task_group_s.   However, I am still not sure
-               if this should be done or not.
-  Status:      Open
+               struct tcb_s to struct task_group_s.   However, I am still not
+               sure if this should be done or not.
+  Status:      Closed.  The existing solution is better (although its
+               incompatibilities could show up in porting some code).
   Priority:    Low
 
 o Memory Managment (mm/)
@@ -269,18 +253,43 @@ o Memory Managment (mm/)
   Priority:    Medium/Low, a good feature to prevent memory leaks but would
                have negative impact on memory usage and code size.
 
-  Title:       CONTAINER ALLOCATOR
-  Description: There are several places where the logic requires allocation of
-               a tiny structure that just contains pointers to other things or
-               small amounts of data that needs to be bundled together.  There
-               are examples net/net_poll.c and numerous other places.
+  Title:       MEMORY MANAGEMENT IN THE KERNEL BUILD
+  Description: At present, there are two options for memory management in
+               the NuttX kernel build:
 
-               I am wondering if it would not be good create a pool of generic
-               containers (say void *[4]).  There re-use these when we need
-               small containers.  The code in sched/task_childstatus.c might
-               be generalized for this purpose.
+               1) Have only a single user-space heap and heap allocator that
+                  is shared by both kernel- and user-modes.  PROs:  Simple,
+                  CONs:  Awkward architecture and no security for kernel-mode
+                  allocations.
+
+               2) Two separate heap partitions and two copies of the memory
+                  allocators.  One heap partition is protected and the the
+                  is user accessible.  PROs: Still simple, CONs:  Partitioning
+                  the heap will not make the best use of heap memory.
+
+                A complication is that the kernel needs to allocate both
+                protected, kernel private as well as user accessible memory
+                (such as for stacks).  A more traditional approarch would be
+                something like:
+
+               3) Implement sbrk(). The would still be kernel- and user-mode
+                  instances of the memory allocators.  Each would sbrk() as
+                  necessary to extend their heap; the pages allocated for
+                  the kernel-mode allocator would be protected but the pages
+                  allocated for the user-mode allocator would not.  PROs:
+                  Meets all of the needs.  CONs:  Complex. Memory losses,
+                  due to quanitization.  sbrk'ed memory would not be 
+                  contiguous; this would limit the sizes of allocations
+                  due to the physical pages.
+
+                  This feels like overkill for this class of processor.
+                  This approach probably could not be implemented using
+                  a simple memory protection unit (such as that of the
+                  ARM Cortex-M family).
+
+               See other kernel build issues under "Build system"
   Status:      Open
-  Priority:    Very low (I am not even sure that this is a good idea yet).
+  Priority:    Low, unless you need a working kernel build now.
 
 o Signals (sched/, arch/)
   ^^^^^^^^^^^^^^^^^^^^^^^
@@ -289,7 +298,7 @@ o Signals (sched/, arch/)
   Description: 'Standard' signals and signal actions are not supported.
                (e.g., SIGINT, SIGSEGV, etc).
 
-               Update:  SIG_CHLD is support if configured.
+               Update:  SIG_CHLD is supported if so configured.
   Status:      Open.  No changes are planned.
   Priority:    Low, required by standards but not so critical for an
                embedded system.
@@ -309,6 +318,14 @@ o Signals (sched/, arch/)
                to map bits appropriately.
   Status:      Open
   Priority:    Low. Even if there are only 31 usable signals, that is still a lot.
+
+  Title:       USER-MODE SIGNALS
+  Description: In a kernel build (CONFIG_NUTTX_KERNEL). Signal handlers should
+               execute in user mode.  This is to prevent a security hole where
+               user code can get control of the system in kernel mode if the signal
+               executes in kernel mode.
+  Status:      Open
+  Priority:    Low
 
 o pthreads (sched/)
   ^^^^^^^^^^^^^^^^^
@@ -708,6 +725,39 @@ o USB (drivers/usbdev, drivers/usbhost)
                class drivers. (2) The logic in the STM32 F4 OTG FS device driver
                has been extended to provide this data.  Updates are still needed
                to other drivers.
+
+               Here is an overview of the required changes:
+               New two buffers in driver structure:
+
+               1. The existing EP0 setup request buffer (ctrlreq, 8 bytes)
+               2. A new EP0 data buffer to driver state structure (ep0data,
+                  max packetsize)
+
+               Add a new state:
+
+               3. Waiting for EP0 setup OUT data (EP0STATE_SETUP_OUT)
+
+               General logic flow:
+
+               1. When an EP0 SETUP packet is received:
+                  - Read the request into EP0 setup request buffer (ctrlreq,
+                    8 bytes)
+                  - If this is an OUT request with data length, set the EP0
+                    state to EP0STATE_SETUP_OUT and wait to receive data on
+                    EP0.
+                  - Otherwise, the SETUP request may be processed now (or,
+                    in the case of the F4 driver, at the conclusion of the
+                    SETUP phase).
+               2. When EP0 the EP0 OUT DATA packet is received:
+                  - Verify state is EP0STATE_SETUP_OUT
+                  - Read the request into the EP0 data buffer (ep0data, max
+                    packet size)
+                  - Now process the previously buffered SETUP request along
+                    with the OUT data.
+               3. When the setup packet is dispatched to the class driver,
+                  the OUT data must be passed as the final parameter in the
+                  call.
+
   Status:      Open
   Priority:    High for class drivers that need EP0 data.  For example, the
                CDC/ACM serial driver might need the line coding data (that
@@ -1050,6 +1100,8 @@ o Build system
                A similar issue exists in NSH that uses some internal OS
                interfaces that would not be available in a kernel build
                (such as foreach_task, foreach_mountpoint, etc.).
+
+               See also "Memory Management" for another kernel build issue.
   Status:      Open
   Priority:    Low -- the kernel build configuration is not fully fielded
                yet.
@@ -1157,7 +1209,7 @@ o ARM (arch/arm/)
   Priority:    Low
 
   Title:       ARM INTERRUPTS AND USER MODE
-  Description: The ARM interrupt handling (arch/arm/src/arm/up_vectors.S) returns
+  Description: The ARM7/9 interrupt handling (arch/arm/src/arm/up_vectors.S) returns
                using 'ldmia   sp, {r0-r15}^'  My understanding is that this works
                fine because everything is in kernel-mode.  In an operating model
                where applications run in user mode and interrupts/traps run in
@@ -1166,8 +1218,8 @@ o ARM (arch/arm/)
                is built as a monolithic, protected kernel and user mode programs
                trap into the kernel.
   Status:      Open
-  Priority:    Low until I get around to implementng security or kernel mode for
-               the ARM platform.
+  Priority:    Low until I get around to implementing security or kernel mode for
+               an ARM7/9 platform.
 
   Title:       CORTEX-M3 STACK OVERFLOW
   Description: There is bit bit logic inf up_fullcontextrestore() that executes on
@@ -1206,20 +1258,6 @@ o ARM (arch/arm/)
   Priority:    Low.  The conditions of continous interrupts is really the problem.
                If your design needs continous interrupts like this, please try
                the above change and, please, submit a patch with the working fix.
-
-  Title:       KERNEL MODE ISSUES - HANDLERS
-  Description: The is a design flaw in the ARM/Cortex trap handlers.  Currently,
-               they try to process the SYSCALL within the trap handler.  That
-               cannot work.  There are two possibilities to fix this.
-               1) Just enable interrupts in the trap handler and make sure that
-                  that sufficient protection is in place to handler the nested
-                  interrupts, or
-               3) Return from the exception via a trampoline (such as is
-                  currently done for signal handlers).  In the trampoline,
-                  the trap would processed in supervisor mode with interrupts
-                  enabled.
-  Status:      Open
-  Priority:    medium-high.
 
 o ARM/C5471 (arch/arm/src/c5471/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1505,6 +1543,21 @@ o ARM/STM32 (arch/arm/src/stm32/)
   Status:      Open
   Priority:    Low
 
+  Title:       USB DRIVER IN STM32F4DISCVORY usbnsh CONFIGURATION
+  Description: The USB device driver is not reliable in the
+               configs/stm32f3discovery/upnsh configuration.  When a large
+               volume of serial data is sent (for example, by entering
+               'help' from the NSH command line), the driver hangs.  This
+               looks like an improperly handled output data overrun problem.
+  
+               This is a surprising since this same driver has worked with
+               the STM32 F1 for some time using the Mass Storage driver
+               which has considerably higher data rates.  So this seems to
+               be some particular issue with the way that the CDC/ACM driver
+               sends data through the driver.
+  Status:      Open
+  Priority:    Medium High
+
 o AVR (arch/avr)
   ^^^^^^^^^^^^^^
 
@@ -1767,7 +1820,7 @@ o z80/z8/ez80/z180 (arch/z80)
 
   Title:       ZDS-II COMPILER PROBLEMS
   Description: The ZDS-II compiler (version 4.10.1) fails with an internal error
-               while compiler mm/mm_initialize.  This has been reported as
+               while compiling mm/mm_initialize.c.  This has been reported as
                incident 81509.
 
                I have found the following workaround that I use to build for the
@@ -2027,32 +2080,6 @@ o NuttShell (NSH) (apps/nshlib)
   Description: Add an ARP command so that we can see the contents of the ARP table.
   Status:      Open
   Priority:    Low (enhancement)
-
-  Title:       RE-DIRECTION OF BUILTIN APPLICATONS
-  Description: There is a problem with the re-direction of output form built-in
-               applications in NSH.  When output is re-directed, exec_builtin()
-               spawns a tiny trampoline task that re-directs the output as
-               requested, starts the built-in task and then exit.
-
-               The problem is that when exec_builtin() starts the trampoline task,
-               it receives and returns the pid of the trampoline task, and *not*
-               the pid of the desired builtin application.  This bad pid is returned
-               to NSH and when NSH tries to use that pid in the waitpid() call, it
-               fails because the trampoline task no longer exists.
-
-               The same tasking arrangement is used by the standard function
-               posix_spawn().  However, posix_spawn uses the non-standard, internal
-               NuttX interface task_reparent() to replace the childs parent task
-               with the caller of posix_spawn().
-
-               exec_builtin() should not use this internal interface, however,
-               since it resides in the application space.  The suggested solution
-               is (1) move the exec_builtin() logic into nuttx/sched, (2) make it
-               a semi-standard interface renamed to task_spawn() and prototyped
-               in nuttx/include/sched.h, and then (2) use task_reparent to solve
-               the parental problem in the same way that posix_spawn does.
-  Status:      Open
-  Priority:    Medium
 
 o System libraries apps/system (apps/system)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

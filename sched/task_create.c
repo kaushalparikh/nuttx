@@ -100,22 +100,23 @@
 
 #ifndef CONFIG_CUSTOM_STACK
 static int thread_create(const char *name, uint8_t ttype, int priority,
-                         int stack_size, main_t entry, const char **argv)
+                         int stack_size, main_t entry, FAR char * const argv[])
 #else
 static int thread_create(const char *name, uint8_t ttype, int priority,
-                         main_t entry, const char **argv)
+                         main_t entry, FAR char * const argv[])
 #endif
 {
-  FAR _TCB *tcb;
+  FAR struct task_tcb_s *tcb;
   pid_t pid;
   int errcode;
   int ret;
 
   /* Allocate a TCB for the new task. */
 
-  tcb = (FAR _TCB*)kzalloc(sizeof(_TCB));
+  tcb = (FAR struct task_tcb_s *)kzalloc(sizeof(struct task_tcb_s));
   if (!tcb)
     {
+      sdbg("ERROR: Failed to allocate TCB\n");
       errcode = ENOMEM;
       goto errout;
     }
@@ -135,7 +136,7 @@ static int thread_create(const char *name, uint8_t ttype, int priority,
 
 #if CONFIG_NFILE_DESCRIPTORS > 0 || CONFIG_NSOCKET_DESCRIPTORS > 0
   ret = group_setuptaskfiles(tcb);
-  if (ret != OK)
+  if (ret < OK)
     {
       errcode = -ret;
       goto errout_with_tcb;
@@ -145,8 +146,8 @@ static int thread_create(const char *name, uint8_t ttype, int priority,
   /* Allocate the stack for the TCB */
 
 #ifndef CONFIG_CUSTOM_STACK
-  ret = up_create_stack(tcb, stack_size);
-  if (ret != OK)
+  ret = up_create_stack((FAR struct tcb_s *)tcb, stack_size);
+  if (ret < OK)
     {
       errcode = -ret;
       goto errout_with_tcb;
@@ -179,12 +180,12 @@ static int thread_create(const char *name, uint8_t ttype, int priority,
 
   /* Get the assigned pid before we start the task */
 
-  pid = (int)tcb->pid;
+  pid = (int)tcb->cmn.pid;
 
   /* Activate the task */
 
-  ret = task_activate(tcb);
-  if (ret != OK)
+  ret = task_activate((FAR struct tcb_s *)tcb);
+  if (ret < OK)
     {
       errcode = get_errno();
 
@@ -197,7 +198,7 @@ static int thread_create(const char *name, uint8_t ttype, int priority,
   return pid;
 
 errout_with_tcb:
-  sched_releasetcb(tcb);
+  sched_releasetcb((FAR struct tcb_s *)tcb);
 
 errout:
   set_errno(errcode);
@@ -244,10 +245,10 @@ errout:
 
 #ifndef CONFIG_CUSTOM_STACK
 int task_create(const char *name, int priority,
-                int stack_size, main_t entry, const char *argv[])
+                int stack_size, main_t entry, FAR char * const argv[])
 #else
 int task_create(const char *name, int priority,
-                main_t entry, const char *argv[])
+                main_t entry, FAR char * const argv[])
 #endif
 {
 #ifndef CONFIG_CUSTOM_STACK
@@ -275,10 +276,10 @@ int task_create(const char *name, int priority,
 
 #ifndef CONFIG_CUSTOM_STACK
 int kernel_thread(const char *name, int priority,
-                  int stack_size, main_t entry, const char *argv[])
+                  int stack_size, main_t entry, FAR char * const argv[])
 #else
 int kernel_thread(const char *name, int priority,
-                  main_t entry, const char *argv[])
+                  main_t entry, FAR char * const argv[])
 #endif
 {
 #ifndef CONFIG_CUSTOM_STACK

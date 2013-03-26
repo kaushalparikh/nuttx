@@ -48,8 +48,11 @@
 #include <nuttx/net/net.h>
 #include <nuttx/lib.h>
 
-#include "group_internal.h"
 #include "env_internal.h"
+#include "sig_internal.h"
+#include "pthread_internal.h"
+#include "mq_internal.h"
+#include "group_internal.h"
 
 #ifdef HAVE_TASK_GROUP
 
@@ -154,6 +157,18 @@ static inline void group_release(FAR struct task_group_s *group)
   group_removechildren(group);
 #endif
 
+#ifndef CONFIG_DISABLE_SIGNALS
+  /* Release pending signals */
+
+  sig_release(group);
+#endif
+
+#ifndef CONFIG_DISABLE_PTHREAD
+  /* Release pthread resources */
+
+  pthread_release(group);
+#endif
+
   /* Free all file-related resources now.  We really need to close files as
    * soon as possible while we still have a functioning task.
    */
@@ -166,7 +181,11 @@ static inline void group_release(FAR struct task_group_s *group)
 #if CONFIG_NFILE_STREAMS > 0
   /* Free resource held by the stream list */
 
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+  lib_releaselist(group->tg_streamlist);
+#else
   lib_releaselist(&group->tg_streamlist);
+#endif
 
 #endif /* CONFIG_NFILE_STREAMS */
 #endif /* CONFIG_NFILE_DESCRIPTORS */
@@ -183,6 +202,12 @@ static inline void group_release(FAR struct task_group_s *group)
   env_release(group);
 #endif
 
+  /* Close message queues opened by members of the group */
+
+#ifndef CONFIG_DISABLE_MQUEUE
+  mq_release(group);
+#endif
+
 #ifdef HAVE_GROUP_MEMBERS
   /* Remove the group from the list of groups */
 
@@ -192,15 +217,77 @@ static inline void group_release(FAR struct task_group_s *group)
 
   if (group->tg_members)
     {
-      sched_free(group->tg_members);
+      sched_kfree(group->tg_members);
       group->tg_members = NULL;
     }
 #endif
 
+#if CONFIG_NFILE_STREAMS > 0 && defined(CONFIG_NUTTX_KERNEL) && \
+    defined(CONFIG_MM_KERNEL_HEAP)
+
+  /* In a flat, single-heap build.  The stream list is part of the
+   * group structure.  But in a kernel build with a kernel allocator, it
+   * must be separately de-allocated user the user-space deallocator.
+   */
+
+  sched_ufree(group->tg_streamlist);
+#endif
+
   /* Release the group container itself */
 
-  sched_free(group);
+  sched_kfree(group);
 }
+
+/*****************************************************************************
+ * Name: group_removemember
+ *
+ * Description:
+ *   Remove a member from a group.
+ *
+ * Parameters:
+ *   group - The group from which to remove the member.
+ *   pid - The member to be removed.
+ *
+ * Return Value:
+ *   On success, returns the number of members remaining in the group (>=0).
+ *   Can fail only if the member is not found in the group.  On failure,
+ *   returns -ENOENT
+ *
+ * Assumptions:
+ *   Called during task deletion and also from the reparenting logic, both
+ *   in a safe context.  No special precautions are required here.
+ *
+ *****************************************************************************/
+
+#ifdef HAVE_GROUP_MEMBERS
+static inline void group_removemember(FAR struct task_group_s *group, pid_t pid)
+{
+  irqstate_t flags;
+  int i;
+
+  DEBUGASSERT(group);
+
+  /* Find the member in the array of members and remove it */
+
+  for (i = 0; i < group->tg_nmembers; i++)
+    {
+      /* Does this member have the matching pid */
+
+      if (group->tg_members[i] == pid)
+       {
+          /* Remove the member from the array of members.  This must be an
+           * atomic operation because the member array may be accessed from
+           * interrupt handlers (read-only).
+           */
+
+          flags = irqsave();
+          group->tg_members[i] = group->tg_members[group->tg_nmembers - 1];
+          group->tg_nmembers--;
+          irqrestore(flags);
+        }
+    }
+}
+#endif /* HAVE_GROUP_MEMBERS */
 
 /*****************************************************************************
  * Public Functions
@@ -228,27 +315,30 @@ static inline void group_release(FAR struct task_group_s *group)
  *****************************************************************************/
 
 #ifdef HAVE_GROUP_MEMBERS
-void group_leave(FAR _TCB *tcb)
+void group_leave(FAR struct tcb_s *tcb)
 {
   FAR struct task_group_s *group;
 
   DEBUGASSERT(tcb);
 
-  /* Make sure that we have a group */
+  /* Make sure that we have a group. */
 
   group = tcb->group;
   if (group)
     {
-      /* Remove the member from group */
+      /* Remove the member from group.  This function may be called
+       * during certain error handling before the PID has been
+       * added to the group.  In this case tcb->pid will be uninitialized
+       * group_removemember() will fail.
+       */
 
-      int ret = group_removemember(group, tcb->pid);
-      DEBUGASSERT(ret >= 0);
+      group_removemember(group, tcb->pid);
 
-      /* Is the group now empty? */
+      /* Have all of the members left the group? */
 
-      if (ret == 0)
+      if (group->tg_nmembers == 0)
         {
-          /* Release all of the resource held by the task group */
+          /* Yes.. Release all of the resource held by the task group */
 
           group_release(group);
         }
@@ -263,7 +353,7 @@ void group_leave(FAR _TCB *tcb)
 
 #else /* HAVE_GROUP_MEMBERS */
 
-void group_leave(FAR _TCB *tcb)
+void group_leave(FAR struct tcb_s *tcb)
 {
   FAR struct task_group_s *group;
 
@@ -301,66 +391,4 @@ void group_leave(FAR _TCB *tcb)
 }
 
 #endif /* HAVE_GROUP_MEMBERS */
-
-/*****************************************************************************
- * Name: group_removemember
- *
- * Description:
- *   Remove a member from a group.
- *
- * Parameters:
- *   group - The group from which to remove the member.
- *   pid - The member to be removed.
- *
- * Return Value:
- *   On success, returns the number of members remaining in the group (>=0).
- *   Can fail only if the member is not found in the group.  On failure,
- *   returns -ENOENT
- *
- * Assumptions:
- *   Called during task deletion and also from the reparenting logic, both
- *   in a safe context.  No special precautions are required here.
- *
- *****************************************************************************/
-
-#ifdef HAVE_GROUP_MEMBERS
-int group_removemember(FAR struct task_group_s *group, pid_t pid)
-{
-  int i;
-
-  DEBUGASSERT(group);
-
-  /* Find the member in the array of members and remove it */
-
-  for (i = 0; i < group->tg_nmembers; i++)
-    {
-      /* Does this member have the matching pid */
-
-      if (group->tg_members[i] == pid)
-       {
-          /* Yes.. break out of the loop.  We don't do the actual
-           * removal here, instead we re-test i and do the adjustments
-           * outside of the loop.  We do this because we want the
-           * DEBUGASSERT to work properly.
-           */
-
-          break;
-       }
-    }
-
-  /* Now, test if we found the task in the array of members. */
-
-  if (i < group->tg_nmembers)
-    {
-      /* Remove the member from the array of members */
-
-      group->tg_members[i] = group->tg_members[group->tg_nmembers - 1];
-      group->tg_nmembers--;
-      return group->tg_nmembers;
-    }
-
-  return -ENOENT;
-}
-#endif /* HAVE_GROUP_MEMBERS */
-
 #endif /* HAVE_TASK_GROUP */

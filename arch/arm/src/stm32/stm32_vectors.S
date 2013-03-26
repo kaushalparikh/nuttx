@@ -40,7 +40,6 @@
 
 #include <nuttx/config.h>
 
-
 #include <arch/irq.h>
 
 #include "chip.h"
@@ -150,6 +149,8 @@ stm32_vectors:
 #  include "chip/chip/stm32f10xxx_vectors.h"
 #elif defined(CONFIG_STM32_STM32F20XX)
 #  include "chip/chip/stm32f20xxx_vectors.h"
+#elif defined(CONFIG_STM32_STM32F30XX)
+#  include "chip/chip/stm32f30xxx_vectors.h"
 #elif defined(CONFIG_STM32_STM32F40XX)
 #  include "chip/chip/stm32f40xxx_vectors.h"
 #else
@@ -186,6 +187,8 @@ handlers:
 #  include "chip/chip/stm32f10xxx_vectors.h"
 #elif defined(CONFIG_STM32_STM32F20XX)
 #  include "chip/chip/stm32f20xxx_vectors.h"
+#elif defined(CONFIG_STM32_STM32F30XX)
+#  include "chip/chip/stm32f30xxx_vectors.h"
 #elif defined(CONFIG_STM32_STM32F40XX)
 #  include "chip/chip/stm32f40xxx_vectors.h"
 #else
@@ -423,14 +426,14 @@ g_intstackbase:
  * and is of size CONFIG_IDLETHREAD_STACKSIZE.  The IDLE thread is the thread that
  * the system boots on and, eventually, becomes the idle, do nothing task that runs
  * only when there is nothing else to run.  The heap continues from there until the
- * end of memory.  See g_heapbase below.
+ * end of memory.  See g_idle_topstack below.
  */
 
-	.globl	g_heapbase
-	.type	g_heapbase, object
-g_heapbase:
+	.globl	g_idle_topstack
+	.type	g_idle_topstack, object
+g_idle_topstack:
 	.long	_ebss+CONFIG_IDLETHREAD_STACKSIZE
-	.size	g_heapbase, .-g_heapbase
+	.size	g_idle_topstack, .-g_idle_topstack
 
 	.end
 

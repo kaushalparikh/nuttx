@@ -42,6 +42,7 @@
 #include <stdbool.h>
 #include <wdog.h>
 #include <queue.h>
+
 #include <nuttx/arch.h>
 
 #include "wd_internal.h"

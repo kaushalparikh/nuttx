@@ -77,7 +77,7 @@
 
 int unsetenv(FAR const char *name)
 {
-  FAR _TCB *rtcb = (FAR _TCB*)g_readytorun.head;
+  FAR struct tcb_s *rtcb = (FAR struct tcb_s*)g_readytorun.head;
   FAR struct task_group_s *group = rtcb->group;
   FAR char *pvar;
   FAR char *newenvp;
@@ -98,7 +98,7 @@ int unsetenv(FAR const char *name)
       /* Reallocate the new environment buffer */
 
       newsize = group->tg_envsize;
-      newenvp = (FAR char *)krealloc(group->tg_envp, newsize);
+      newenvp = (FAR char *)kurealloc(group->tg_envp, newsize);
       if (!newenvp)
         {
           set_errno(ENOMEM);

@@ -2,7 +2,7 @@
  * arch/arm/src/imx/imx_allocateheap.c
  * arch/arm/src/chip/imx_allocateheap.c
  *
- *   Copyright (C) 2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 #include <stdint.h>
 #include <debug.h>
 
-#include <nuttx/mm.h>
+#include <nuttx/kmalloc.h>
 #include <nuttx/arch.h>
 #include <arch/board/board.h>
 
@@ -72,17 +72,22 @@
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by defining CONFIG_HEAP_BASE and
- *   CONFIG_HEAP_SIZE.  If these are not defined, then this function will be
- *   called to dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
  *
  ****************************************************************************/
 
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size)
 {
   up_ledon(LED_HEAPALLOCATE);
-  *heap_start = (FAR void*)g_heapbase;
-  *heap_size  = (IMX_SDRAM_VSECTION + CONFIG_DRAM_SIZE) - g_heapbase;
+  *heap_start = (FAR void*)g_idle_topstack;
+  *heap_size  = (IMX_SDRAM_VSECTION + CONFIG_DRAM_SIZE) - g_idle_topstack;
 }
 
 /****************************************************************************
@@ -105,14 +110,14 @@ void up_addregion(void)
 #  if (CONFIG_DRAM_NUTTXENTRY & 0xffff0000) != CONFIG_DRAM_VSTART
   uint32_t start = CONFIG_DRAM_VSTART + 0x1000;
   uint32_t end   = (CONFIG_DRAM_NUTTXENTRY & 0xffff0000);
-  mm_addregion((FAR void*)start, end - start);
+  kmm_addregion((FAR void*)start, end - start);
 #  endif
 #endif
 
   /* Check for any additional memory regions */
 
 #if defined(CONFIG_HEAP2_BASE) && defined(CONFIG_HEAP2_SIZE)
-  mm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_SIZE);
+  kmm_addregion((FAR void*)CONFIG_HEAP2_BASE, CONFIG_HEAP2_SIZE);
 #endif
 }
 #endif

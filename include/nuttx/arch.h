@@ -57,7 +57,7 @@
  * Public Types
  ****************************************************************************/
 
-typedef CODE void (*sig_deliver_t)(FAR _TCB *tcb);
+typedef CODE void (*sig_deliver_t)(FAR struct tcb_s *tcb);
 
 /****************************************************************************
  * Public Variables
@@ -81,23 +81,37 @@ extern "C"
  * Name: up_initialize
  *
  * Description:
- *   up_initialize will be called once during OS
- *   initialization after the basic OS services have been
- *   initialized.  The architecture specific details of
- *   initializing the OS will be handled here.  Such things as
- *   setting up interrupt service routines, starting the
- *   clock, and registering device drivers are some of the
- *   things that are different for each processor and hardware
- *   platform.
+ *   up_initialize will be called once during OS initialization after the
+ *   basic OS services have been initialized.  The architecture specific
+ *   details of initializing the OS will be handled here.  Such things as
+ *   setting up interrupt service routines, starting the clock, and
+ *   registering device drivers are some of the things that are different
+ *   for each processor and hardware platform.
  *
- *   up_initialize is called after the OS initialized but
- *   before the init process has been started and before the
- *   libraries have been initialized.  OS services and driver
- *   services are available.
+ *   up_initialize is called after the OS initialized but before the initial
+ *   application has been started and before the libraries have been
+ *   initialized. OS services and driver services are available.
  *
  ****************************************************************************/
 
 void up_initialize(void);
+
+/****************************************************************************
+ * Name: board_initialize
+ *
+ * Description:
+ *   If CONFIG_BOARD_INITIALIZE is selected, then an additional
+ *   initialization call will be performed in the boot-up sequence to a
+ *   function called board_initialize().  board_initialize() will be
+ *   called immediately after up_intiialize() is called and just before the
+ *   initial application is started.  This additional initialization phase
+ *   may be used, for example, to initialize board-specific device drivers.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_BOARD_INITIALIZE
+void board_initialize(void);
+#endif
 
 /****************************************************************************
  * Name: up_idle
@@ -129,7 +143,7 @@ void up_idle(void);
  *
  ****************************************************************************/
 
-void up_initial_state(FAR _TCB *tcb);
+void up_initial_state(FAR struct tcb_s *tcb);
 
 /****************************************************************************
  * Name: up_create_stack
@@ -154,7 +168,7 @@ void up_initial_state(FAR _TCB *tcb);
  ****************************************************************************/
 
 #ifndef CONFIG_CUSTOM_STACK
-int up_create_stack(FAR _TCB *tcb, size_t stack_size);
+int up_create_stack(FAR struct tcb_s *tcb, size_t stack_size);
 #endif
 
 /****************************************************************************
@@ -179,7 +193,7 @@ int up_create_stack(FAR _TCB *tcb, size_t stack_size);
  ****************************************************************************/
 
 #ifndef CONFIG_CUSTOM_STACK
-int up_use_stack(FAR _TCB *tcb, FAR void *stack, size_t stack_size);
+int up_use_stack(FAR struct tcb_s *tcb, FAR void *stack, size_t stack_size);
 #endif
 
 /****************************************************************************
@@ -192,7 +206,7 @@ int up_use_stack(FAR _TCB *tcb, FAR void *stack, size_t stack_size);
  ****************************************************************************/
 
 #ifndef CONFIG_CUSTOM_STACK
-void up_release_stack(FAR _TCB *dtcb);
+void up_release_stack(FAR struct tcb_s *dtcb);
 #endif
 
 /****************************************************************************
@@ -215,7 +229,7 @@ void up_release_stack(FAR _TCB *dtcb);
  *
  ****************************************************************************/
 
-void up_unblock_task(FAR _TCB *tcb);
+void up_unblock_task(FAR struct tcb_s *tcb);
 
 /****************************************************************************
  * Name: up_block_task
@@ -241,7 +255,7 @@ void up_unblock_task(FAR _TCB *tcb);
  *
  ****************************************************************************/
 
-void up_block_task(FAR _TCB *tcb, tstate_t task_state);
+void up_block_task(FAR struct tcb_s *tcb, tstate_t task_state);
 
 /****************************************************************************
  * Name: up_release_pending
@@ -286,7 +300,7 @@ void up_release_pending(void);
  *
  ****************************************************************************/
 
-void up_reprioritize_rtr(FAR _TCB *tcb, uint8_t priority);
+void up_reprioritize_rtr(FAR struct tcb_s *tcb, uint8_t priority);
 
 /****************************************************************************
  * Name: _exit
@@ -348,21 +362,67 @@ void up_reprioritize_rtr(FAR _TCB *tcb, uint8_t priority);
  ****************************************************************************/
 
 #ifndef CONFIG_DISABLE_SIGNALS
-void up_schedule_sigaction(FAR _TCB *tcb, sig_deliver_t sigdeliver);
+void up_schedule_sigaction(FAR struct tcb_s *tcb, sig_deliver_t sigdeliver);
+#endif
+
+/****************************************************************************
+ * Name: up_task_start
+ *
+ * Description:
+ *   In this kernel mode build, this function will be called to execute a
+ *   task in user-space.  When the task is first started, a kernel-mode
+ *   stub will first run to perform some housekeeping functions.  This
+ *   kernel-mode stub will then be called transfer control to the user-mode
+ *   task.
+ *
+ *   Normally the a user-mode start-up stub will also execute before the
+ *   task actually starts.  See libc/sched/task_startup.c
+ *
+ * Input Parameters:
+ *   taskentry - The user-space entry point of the task.
+ *   argc - The number of parameters being passed.
+ *   argv - The parameters being passed. These lie in kernel-space memory
+ *     and will have to be reallocated  in user-space memory.
+ *
+ * Returned Value:
+ *   This function should not return.  It should call the user-mode start-up
+ *   stub and that stub should call exit if/when the user task terminates.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_NUTTX_KERNEL
+void up_task_start(main_t taskentry, int argc, FAR char *argv[]) noreturn_function;
 #endif
 
 /****************************************************************************
  * Name: up_allocate_heap
  *
  * Description:
- *   The heap may be statically allocated by defining CONFIG_HEAP_BASE and
- *   CONFIG_HEAP_SIZE.  If these are not defined, then this function will be
- *   called to dynamically set aside the heap region.
+ *   This function will be called to dynamically set aside the heap region.
+ *
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function provides the
+ *   size of the unprotected, user-space heap.
+ *
+ *   If a protected kernel-space heap is provided, the kernel heap must be
+ *   allocated (and protected) by an analogous up_allocate_kheap().
  *
  ****************************************************************************/
 
-#ifndef CONFIG_HEAP_BASE
 void up_allocate_heap(FAR void **heap_start, size_t *heap_size);
+
+/****************************************************************************
+ * Name: up_allocate_kheap
+ *
+ * Description:
+ *   For the kernel build (CONFIG_NUTTX_KERNEL=y) with both kernel- and
+ *   user-space heaps (CONFIG_MM_KERNEL_HEAP=y), this function allocates
+ *   (and protects) the kernel-space heap.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+void up_allocate_kheap(FAR void **heap_start, size_t *heap_size);
 #endif
 
 /****************************************************************************
@@ -542,7 +602,7 @@ int up_addrenv_destroy(task_addrenv_t addrenv);
  ****************************************************************************/
 
 #ifdef CONFIG_ADDRENV
-int up_addrenv_assign(task_addrenv_t addrenv, FAR _TCB *tcb);
+int up_addrenv_assign(task_addrenv_t addrenv, FAR struct tcb_s *tcb);
 #endif
 
 /****************************************************************************
@@ -564,7 +624,7 @@ int up_addrenv_assign(task_addrenv_t addrenv, FAR _TCB *tcb);
  ****************************************************************************/
 
 #ifdef CONFIG_ADDRENV
-int up_addrenv_share(FAR const _TCB *ptcb, FAR _TCB *ctcb);
+int up_addrenv_share(FAR const struct tcb_s *ptcb, FAR struct tcb_s *ctcb);
 #endif
 
 /****************************************************************************
@@ -586,7 +646,7 @@ int up_addrenv_share(FAR const _TCB *ptcb, FAR _TCB *ctcb);
  ****************************************************************************/
 
 #ifdef CONFIG_ADDRENV
-int up_addrenv_release(FAR _TCB *tcb);
+int up_addrenv_release(FAR struct tcb_s *tcb);
 #endif
 
 /****************************************************************************

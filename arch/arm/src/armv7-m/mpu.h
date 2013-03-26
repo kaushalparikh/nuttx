@@ -66,7 +66,7 @@
 /* MPU Type Register Bit Definitions */
 
 #define MPU_TYPE_SEPARATE       (1 << 0) /* Bit 0: 0:unified or 1:separate memory maps */
-#define MPU_TYPE_DREGION_SHIFT  (8)      /* Bits 8-15: Number MPU data regsion */
+#define MPU_TYPE_DREGION_SHIFT  (8)      /* Bits 8-15: Number MPU data regions */
 #define MPU_TYPE_DREGION_MASK   (0xff << MPU_TYPE_DREGION_SHIFT)
 #define MPU_TYPE_IREGION_SHIFT  (16)     /* Bits 16-23: Number MPU instruction regions */
 #define MPU_TYPE_IREGION_MASK   (0xff << MPU_TYPE_IREGION_SHIFT)
@@ -104,11 +104,11 @@
 #  define MPU_RASR_SRD_5        (0x20 << MPU_RASR_SRD_SHIFT)
 #  define MPU_RASR_SRD_6        (0x40 << MPU_RASR_SRD_SHIFT)
 #  define MPU_RASR_SRD_7        (0x80 << MPU_RASR_SRD_SHIFT)
-#define MPU_RASR_ATTR_SHIFT     (21)      /* Bits 19-21: TEX Address Permisson */
-#define MPU_RASR_ATTR__MASK     (7 << MPU_RASR_ATTR_SHIFT)
-#define MPU_RASR_S              (1 << 18) /* Bit 18: Shareable */
-#define MPU_RASR_C              (1 << 17) /* Bit 17: Cacheable */
 #define MPU_RASR_B              (1 << 16) /* Bit 16: Bufferable */
+#define MPU_RASR_C              (1 << 17) /* Bit 17: Cacheable */
+#define MPU_RASR_S              (1 << 18) /* Bit 18: Shareable */
+#define MPU_RASR_ATTR_SHIFT     (19)      /* Bits 19-21: TEX Address Permisson */
+#define MPU_RASR_ATTR_MASK      (7 << MPU_RASR_ATTR_SHIFT)
 #define MPU_RASR_AP_SHIFT       (24)      /* Bits 24-26: Access permission */
 #define MPU_RASR_AP_MASK        (7 << MPU_RASR_AP_SHIFT)
 #  define MPU_RASR_AP_NONO      (0 << MPU_RASR_AP_SHIFT) /* P:None U:None */
@@ -127,7 +127,8 @@
 #undef EXTERN
 #if defined(__cplusplus)
 #define EXTERN extern "C"
-extern "C" {
+extern "C"
+{
 #else
 #define EXTERN extern
 #endif
@@ -140,10 +141,10 @@ extern "C" {
  *
  ****************************************************************************/
 
-EXTERN unsigned int mpu_allocregion(void);
+unsigned int mpu_allocregion(void);
 
 /****************************************************************************
- * Name: mpu_log2regionsize
+ * Name: mpu_log2regionceil
  *
  * Description:
  *   Determine the smallest value of l2size (log base 2 size) such that the
@@ -153,7 +154,20 @@ EXTERN unsigned int mpu_allocregion(void);
  *
  ****************************************************************************/
 
-EXTERN uint8_t mpu_log2regionsize(size_t size);
+uint8_t mpu_log2regionceil(size_t size);
+
+/****************************************************************************
+ * Name: mpu_log2regionfloor
+ *
+ * Description:
+ *   Determine the largest value of l2size (log base 2 size) such that the
+ *   following is true:
+ *
+ *   size >= (1 << l2size)
+ *
+ ****************************************************************************/
+
+uint8_t mpu_log2regionfloor(size_t size);
 
 /****************************************************************************
  * Name: mpu_subregion
@@ -165,11 +179,11 @@ EXTERN uint8_t mpu_log2regionsize(size_t size);
  *
  * Assumption:
  *   l2size has the same properties as the return value from
- *   mpu_log2regionsize()
+ *   mpu_log2regionceil()
  *
  ****************************************************************************/
 
-EXTERN uint32_t mpu_subregion(size_t size, uint8_t l2size);
+uint32_t mpu_subregion(size_t size, uint8_t l2size);
 
 /************************************************************************************
  * Inline Functions
@@ -249,7 +263,7 @@ static inline void mpu_userflash(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -287,7 +301,7 @@ static inline void mpu_privflash(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -325,7 +339,7 @@ static inline void mpu_userintsram(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -364,7 +378,7 @@ static inline void mpu_privintsram(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -403,7 +417,7 @@ static inline void mpu_userextsram(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -443,7 +457,7 @@ static inline void mpu_privextsram(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */
@@ -483,7 +497,7 @@ static inline void mpu_peripheral(uintptr_t base, size_t size)
 
   /* Select the region size and the sub-region map */
 
-  l2size     = mpu_log2regionsize(size);
+  l2size     = mpu_log2regionceil(size);
   subregions = mpu_subregion(size, l2size);
 
   /* The configure the region */

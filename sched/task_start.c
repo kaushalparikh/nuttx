@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/task_start.c
  *
- *   Copyright (C) 2007-2010 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2010, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,10 +43,13 @@
 #include <sched.h>
 #include <debug.h>
 
+#include <nuttx/arch.h>
+#include <nuttx/sched.h>
+
 #include "os_internal.h"
 
 /****************************************************************************
- * Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
 
 /****************************************************************************
@@ -91,8 +94,11 @@
 
 void task_start(void)
 {
-  FAR _TCB *tcb = (FAR _TCB*)g_readytorun.head;
+  FAR struct task_tcb_s *tcb = (FAR struct task_tcb_s*)g_readytorun.head;
+  int exitcode;
   int argc;
+
+  DEBUGASSERT((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD);
 
   /* Execute the start hook if one has been registered */
 
@@ -115,9 +121,24 @@ void task_start(void)
         }
     }
 
-  /* Call the 'main' entry point passing argc and argv.  If/when
-   * the task returns.
+  /* Call the 'main' entry point passing argc and argv.  In the kernel build
+   * this has to be handled differently if we are starting a user-space task;
+   * we have to switch to user-mode before calling the task.
    */
 
-  exit(tcb->entry.main(argc, tcb->argv));
+#ifdef CONFIG_NUTTX_KERNEL
+  if ((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL)
+    {
+      up_task_start(tcb->cmn.entry.main, argc, tcb->argv);
+      exitcode = EXIT_FAILURE; /* Should not get here */
+    }
+  else
+#endif
+    {
+      exitcode = tcb->cmn.entry.main(argc, tcb->argv);
+    }
+
+  /* Call exit() if/when the task returns */
+
+  exit(exitcode);
 }

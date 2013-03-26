@@ -63,7 +63,7 @@
  ****************************************************************************/
 
 #if CONFIG_NFILE_DESCRIPTORS > 0
-static inline int fs_checkfd(FAR _TCB *tcb, int fd, int oflags)
+static inline int fs_checkfd(FAR struct tcb_s *tcb, int fd, int oflags)
 {
   FAR struct filelist *flist;
   FAR struct inode    *inode;
@@ -119,7 +119,7 @@ static inline int fs_checkfd(FAR _TCB *tcb, int fd, int oflags)
  *
  ****************************************************************************/
 
-FAR struct file_struct *fs_fdopen(int fd, int oflags, FAR _TCB *tcb)
+FAR struct file_struct *fs_fdopen(int fd, int oflags, FAR struct tcb_s *tcb)
 {
   FAR struct streamlist *slist;
   FAR FILE              *stream;
@@ -144,6 +144,7 @@ FAR struct file_struct *fs_fdopen(int fd, int oflags, FAR _TCB *tcb)
     {
       tcb = sched_self();
     }
+
   DEBUGASSERT(tcb && tcb->group);
 
   /* Verify that this is a valid file/socket descriptor and that the
@@ -192,7 +193,11 @@ FAR struct file_struct *fs_fdopen(int fd, int oflags, FAR _TCB *tcb)
 
   /* Get the stream list from the TCB */
 
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+  slist = tcb->group->tg_streamlist;
+#else
   slist = &tcb->group->tg_streamlist;
+#endif
 
   /* Find an unallocated FILE structure in the stream list */
 
@@ -222,7 +227,7 @@ FAR struct file_struct *fs_fdopen(int fd, int oflags, FAR _TCB *tcb)
 
           /* Allocate the IO buffer */
 
-          stream->fs_bufstart = kmalloc(CONFIG_STDIO_BUFFER_SIZE);
+          stream->fs_bufstart = kumalloc(CONFIG_STDIO_BUFFER_SIZE);
           if (!stream->fs_bufstart)
             {
               err = ENOMEM;

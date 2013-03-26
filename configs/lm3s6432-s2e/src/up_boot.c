@@ -47,14 +47,14 @@
 #include "up_arch.h"
 #include "chip.h"
 #include "up_internal.h"
-#include "lm3s_internal.h"
+#include "lm_gpio.h"
 #include "lm3s6432s2e_internal.h"
 
 /************************************************************************************
  * Definitions
  ************************************************************************************/
 
-#if defined(CONFIG_LM3S_UART1) && !defined(CONFIG_SSI0_DISABLE)
+#if defined(CONFIG_LM_UART1) && !defined(CONFIG_SSI0_DISABLE)
 #  error Only one of UART1 and SSI0 can be enabled on this board.
 #endif
 
@@ -67,24 +67,25 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lm3s_boardinitialize
+ * Name: lm_boardinitialize
  *
  * Description:
- *   All LM3S architectures must provide the following entry point.  This entry point
- *   is called early in the intitialization -- after all memory has been configured
- *   and mapped but before any devices have been initialized.
+ *   All Stellaris architectures must provide the following entry point.  This entry
+ *   point is called early in the intitialization -- after all memory has been
+ *   configured and mapped but before any devices have been initialized.
+ *
  ************************************************************************************/
 
-void lm3s_boardinitialize(void)
+void lm_boardinitialize(void)
 {
   /* Configure SPI chip selects if 1) SSI is not disabled, and 2) the weak function
-   * lm3s_ssiinitialize() has been brought into the link.
+   * lm_ssiinitialize() has been brought into the link.
    */
 
 #if !defined(CONFIG_SSI0_DISABLE)
-  if (lm3s_ssiinitialize)
+  if (lm_ssiinitialize)
     {
-      lm3s_ssiinitialize();
+      lm_ssiinitialize();
     }
 #endif
 
@@ -96,8 +97,8 @@ void lm3s_boardinitialize(void)
 
   /* Configure serial transciever */
   
-  lm3s_configgpio(XCVR_INV_GPIO);
-  lm3s_configgpio(XCVR_ENA_GPIO);
-  lm3s_configgpio(XCVR_ON_GPIO);
-  lm3s_configgpio(XCVR_OFF_GPIO);
+  lm_configgpio(XCVR_INV_GPIO);
+  lm_configgpio(XCVR_ENA_GPIO);
+  lm_configgpio(XCVR_ON_GPIO);
+  lm_configgpio(XCVR_OFF_GPIO);
 }

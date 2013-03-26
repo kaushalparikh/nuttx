@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/sig_action.c
  *
- *   Copyright (C) 2007-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,8 +43,10 @@
 #include <signal.h>
 #include <queue.h>
 #include <sched.h>
+#include <errno.h>
 
 #include "os_internal.h"
+#include "group_internal.h"
 #include "sig_internal.h"
 
 /****************************************************************************
@@ -156,10 +158,11 @@ static FAR sigactq_t *sig_allocateaction(void)
  * Assumptions:
  *
  * POSIX Compatibility:
- * - Special values of sa_handler in the struct sigaction
- *   act input not handled (SIG_DFL, SIG_IGN).
- * - All sa_flags in struct sigaction of act input are
- *   ignored (all treated like SA_SIGINFO).
+ * - There are no default actions so the special value SIG_DFL is treated
+ *   like SIG_IGN.
+ * - All sa_flags in struct sigaction of act input are ignored (all
+ *   treated like SA_SIGINFO). The one exception is if CONFIG_SCHED_CHILDSTATUS
+ *   is defined; then SA_NOCLDWAIT is supported but only for SIGCHLD
  *
  ****************************************************************************/
 
@@ -167,93 +170,138 @@ int sigaction(int signo, FAR const struct sigaction *act, FAR struct sigaction *
 {
   FAR _TCB      *rtcb = (FAR _TCB*)g_readytorun.head;
   FAR sigactq_t *sigact;
-  int            ret = ERROR;  /* Assume failure */
 
   /* Since sigactions can only be installed from the running thread of
    * execution, no special precautions should be necessary.
    */
 
-  /* Verify the signal */
+  /* Verify the signal number */
 
-  if (GOOD_SIGNO(signo))
+  if (!GOOD_SIGNO(signo))
     {
-      ret = OK;  /* Assume success */
+      set_errno(EINVAL);
+      return ERROR;
+    }
 
-      /* Find the signal in the sigactionq */
+  /* Find the signal in the sigactionq */
 
-      sigact = sig_findaction(rtcb, signo);
+  sigact = sig_findaction(rtcb, signo);
 
-      /* Return the old sigaction value if so requested */
+  /* Return the old sigaction value if so requested */
 
-      if (oact)
+  if (oact)
+    {
+      if (sigact)
         {
-          if (sigact)
-            {
-              COPY_SIGACTION(oact, &sigact->act);
-            }
-          else
-            {
-              /* There isn't an old value */
-
-              oact->sa_u._sa_handler = NULL;
-              oact->sa_mask = NULL_SIGNAL_SET;
-              oact->sa_flags = 0;
-            }
+          COPY_SIGACTION(oact, &sigact->act);
         }
+      else
+        {
+          /* There isn't an old value */
 
-      /* If no sigaction was found, but one is needed, then
-       * allocate one.
+          oact->sa_u._sa_handler = NULL;
+          oact->sa_mask = NULL_SIGNAL_SET;
+          oact->sa_flags = 0;
+        }
+    }
+
+  /* If the argument act is a null pointer, signal handling is unchanged;
+   * thus, the call can be used to enquire about the current handling of
+   * a given signal. 
+   */
+
+  if (!act)
+    {
+      return OK;
+    }
+
+#if defined(CONFIG_SCHED_HAVE_PARENT) && defined(CONFIG_SCHED_CHILD_STATUS)
+
+  /* Handle a special case.  Retention of child status can be suppressed
+   * if signo == SIGCHLD and sa_flags == SA_NOCLDWAIT.
+   *
+   * POSIX.1 leaves it unspecified whether a SIGCHLD signal is generated
+   * when a child process terminates.  In NuttX, a SIGCHLD signal is
+   * generated in this case; but in some other implementations, it may not
+   * be.
+   */
+
+  if (signo == SIGCHLD && (act->sa_flags & SA_NOCLDWAIT) != 0)
+    {
+      irqstate_t flags;
+
+      /* We do require a critical section to muck with the TCB values that
+       * can be modified by the child thread.
        */
 
-      if (!sigact && act && act->sa_u._sa_handler)
+      flags = irqsave();
+
+      /* Mark that status should be not be retained */
+
+      rtcb->group->tg_flags |= GROUP_FLAG_NOCLDWAIT;
+
+      /* Free all pending exit status */
+
+      group_removechildren(rtcb->group);
+      irqrestore(flags);
+    }
+#endif
+
+  /* Handle the case where no sigaction is supplied (SIG_IGN) */
+
+  if (act->sa_u._sa_handler == SIG_IGN)
+    {
+      /* Do we still have a sigaction container from the previous setting? */
+
+      if (sigact)
         {
+          /* Yes.. Remove it from sigactionq */
+
+          sq_rem((FAR sq_entry_t*)sigact, &rtcb->sigactionq);
+
+          /* And deallocate it */
+
+          sig_releaseaction(sigact);
+        }
+    }
+
+  /* A sigaction has been supplied */
+
+  else
+    {
+      /* Do we still have a sigaction container from the previous setting?
+       * If so, then re-use for the new signal action.
+       */
+
+      if (!sigact)
+        {
+          /* No.. Then we need to allocate one for the new action. */
+
           sigact = sig_allocateaction();
 
           /* An error has occurred if we could not allocate the sigaction */
 
           if (!sigact)
-            {
-              ret = ERROR;
-            }
-          else
-            {
-              /* Put the signal number in the queue entry */
+           {
+              set_errno(ENOMEM);
+              return ERROR;
+           }
 
-              sigact->signo = (uint8_t)signo;
+          /* Put the signal number in the queue entry */
 
-              /* Add the new sigaction to sigactionq */
+          sigact->signo = (uint8_t)signo;
 
-              sq_addlast((FAR sq_entry_t*)sigact, &rtcb->sigactionq);
-            }
+          /* Add the new sigaction to sigactionq */
+
+          sq_addlast((FAR sq_entry_t*)sigact, &rtcb->sigactionq);
         }
 
-      /* Set the new sigaction if so requested */
+      /* Set the new sigaction */
 
-      if ((sigact) && (act))
-        {
-          /* Check if it is a request to install a new handler */
-
-          if (act->sa_u._sa_handler)
-            {
-              COPY_SIGACTION(&sigact->act, act);
-            }
-
-          /* No.. It is a request to remove the old handler */
-
-          else
-            {
-              /* Remove the old sigaction from sigactionq */
-
-              sq_rem((FAR sq_entry_t*)sigact, &rtcb->sigactionq);
-
-              /* And deallocate it */
-
-              sig_releaseaction(sigact);
-            }
-        }
+      COPY_SIGACTION(&sigact->act, act);
     }
 
-  return ret;
+  return OK;
 }
 
 /****************************************************************************

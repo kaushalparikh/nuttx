@@ -439,12 +439,12 @@ LEDs
      that interrupt).  So a brighter LED1 means that the processor is spending
      less time sleeping.
 
-  When my STM32 sits IDLE -- doing absolutely nothing but processing timer interrupts --
+  When my LPC1766 sits IDLE -- doing absolutely nothing but processing timer interrupts --
   I see the following:
   
   1. LED1 glows dimly due to the timer interrupts.
   2. But LED2 is even more dim!  The LED ON time excludes the time processing the
-     interrupt that re-awakens the processing.  So this tells me that the STM32 is
+     interrupt that re-awakens the processing.  So this tells me that the LPC1766 is
      spending more time processing timer interrupts than doing any other kind of
      processing.  That, of course, makes sense if the system is truly idle and only
      processing timer interrupts.
@@ -899,7 +899,25 @@ Where <subdir> is one of the following:
     This configuration directory, performs a simple test of the USB host
     HID keyboard class driver using the test logic in apps/examples/hidkbd.
 
-  nettest:
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default platform/toolchain: This is how the build is configured by
+       be default.  These options can easily be re-confured, however.
+
+       CONFIG_HOST_WINDOWS=y                   : Windows
+       CONFIG_WINDOWS_CYGWIN=y                 : Cygwin environment on Windows
+       CONFIG_ARMV7M_TOOLCHAIN_CODESOURCERYW=y : CodeSourcery under Windows
+
+   nettest:
     This configuration directory may be used to enable networking using the
     LPC17xx's Ethernet controller. It uses apps/examples/nettest to excercise the
     TCP/IP network.
@@ -917,44 +935,37 @@ Where <subdir> is one of the following:
 
     Configuration Notes:
 
-    1. Uses the buildroot toolchaing (CONFIG_LPC17_BUILDROOT=y).  But that is
-       easily reconfigured (see above)
-    2. Support for FAT long file names is built-in but can easily be
-       removed if you are concerned about Microsoft patent issues (see the
-       section "FAT Long File Names" in the top-level COPYING file).
-       
-        CONFIG_FS_FAT=y
-        CONFIG_FAT_LCNAMES=y <-- Long file name support
-        CONFIG_FAT_LFN=y
-        CONFIG_FAT_MAXFNAME=32
-        CONFIG_FS_NXFFS=n
-        CONFIG_FS_ROMFS=n
-
-    3. Includes logic to support a button test (apps/examples/buttons).  To
-       enable the button test, make the following changes in the .config
-       after configuring:
-
-       -CONFIG_ARCH_BUTTONS=n
-       +CONFIG_ARCH_BUTTONS=y
-
-       -CONFIG_GPIO_IRQ=n
-       -CONFIG_ARCH_IRQBUTTONS=n
-       +CONFIG_GPIO_IRQ=y
-       +CONFIG_ARCH_IRQBUTTONS=y
-
-    4. This example supports the CAN loopback test (apps/examples/can) but this
-       must be manually enabled by selecting:
-
-       CONFIG_CAN=y             : Enable the generic CAN infrastructure
-       CONFIG_LPC17_CAN1=y      : Enable CAN1
-       CONFIG_CAN_LOOPBACK=y    : Enable CAN loopback mode
-
-       See also apps/examples/README.txt
+    NOTES:
  
-       Special CAN-only debug options:
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
 
-       CONFIG_DEBUG_CAN
-       CONFIG_CAN_REGDEBUG
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Uses the older, OABI, buildroot toolchain.  But that is easily
+       reconfigured:
+
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot toolchain
+       CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : Older, OABI toolchain
+
+    3. This configuration supports a network.  You may have to change
+       these settings for your network:
+
+       CONFIG_NSH_IPADDR=0x0a000002        : IP address: 10.0.0.2
+       CONFIG_NSH_DRIPADDR=0x0a000001      : Gateway:    10.0.0.1
+       CONFIG_NSH_NETMASK=0xffffff00       : Netmask:    255.255.255.0
+
+    4. This configuration supports the SPI-based MMC/SD card slot.
+       FAT file system support for FAT long file names is built-in but
+       can easily be removed if you are concerned about Microsoft patent
+       issues (see the section "FAT Long File Names" in the top-level
+       COPYING file).
+
+       CONFIG_FAT_LFN=y                    : Enables long file name support
 
   nx:
     An example using the NuttX graphics system (NX).  This example uses

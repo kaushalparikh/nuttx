@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/task_setup.c
  *
- *   Copyright (C) 2007-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,7 @@
 #include <nuttx/arch.h>
 
 #include "os_internal.h"
+#include "group_internal.h"
 
 /****************************************************************************
  * Definitions
@@ -147,6 +148,109 @@ static int task_assignpid(FAR _TCB *tcb)
 }
 
 /****************************************************************************
+ * Name: task_saveparent
+ *
+ * Description:
+ *   Save the task ID of the parent task in the child task's TCB and allocate
+ *   a child status structure to catch the child task's exit status.
+ *
+ * Parameters:
+ *   tcb   - The TCB of the new, child task.
+ *   ttype - Type of the new thread: task, pthread, or kernel thread
+ *
+ * Returned Value:
+ *   None
+ *
+ * Assumptions:
+ *   The parent of the new task is the task at the head of the ready-to-run
+ *   list.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_SCHED_HAVE_PARENT
+static inline void task_saveparent(FAR _TCB *tcb, uint8_t ttype)
+{
+  FAR _TCB *rtcb = (FAR _TCB*)g_readytorun.head;
+
+#if defined(HAVE_GROUP_MEMBERS) || defined(CONFIG_SCHED_CHILD_STATUS)
+  DEBUGASSERT(tcb && tcb->group && rtcb->group);
+#else
+#endif
+
+#ifdef HAVE_GROUP_MEMBERS
+  /* Save the ID of the parent tasks' task group in the child's task group.
+   * Do nothing for pthreads.  The parent and the child are both members of
+   * the same task group.
+   */
+
+  if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_PTHREAD)
+    {
+      /* This is a new task in a new task group, we have to copy the ID from
+       * the parent's task group structure to child's task group.
+       */
+ 
+      tcb->group->tg_pgid = rtcb->group->tg_gid;
+    }
+
+#else
+  DEBUGASSERT(tcb);
+
+  /* Save the parent task's ID in the child task's TCB.  I am not sure if
+   * this makes sense for the case of pthreads or not, but I don't think it
+   * is harmful in any event.
+   */
+
+  tcb->ppid = rtcb->pid;
+#endif
+
+#ifdef CONFIG_SCHED_CHILD_STATUS
+  /* Tasks can also suppress retention of their child status by applying
+   * the SA_NOCLDWAIT flag with sigaction().
+   */
+
+  if ((rtcb->group->tg_flags && GROUP_FLAG_NOCLDWAIT) == 0)
+    {
+      FAR struct child_status_s *child;
+
+      /* Make sure that there is not already a structure for this PID in the
+       * parent TCB.  There should not be.
+       */
+
+      child = group_findchild(rtcb->group, tcb->pid);
+      DEBUGASSERT(!child);
+      if (!child)
+        {
+          /* Allocate a new status structure  */
+
+          child = group_allocchild();
+        }
+
+      /* Did we successfully find/allocate the child status structure? */
+
+      DEBUGASSERT(child);
+      if (child)
+        {
+          /* Yes.. Initialize the structure */
+
+          child->ch_flags  = ttype;
+          child->ch_pid    = tcb->pid;
+          child->ch_status = 0;
+
+          /* Add the entry into the TCB list of children */
+
+          group_addchild(rtcb->group, child);
+        }
+    }
+#else
+  DEBUGASSERT(rtcb->nchildren < UINT16_MAX);
+  rtcb->nchildren++;
+#endif
+}
+#else
+#  define task_saveparent(tcb,ttype)
+#endif
+
+/****************************************************************************
  * Name: task_dupdspace
  *
  * Description:
@@ -161,6 +265,8 @@ static int task_assignpid(FAR _TCB *tcb)
  *   None
  *
  * Assumptions:
+ *   The parent of the new task is the task at the head of the ready-to-run
+ *   list.
  *
  ****************************************************************************/
 
@@ -202,7 +308,7 @@ static inline void task_dupdspace(FAR _TCB *tcb)
  *   priority   - Priority of the new task
  *   entry      - Entry point of a new task
  *   main       - Application start point of the new task
- *   type       - Type of the new thread: task, pthread, or kernel thread
+ *   ttype      - Type of the new thread: task, pthread, or kernel thread
  *
  * Return Value:
  *   OK on success; ERROR on failure.
@@ -212,7 +318,8 @@ static inline void task_dupdspace(FAR _TCB *tcb)
  *
  ****************************************************************************/
 
-int task_schedsetup(FAR _TCB *tcb, int priority, start_t start, main_t main)
+int task_schedsetup(FAR _TCB *tcb, int priority, start_t start, main_t main,
+                    uint8_t ttype)
 {
   int ret;
 
@@ -231,8 +338,22 @@ int task_schedsetup(FAR _TCB *tcb, int priority, start_t start, main_t main)
       tcb->start          = start;
       tcb->entry.main     = main;
 
-      /* exec() and pthread_create() inherit the signal mask of the
-       * parent thread.  I suppose that task_create() should as well.
+      /* Save the thrad type.  This setting will be needed in
+       * up_initial_state() is called.
+       */
+
+      ttype              &= TCB_FLAG_TTYPE_MASK;
+      tcb->flags         &= ~TCB_FLAG_TTYPE_MASK;
+      tcb->flags         |= ttype;
+
+      /* Save the task ID of the parent task in the TCB and allocate
+       * a child status structure.
+       */
+
+      task_saveparent(tcb, ttype);
+
+      /* exec(), pthread_create(), task_create(), and vfork() all
+       * inherit the signal mask of the parent thread.
        */
 
 #ifndef CONFIG_DISABLE_SIGNALS
@@ -243,7 +364,7 @@ int task_schedsetup(FAR _TCB *tcb, int priority, start_t start, main_t main)
        * until it is activated.
        */
 
-      tcb->task_state   = TSTATE_TASK_INVALID;
+      tcb->task_state = TSTATE_TASK_INVALID;
 
       /* Clone the parent tasks D-Space (if it was running PIC).  This
        * must be done before calling up_initial_state() so that the

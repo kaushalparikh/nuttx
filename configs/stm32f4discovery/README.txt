@@ -20,7 +20,7 @@ Contents
   - FPU
   - FSMC SRAM
   - SSD1289
-  - UG-2864AMBAG01
+  - UG-2864AMBAG01 / UG-2964SWEG01
   - STM32F4Discovery-specific Configuration Options
   - Configurations
 
@@ -269,7 +269,7 @@ LEDs
 ====
 
 The STM32F4Discovery board has four LEDs; green, organge, red and blue on the
-board.. These LEDs are not used by the board port unless CONFIG_ARCH_LEDS is
+board. These LEDs are not used by the board port unless CONFIG_ARCH_LEDS is
 defined.  In that case, the usage by the board port is defined in
 include/board.h and src/up_leds.c. The LEDs are used to encode OS-related
 events as follows:
@@ -696,10 +696,10 @@ The following summarize the bit banging oprations:
     WriteData(data);
   }
 
-UG-2864AMBAG01
-==============
+UG-2864AMBAG01 / UG-2964SWEG01
+==============================
 
-I purchased an OLED display on eBay.  The OLDE is 128x64 monochrome and
+I purchased an OLED display on eBay.  The OLED is 128x64 monochrome and
 is based on an UG-2864AMBAG01 OLED controller.  The OLED can run in either
 parallel or SPI mode.  I am using SPI mode.  In SPI mode, the OLED is
 write only so the driver keeps a 128*64/8 = 1KB framebuffer to remember
@@ -711,7 +711,7 @@ pinout for the UG-2864AMBAG01 is specific to the theO.net display board
 that I am using:
 
   --------------------------+----------------------------------------------
-  Connector CON10 J1:      | STM32F4Discovery
+  Connector CON10 J1:       | STM32F4Discovery
   --------------+-----------+----------------------------------------------
   CON10 J1:     | CON20 J2: | P1/P2:
   --------------+-----------+----------------------------------------------
@@ -728,6 +728,10 @@ that I am using:
   --------------+-----------+----------------------------------------------
   (1) Required because of on-board MEMS
   -------------------------------------------------------------------------
+
+Darcy Gong recently added support for the UG-2964SWEG01 OLED which is also
+an option with this configuratin.  I have little technical information about
+the UG-2964SWEG01 interface (see configs/stm32f4discovery/src/up_ug2864sweg01.c).
 
 STM32F4Discovery-specific Configuration Options
 ===============================================
@@ -1007,6 +1011,11 @@ can be selected as follow:
     cd -
     . ./setenv.sh
 
+If this is a Windows native build, then configure.bat should be used
+instead of configure.sh:
+
+    configure.bat STM32F4Discovery\<subdir>
+
 Where <subdir> is one of the following:
 
   cxxtest:
@@ -1029,8 +1038,8 @@ Where <subdir> is one of the following:
   2. This configuration uses the mconf-based configuration tool.  To
      change this configuration using that tool, you should:
 
-     a. Build and install the mconf tool.  See nuttx/README.txt and
-        misc/tools/
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
 
      b. Execute 'make menuconfig' in nuttx/ in order to start the
         reconfiguration process.
@@ -1078,8 +1087,8 @@ Where <subdir> is one of the following:
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 
-       a. Build and install the mconf tool.  See nuttx/README.txt and
-          misc/tools/
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
 
        b. Execute 'make menuconfig' in nuttx/ in order to start the
           reconfiguration process.
@@ -1112,8 +1121,8 @@ Where <subdir> is one of the following:
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 
-       a. Build and install the mconf tool.  See nuttx/README.txt and
-          misc/tools/
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
 
        b. Execute 'make menuconfig' in nuttx/ in order to start the
           reconfiguration process.
@@ -1156,14 +1165,30 @@ Where <subdir> is one of the following:
   nsh:
   ---
     Configures the NuttShell (nsh) located at apps/examples/nsh.  The
-    Configuration enables both the serial and telnet NSH interfaces.
-
-    Default toolchain:
-
-    CONFIG_STM32_CODESOURCERYL=y  : CodeSourcery under Linux / Mac OS X
+    Configuration enables the serial interfaces on UART2.  Support for
+    builtin applications is enabled, but in the base configuration no
+    builtin applications are selected (see NOTES below).
 
     NOTES:
-    1. This example supports the PWM test (apps/examples/pwm) but this must
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. By default, this configuration uses the CodeSourcery toolchain
+       for Windows and builds under Cygwin (or probably MSYS).  That
+       can easily be reconfigured, of course.
+
+       CONFIG_HOST_WINDOWS=y                   : Builds under Windows
+       CONFIG_WINDOWS_CYGWIN=y                 : Using Cygwin
+       CONFIG_ARMV7M_TOOLCHAIN_CODESOURCERYW=y : CodeSourcery for Windows
+
+    3. This example supports the PWM test (apps/examples/pwm) but this must
        be manually enabled by selecting:
 
        CONFIG_PWM=y              : Enable the generic PWM infrastructure
@@ -1176,27 +1201,28 @@ Where <subdir> is one of the following:
 
        CONFIG_DEBUG_PWM
 
-    2. This example supports the Quadrature Encode test (apps/examples/qencoder)
+    5. This example supports the Quadrature Encode test (apps/examples/qencoder)
        but this must be manually enabled by selecting:
 
-       CONFIG_QENCODER=y         : Enable the generic Quadrature Encoder infrastructure
-       CONFIG_STM32_TIM8=y       : Enable TIM8
-       CONFIG_STM32_TIM2=n       : (Or optionally TIM2)
-       CONFIG_STM32_TIM8_QE=y    : Use TIM8 as the quadrature encoder
-       CONFIG_STM32_TIM2_QE=y    : (Or optionally TIM2)
+       CONFIG_EXAMPLES_QENCODER=y : Enable the apps/examples/qencoder
+       CONFIG_SENSORS=y           : Enable support for sensors
+       CONFIG_QENCODER=y          : Enable the generic Quadrature Encoder infrastructure
+       CONFIG_STM32_TIM8=y        : Enable TIM8
+       CONFIG_STM32_TIM2=n        : (Or optionally TIM2)
+       CONFIG_STM32_TIM8_QE=y     : Use TIM8 as the quadrature encoder
+       CONFIG_STM32_TIM2_QE=y     : (Or optionally TIM2)
 
-       See also apps/examples/README.txt
-
-       Special PWM-only debug options:
+       See also apps/examples/README.tx. Special PWM-only debug options:
 
        CONFIG_DEBUG_QENCODER
 
-    3. This example supports the watchdog timer test (apps/examples/watchdog)
+    6. This example supports the watchdog timer test (apps/examples/watchdog)
        but this must be manually enabled by selecting:
 
-       CONFIG_WATCHDOG=y         : Enables watchdog timer driver support
-       CONFIG_STM32_WWDG=y       : Enables the WWDG timer facility, OR
-       CONFIG_STM32_IWDG=y       : Enables the IWDG timer facility (but not both)
+       CONFIG_EXAMPLES_WATCHDOG=y : Enable the apps/examples/watchdog
+       CONFIG_WATCHDOG=y          : Enables watchdog timer driver support
+       CONFIG_STM32_WWDG=y        : Enables the WWDG timer facility, OR
+       CONFIG_STM32_IWDG=y        : Enables the IWDG timer facility (but not both)
 
        The WWDG watchdog is driven off the (fast) 42MHz PCLK1 and, as result,
        has a maximum timeout value of 49 milliseconds.  for WWDG watchdog, you
@@ -1207,71 +1233,83 @@ Where <subdir> is one of the following:
 
        The IWDG timer has a range of about 35 seconds and should not be an issue.
 
-     4. USB Support (CDC/ACM device)
+     7. USB Support (CDC/ACM device)
 
-        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
-        CONFIG_USBDEV=y           : USB device support must be enabled
-        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
-        CONFIG_NSH_BUILTIN_APPS=y : NSH built-in application support must be enabled
+        CONFIG_STM32_OTGFS=y          : STM32 OTG FS support
+        CONFIG_USBDEV=y               : USB device support must be enabled
+        CONFIG_CDCACM=y               : The CDC/ACM driver must be built
+        CONFIG_NSH_BUILTIN_APPS=y     : NSH built-in application support must be enabled
+        CONFIG_NSH_ARCHINIT=y         : To perform USB initialization
 
-     5. Using the USB console.
+     8. Using the USB console.
 
         The STM32F4Discovery NSH configuration can be set up to use a USB CDC/ACM
         (or PL2303) USB console.  The normal way that you would configure the
         the USB console would be to change the .config file like this:
 
-        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
-        CONFIG_DEV_CONSOLE=n      : Inhibit use of /dev/console by other logic
-        CONFIG_USBDEV=y           : USB device support must be enabled
-        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
-        CONFIG_CDCACM_CONSOLE=y   : Enable the CDC/ACM USB console.
+        CONFIG_STM32_OTGFS=y           : STM32 OTG FS support
+        CONFIG_USART2_SERIAL_CONSOLE=n : Disable the USART2 console
+        CONFIG_DEV_CONSOLE=n           : Inhibit use of /dev/console by other logic
+        CONFIG_USBDEV=y                : USB device support must be enabled
+        CONFIG_CDCACM=y                : The CDC/ACM driver must be built
+        CONFIG_CDCACM_CONSOLE=y        : Enable the CDC/ACM USB console.
 
-        However, that configuration does not work.  It fails early probably because
-        of some dependency on /dev/console before the USB connection is established.
+        NOTE: When you first start the USB console, you have hit ENTER a few
+        times before NSH starts.  The logic does this to prevent sending USB data
+        before there is anything on the host side listening for USB serial input.
 
-        But there is a work around for this that works better (but has some side
-        effects).  The following configuration will also create a NSH USB console
-        but this version will will use /dev/console.  Instead, it will use the
-        normal /dev/ttyACM0 USB serial device for the console:
+    9.  Here is an alternative USB console configuration.  The following
+        configuration will also create a NSH USB console but this version
+        will use /dev/console.  Instead, it will use the normal /dev/ttyACM0
+        USB serial device for the console:
 
-        CONFIG_STM32_OTGFS=y      : STM32 OTG FS support
-        CONFIG_USBDEV=y           : USB device support must be enabled
-        CONFIG_CDCACM=y           : The CDC/ACM driver must be built
-        CONFIG_CDCACM_CONSOLE=n   : Done use the CDC/ACM USB console.
-        CONFIG_NSH_USBCONSOLE=y   : Instead use some other USB device for the console
+        CONFIG_STM32_OTGFS=y           : STM32 OTG FS support
+        CONFIG_USART2_SERIAL_CONSOLE=y : Keep the USART2 console
+        CONFIG_DEV_CONSOLE=y           : /dev/console exists (but NSH won't use it)
+        CONFIG_USBDEV=y                : USB device support must be enabled
+        CONFIG_CDCACM=y                : The CDC/ACM driver must be built
+        CONFIG_CDCACM_CONSOLE=n        : Don't use the CDC/ACM USB console.
+        CONFIG_NSH_USBCONSOLE=y        : Instead use some other USB device for the console
 
         The particular USB device that is used is:
 
         CONFIG_NSH_USBCONDEV="/dev/ttyACM0"
 
-        NOTE 1: When you first start the USB console, you have hit ENTER a few
-        times before NSH starts.  The logic does this to prevent sending USB data
-        before there is anything on the host side listening for USB serial input.
+        The advantage of this configuration is only that it is easier to
+        bet working.  This alternative does has some side effects:
 
-        Now the side effects:
+        - When any other device other than /dev/console is used for a user
+          interface, linefeeds (\n) will not be expanded to carriage return /
+          linefeeds (\r\n).  You will need to set your terminal program to account
+          for this.
 
-        NOTE 2. When any other device other than /dev/console is used for a user
-        interface, linefeeds (\n) will not be expanded to carriage return /
-        linefeeds (\r\n).  You will need to set your terminal program to account
-        for this.
+        - /dev/console still exists and still refers to the serial port. So
+          you can still use certain kinds of debug output (see include/debug.h, all
+          of the interfaces based on lowsyslog will work in this configuration).
 
-        NOTE 3: /dev/console still exists and still refers to the serial port. So
-        you can still use certain kinds of debug output (see include/debug.h, all
-        of the interfaces based on lib_lowprintf will work in this configuration).
+        - But don't enable USB debug output!  Since USB is console is used for 
+          USB debug output and you are using a USB console, there will be
+          infinite loops and deadlocks:  Debug output generates USB debug
+          output which generatates USB debug output, etc.  If you want USB
+          debug output, you should consider enabling USB trace
+          (CONFIG_USBDEV_TRACE) and perhaps the USB monitor (CONFIG_SYSTEM_USBMONITOR).
 
-    6. USB OTG FS Host Support.  The following changes will enable support for
+          See the usbnsh configuration below for more information on configuring
+          USB trace output and the USB monitor.
+
+   10. USB OTG FS Host Support.  The following changes will enable support for
        a USB host on the STM32F4Discovery, including support for a mass storage
        class driver:
- 
-       CONFIG_USBDEV=n          - Make sure tht USB device support is disabled
-       CONFIG_USBHOST=y         - Enable USB host support
-       CONFIG_STM32_OTGFS=y     - Enable the STM32 USB OTG FS block
-       CONFIG_STM32_SYSCFG=y    - Needed for all USB OTF FS support
-       CONFIG_SCHED_WORKQUEUE=y - Worker thread support is required for the mass
+
+       CONFIG_USBDEV=n          : Make sure tht USB device support is disabled
+       CONFIG_USBHOST=y         : Enable USB host support
+       CONFIG_STM32_OTGFS=y     : Enable the STM32 USB OTG FS block
+       CONFIG_STM32_SYSCFG=y    : Needed for all USB OTF FS support
+       CONFIG_SCHED_WORKQUEUE=y : Worker thread support is required for the mass
                                   storage class driver.
-       CONFIG_NSH_ARCHINIT=y    - Architecture specific USB initialization
+       CONFIG_NSH_ARCHINIT=y    : Architecture specific USB initialization
                                   is needed for NSH
-       CONFIG_FS_FAT=y          - Needed by the USB host mass storage class.
+       CONFIG_FS_FAT=y          : Needed by the USB host mass storage class.
 
        With those changes, you can use NSH with a FLASH pen driver as shown
        belong.  Here NSH is started with nothing in the USB host slot:
@@ -1341,15 +1379,16 @@ Where <subdir> is one of the following:
   2. This configuration uses the mconf-based configuration tool.  To
      change this configuration using that tool, you should:
 
-     a. Build and install the mconf tool.  See nuttx/README.txt and
-        misc/tools/
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
 
      b. Execute 'make menuconfig' in nuttx/ in order to start the
         reconfiguration process.
 
-  3. This configured can be re-configured to use the UG-2864AMBAG01
-     0.96 inch OLED by adding or changing the following items int
-     the configuration (using 'make menuconfig'):
+  3. This configured can be re-configured to use either the
+     UG-2864AMBAG01 or UG-2864SWEG01 0.96 inch OLEDs by adding
+     or changing the following items in the configuration (using
+     'make menuconfig'):
 
      +CONFIG_SPI_CMDDATA=y
 
@@ -1360,7 +1399,7 @@ Where <subdir> is one of the following:
 
      -CONFIG_LCD_SSD1289=y
      -CONFIG_SSD1289_PROFILE1=y
-     +CONFIG_LCD_UG2864AMBAG01=y
+     +CONFIG_LCD_UG2864AMBAG01=y              : For the UG-2964AMBAG01
      +CONFIG_UG2864AMBAG01_SPIMODE=3
      +CONFIG_UG2864AMBAG01_FREQUENCY=3500000
      +CONFIG_UG2864AMBAG01_NINTERFACES=1
@@ -1437,6 +1476,103 @@ Where <subdir> is one of the following:
     STANDBY mode.  This used of the RTC alarm could conflict with other uses of
     the RTC alarm in your application.
 
+  posix_spawn:
+  ------------
+    This configuration directory, performs a simple test os the posix_spawn
+    interface using apps/examples/posix_spawn.
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default toolchain:
+
+       CONFIG_HOST_WINDOWS=y         : Builds under windows
+       CONFIG_WINDOWS_CYGWIN=y       : Using Cygwin and
+       CONFIG_STM32_CODESOURCERYW=y  : The native Windows CodeSourcery toolchain
+
+    3. By default, this project assumes that you are *NOT* using the DFU
+       bootloader.
+ 
+  usbnsh:
+  -------
+
+    This is another NSH example.  If differs from other 'nsh' configurations
+    in that this configurations uses a USB serial device for console I/O.
+    Such a configuration is useful on the stm32f4discovery which has no
+    builtin RS-232 drivers.
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. By default, this configuration uses the CodeSourcery toolchain
+       for Windows and builds under Cygwin (or probably MSYS).  That
+       can easily be reconfigured, of course.
+
+       CONFIG_HOST_WINDOWS=y                   : Builds under Windows
+       CONFIG_WINDOWS_CYGWIN=y                 : Using Cygwin
+       CONFIG_ARMV7M_TOOLCHAIN_CODESOURCERYW=y : CodeSourcery for Windows
+
+    3. This configuration does have UART2 output enabled and set up as
+       the system logging device:
+
+       CONFIG_SYSLOG=y                    : Enable output to syslog, not console
+       CONFIG_SYSLOG_CHAR=y               : Use a character device for system logging
+       CONFIG_SYSLOG_DEVPATH="/dev/ttyS0" : UART2 will be /dev/ttyS0
+
+       However, there is nothing to generate SYLOG output in the default
+       configuration so nothing should appear on UART2 unless you enable
+       some debug output or enable the USB monitor.
+
+    4. Enabling USB monitor SYSLOG output.  If tracing is enabled, the USB
+       device will save encoded trace output in in-memory buffer; if the
+       USB monitor is enabled, that trace buffer will be periodically
+       emptied and dumped to the system loggin device (UART2 in this
+       configuraion):
+
+       CONFIG_USBDEV_TRACE=y                   : Enable USB trace feature
+       CONFIG_USBDEV_TRACE_NRECORDS=128        : Buffer 128 records in memory
+       CONFIG_NSH_USBDEV_TRACE=n               : No builtin tracing from NSH
+       CONFIG_NSH_ARCHINIT=y                   : Automatically start the USB monitor
+       CONFIG_SYSTEM_USBMONITOR=y              : Enable the USB monitor daemon
+       CONFIG_SYSTEM_USBMONITOR_STACKSIZE=2048 : USB monitor daemon stack size
+       CONFIG_SYSTEM_USBMONITOR_PRIORITY=50    : USB monitor daemon priority
+       CONFIG_SYSTEM_USBMONITOR_INTERVAL=2     : Dump trace data every 2 seconds
+
+       CONFIG_SYSTEM_USBMONITOR_TRACEINIT=y    : Enable TRACE output
+       CONFIG_SYSTEM_USBMONITOR_TRACECLASS=y
+       CONFIG_SYSTEM_USBMONITOR_TRACETRANSFERS=y
+       CONFIG_SYSTEM_USBMONITOR_TRACECONTROLLER=y
+       CONFIG_SYSTEM_USBMONITOR_TRACEINTERRUPTS=y
+
+    5. By default, this project assumes that you are *NOT* using the DFU
+       bootloader.
+
+    Using the Prolifics PL2303 Emulation
+    ------------------------------------
+    You could also use the non-standard PL2303 serial device instead of
+    the standard CDC/ACM serial device by changing:
+
+      CONFIG_CDCACM=y               : Disable the CDC/ACM serial device class
+      CONFIG_CDCACM_CONSOLE=y       : The CDC/ACM serial device is NOT the console
+      CONFIG_PL2303=y               : The Prolifics PL2303 emulation is enabled
+      CONFIG_PL2303_CONSOLE=y       : The PL2303 serial device is the console
+
   winbuild:
   --------
 
@@ -1458,8 +1594,8 @@ Where <subdir> is one of the following:
         - A few extensions from GNUWin32 (or MSYS is you prefer)
 
       In this build, you cannot use a Cygwin or MSYS shell. Rather the build must
-      be performed in a Windows CMD shell. Here is a better shell than than the
-      standard issue, CMD shell:  ConEmu which can be downloaded from:
+      be performed in a Windows console. Here is a better shell than than the
+      standard issue, CMD.exe shell:  ConEmu which can be downloaded from:
       http://code.google.com/p/conemu-maximus5/
 
        CONFIG_HOST_WINDOWS=y         : Windows

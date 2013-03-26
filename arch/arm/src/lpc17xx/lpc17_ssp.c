@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/lpc17xx/lpc17_ssp.c
  *
- *   Copyright (C) 2010-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,9 +54,8 @@
 #include "up_arch.h"
 
 #include "chip.h"
-#include "lpc17_internal.h"
-#include "lpc17_syscon.h"
-#include "lpc17_pinconn.h"
+#include "chip/lpc17_syscon.h"
+#include "lpc17_gpio.h"
 #include "lpc17_ssp.h"
 
 #if defined(CONFIG_LPC17_SSP0) || defined(CONFIG_LPC17_SSP1)
@@ -926,4 +925,3 @@ void ssp_flush(FAR struct spi_dev_s *dev)
 }
 
 #endif /* CONFIG_LPC17_SSP0/1 */
-

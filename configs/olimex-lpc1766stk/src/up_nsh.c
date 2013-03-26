@@ -2,7 +2,7 @@
  * config/olimex-lpc1766stk/src/up_nsh.c
  * arch/arm/src/board/up_nsh.c
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,7 @@
 #include <nuttx/mmcsd.h>
 #include <nuttx/usb/usbhost.h>
 
-#include "lpc17_internal.h"
+#include "lpc17_gpio.h"
 #include "lpc1766stk_internal.h"
 
 /****************************************************************************
@@ -124,13 +124,13 @@
 
 #ifdef CONFIG_CPP_HAVE_VARARGS
 #  ifdef CONFIG_DEBUG
-#    define message(...) lib_lowprintf(__VA_ARGS__)
+#    define message(...) lowsyslog(__VA_ARGS__)
 #  else
 #    define message(...) printf(__VA_ARGS__)
 #  endif
 #else
 #  ifdef CONFIG_DEBUG
-#    define message lib_lowprintf
+#    define message lowsyslog
 #  else
 #    define message printf
 #  endif

@@ -1,7 +1,7 @@
 /****************************************************************************
  * libc/stdio/lib_libfread.c
  *
- *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,7 +88,9 @@ ssize_t lib_fread(FAR void *ptr, size_t count, FAR FILE *stream)
 {
   unsigned char *dest  = (unsigned char*)ptr;
   ssize_t        bytes_read;
+#if CONFIG_STDIO_BUFFER_SIZE > 0
   int            ret;
+#endif
 
   /* Make sure that reading from this stream is allowed */
 
@@ -301,9 +303,10 @@ ssize_t lib_fread(FAR void *ptr, size_t count, FAR FILE *stream)
         {
           stream->fs_flags |= __FS_FLAG_EOF;
         }
+
+      lib_give_semaphore(stream);
     }
 
-  lib_give_semaphore(stream);
   return bytes_read;  
 
 /* Error exits */

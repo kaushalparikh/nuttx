@@ -35,7 +35,7 @@ CONFIG_RAW_BINARY=y
 #
 CONFIG_DEBUG=y
 # CONFIG_DEBUG_VERBOSE is not set
-# CONFIG_DEBUG_ENABLE is not set
+# CONFIG_SYSLOG_ENABLE is not set
 
 #
 # Subsystem Debug Options
@@ -494,7 +494,7 @@ CONFIG_HAVE_CXXINITIALIZE=y
 #
 # Named Applications
 #
-# CONFIG_NAMEDAPP is not set
+# CONFIG_BUILTIN is not set
 
 #
 # Examples

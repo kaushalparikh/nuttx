@@ -64,25 +64,25 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lm3s_ethernetmac
+ * Name: lm_ethernetmac
  *
  * Description:
  *   For the Ethernet Eval Kits, the MAC address will be stored in the non-volatile
- *   USER0 and USER1 registers.  If CONFIG_LM3S_BOARDMAC is defined, this function
+ *   USER0 and USER1 registers.  If CONFIG_LM_BOARDMAC is defined, this function
  *   will obtain the MAC address from these registers.
  *
  ************************************************************************************/
 
-#ifdef CONFIG_LM3S_BOARDMAC
-void lm3s_ethernetmac(struct ether_addr *ethaddr)
+#ifdef CONFIG_LM_BOARDMAC
+void lm_ethernetmac(struct ether_addr *ethaddr)
 {
   uint32_t user0;
   uint32_t user1;
 
   /* Get the current value of the user registers */
 
-  user0 = getreg32(LM3S_FLASH_USERREG0);
-  user1 = getreg32(LM3S_FLASH_USERREG1);
+  user0 = getreg32(LM_FLASH_USERREG0);
+  user1 = getreg32(LM_FLASH_USERREG1);
 
   nlldbg("user: %06x:%06x\n", user1 & 0x00ffffff, user0 & 0x00ffffff);
   DEBUGASSERT(user0 != 0xffffffff && user1 != 0xffffffff);

@@ -50,6 +50,10 @@
 #  include <nuttx/mmcsd.h>
 #endif
 
+#ifdef CONFIG_SYSTEM_USBMONITOR
+#  include <apps/usbmonitor.h>
+#endif
+
 #ifdef CONFIG_STM32_OTGFS
 #  include "stm32_usbhost.h"
 #endif
@@ -63,20 +67,23 @@
 
 /* Configuration ************************************************************/
 
-#define HAVE_USBDEV   1
-#define HAVE_USBHOST  1
+#define HAVE_USBDEV     1
+#define HAVE_USBHOST    1
+#define HAVE_USBMONITOR 1
 
 /* Can't support USB host or device features if USB OTG FS is not enabled */
 
 #ifndef CONFIG_STM32_OTGFS
 #  undef HAVE_USBDEV
 #  undef HAVE_USBHOST
+#  undef HAVE_USBMONITOR
 #endif
 
 /* Can't support USB device is USB device is not enabled */
 
 #ifndef CONFIG_USBDEV
 #  undef HAVE_USBDEV
+#  undef HAVE_USBMONITOR
 #endif
 
 /* Can't support USB host is USB host is not enabled */
@@ -85,17 +92,23 @@
 #  undef HAVE_USBHOST
 #endif
 
+/* Check if we should enable the USB monitor before starting NSH */
+
+#if !defined(CONFIG_USBDEV_TRACE) || !defined(CONFIG_SYSTEM_USBMONITOR)
+#  undef HAVE_USBMONITOR
+#endif
+
 /* Debug ********************************************************************/
 
 #ifdef CONFIG_CPP_HAVE_VARARGS
 #  ifdef CONFIG_DEBUG
-#    define message(...) lib_lowprintf(__VA_ARGS__)
+#    define message(...) lowsyslog(__VA_ARGS__)
 #  else
 #    define message(...) printf(__VA_ARGS__)
 #  endif
 #else
 #  ifdef CONFIG_DEBUG
-#    define message lib_lowprintf
+#    define message lowsyslog
 #  else
 #    define message printf
 #  endif
@@ -115,9 +128,11 @@
 
 int nsh_archinitialize(void)
 {
-#ifdef HAVE_USBHOST
+#if defined(HAVE_USBHOST) || defined(HAVE_USBMONITOR)
   int ret;
+#endif
 
+#ifdef HAVE_USBHOST
   /* Initialize USB host operation.  stm32_usbhost_initialize() starts a thread
    * will monitor for USB connection and disconnection events.
    */
@@ -127,6 +142,16 @@ int nsh_archinitialize(void)
     {
       message("nsh_archinitialize: Failed to initialize USB host: %d\n", ret);
       return ret;
+    }
+#endif
+
+#ifdef HAVE_USBMONITOR
+  /* Start the USB Monitor */
+
+  ret = usbmonitor_start(0, NULL);
+  if (ret != OK)
+    {
+      message("nsh_archinitialize: Start USB monitor: %d\n", ret);
     }
 #endif
 

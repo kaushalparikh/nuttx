@@ -59,6 +59,11 @@ Configuring NuttX
        setenv.bat
        make
 
+    If this is a Windows native build, then configure.bat should be used
+    in step 1) instead of configure.sh:
+
+      configure.bat xtrs\ostest
+
     The setenv.bat will need to be updated to include the PATH to the XTRS
     hex2cmd program.
 
@@ -89,6 +94,11 @@ Configuring NuttX
     2) From a CMD.exe window
        setenv.bat
        make
+
+    If this is a Windows native build, then configure.bat should be used
+    in step 1) instead of configure.sh:
+
+      configure.bat xtrs\nsh
 
     The setenv.bat will need to be updated to include the PATH to the XTRS
     hex2cmd program.
@@ -128,6 +138,11 @@ Configuring NuttX
        setenv.bat
        make
 
+    If this is a Windows native build, then configure.bat should be used
+    in step 1) instead of configure.sh:
+
+      configure.bat xtrs\pashello
+
     The setenv.bat will need to be updated to include the PATH to the XTRS
     hex2cmd program.
 
@@ -150,7 +165,7 @@ Reconfiguring NuttX
 These configurations all use the kconfig-frontends, mconf-based configuration
 tool.  To change this configuration using that tool, you should:
 
-  a. Build and install the mconf tool.  See nuttx/README.txt and
+  a. Build and install the kconfig-mconf tool.  See nuttx/README.txt and
      misc/tools/README.txt
 
   b. Execute 'make menuconfig' in nuttx/ in order to start the reconfiguration

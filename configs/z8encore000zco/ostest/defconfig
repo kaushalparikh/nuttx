@@ -44,7 +44,7 @@ CONFIG_WINDOWS_CYGWIN=y
 #
 CONFIG_DEBUG=y
 # CONFIG_DEBUG_VERBOSE is not set
-# CONFIG_DEBUG_ENABLE is not set
+# CONFIG_SYSLOG_ENABLE is not set
 
 #
 # Subsystem Debug Options
@@ -329,7 +329,7 @@ CONFIG_LIB_SENDFILE_BUFSIZE=512
 #
 # Named Applications
 #
-# CONFIG_NAMEDAPP is not set
+# CONFIG_BUILTIN is not set
 
 #
 # Examples

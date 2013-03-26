@@ -1,7 +1,7 @@
 /************************************************************************************
  * drivers/serial/serial.c
  *
- *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -157,7 +157,11 @@ static void uart_pollnotify(FAR uart_dev_t *dev, pollevent_t eventset)
       struct pollfd *fds = dev->fds[i];
       if (fds)
         {
+#ifdef CONFIG_SERIAL_REMOVABLE
+          fds->revents |= ((fds->events | (POLLERR|POLLHUP)) & eventset);
+#else
           fds->revents |= (fds->events & eventset);
+#endif
           if (fds->revents != 0)
             {
               fvdbg("Report events: %02x\n", fds->revents);
@@ -218,6 +222,15 @@ static int uart_putxmitchar(FAR uart_dev_t *dev, int ch)
           ret = uart_takesem(&dev->xmitsem, true);
           uart_disabletxint(dev);
           irqrestore(flags);
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+          /* Check if the removable device is no longer connected */
+
+          if (dev->disconnected)
+            {
+              return -ENOTCONN;
+            }
+#endif
 
           /* Check if we were awakened by signal. */
 
@@ -286,6 +299,17 @@ static ssize_t uart_write(FAR struct file *filep, FAR const char *buffer, size_t
 
   if (up_interrupt_context() || getpid() == 0)
     {
+#ifdef CONFIG_SERIAL_REMOVABLE
+      /* If the removable device is no longer connected, refuse to write to
+       * the device.
+       */
+
+      if (dev->disconnected)
+        {
+          return -ENOTCONN;
+        }
+#endif
+
       /* up_putc() will be used to generate the output in a busy-wait loop.
        * up_putc() is only available for the console device.
        */
@@ -315,6 +339,18 @@ static ssize_t uart_write(FAR struct file *filep, FAR const char *buffer, size_t
 
       return ret;
     }
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+  /* If the removable device is no longer connected, refuse to write to the
+   * device.
+   */
+
+  if (dev->disconnected)
+    {
+      uart_givesem(&dev->xmit.sem);
+      return -ENOTCONN;
+    }
+#endif
 
   /* Loop while we still have data to copy to the transmit buffer.
    * we add data to the head of the buffer; uart_xmitchars takes the
@@ -407,6 +443,16 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
 
       return ret;
     }
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+  /* If the removable device is no longer connected, refuse to read from the device */
+
+  if (dev->disconnected)
+    {
+      uart_givesem(&dev->recv.sem);
+      return -ENOTCONN;
+    }
+#endif
 
   /* Loop while we still have data to copy to the receive buffer.
    * we add data to the head of the buffer; uart_xmitchars takes the
@@ -525,9 +571,15 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
               ret = uart_takesem(&dev->recvsem, true);
               irqrestore(flags);
 
-              /* Was a signal received while waiting for data to be received? */
+              /* Was a signal received while waiting for data to be
+               * received?  Was a removable device disconnected?
+               */
 
+#ifdef CONFIG_SERIAL_REMOVABLE
+              if (ret < 0 || dev->disconnected)
+#else
               if (ret < 0)
+#endif
                 {
                   /* POSIX requires that we return after a signal is received.
                    * If some bytes were read, we need to return the number of bytes
@@ -541,7 +593,11 @@ static ssize_t uart_read(FAR struct file *filep, FAR char *buffer, size_t buflen
                        * set the errno value appropriately.
                        */
 
+#ifdef CONFIG_SERIAL_REMOVABLE
+                      recvd = dev->disconnected ? -ENOTCONN : -EINTR;
+#else
                       recvd = -EINTR;
+#endif
                     }
 
                   break;
@@ -656,12 +712,12 @@ int uart_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
 
       if (ndx != dev->xmit.tail)
        {
-         eventset |= POLLOUT;
+         eventset |= (fds->events & POLLOUT);
        }
 
       uart_givesem(&dev->xmit.sem);
 
-      /* Check if the receive buffer is empty
+      /* Check if the receive buffer is empty.
        *
        * Get exclusive access to the recv buffer indices.  NOTE: that we do not
        * let this wait be interrupted by a signal (we probably should, but that
@@ -671,10 +727,19 @@ int uart_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup)
       (void)uart_takesem(&dev->recv.sem, false);
       if (dev->recv.head != dev->recv.tail)
        {
-         eventset |= POLLIN;
+         eventset |= (fds->events & POLLIN);
        }
 
       uart_givesem(&dev->recv.sem);
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+      /* Check if a removable device has been disconnected. */
+
+      if (dev->disconnected)
+        {
+           eventset |= (POLLERR|POLLHUP);
+        }
+#endif
 
       if (eventset)
         {
@@ -796,6 +861,15 @@ static int uart_open(FAR struct file *filep)
   uint8_t       tmp;
   int           ret;
 
+#ifdef CONFIG_SERIAL_REMOVABLE
+  /* If the removable device is no longer connected, refuse to open the device */
+
+  if (dev->disconnected)
+    {
+      return -ENOTCONN;
+    }
+#endif
+
   /* If the port is the middle of closing, wait until the close is finished.
    * If a signal is received while we are waiting, then return EINTR.
    */
@@ -915,10 +989,12 @@ int uart_register(FAR const char *path, FAR uart_dev_t *dev)
 
 void uart_datareceived(FAR uart_dev_t *dev)
 {
-  /* Awaken any awaiting read() operations */
+  /* Is there a thread waiting for read data?  */
 
   if (dev->recvwaiting)
     {
+      /* Yes... wake it up */
+
       dev->recvwaiting = false;
       (void)sem_post(&dev->recvsem);
     }
@@ -942,8 +1018,12 @@ void uart_datareceived(FAR uart_dev_t *dev)
 
 void uart_datasent(FAR uart_dev_t *dev)
 {
+  /* Is there a thread waiting for space in xmit.buffer?  */
+
   if (dev->xmitwaiting)
     {
+      /* Yes... wake it up */
+
       dev->xmitwaiting = false;
       (void)sem_post(&dev->xmitsem);
     }
@@ -952,5 +1032,70 @@ void uart_datasent(FAR uart_dev_t *dev)
 
   uart_pollnotify(dev, POLLOUT);
 }
+
+/************************************************************************************
+ * Name: uart_connected
+ *
+ * Description:
+ *   Serial devices (like USB serial) can be removed.  In that case, the "upper
+ *   half" serial driver must be informed that there is no longer a valid serial
+ *   channel associated with the driver.
+ *
+ *   In this case, the driver will terminate all pending transfers wint ENOTCONN and
+ *   will refuse all further transactions while the "lower half" is disconnected.
+ *   The driver will continue to be registered, but will be in an unusable state.
+ *
+ *   Conversely, the "upper half" serial driver needs to know when the serial
+ *   device is reconnected so that it can resume normal operations.
+ *
+ * Assumptions/Limitations:
+ *   This function may be called from an interrupt handler.
+ *
+ ************************************************************************************/
+
+#ifdef CONFIG_SERIAL_REMOVABLE
+void uart_connected(FAR uart_dev_t *dev, bool connected)
+{
+  irqstate_t flags;
+
+  /* Is the device disconnected? */
+
+  flags = irqsave();
+  dev->disconnected = !connected;
+  if (!connected)
+    {
+      /* Yes.. wake up all waiting threads.  Each thread should detect the
+       * disconnection and return the ENOTCONN error.
+       */
+
+      /* Is there a thread waiting for space in xmit.buffer?  */
+
+      if (dev->xmitwaiting)
+        {
+          /* Yes... wake it up */
+
+          dev->xmitwaiting = false;
+          (void)sem_post(&dev->xmitsem);
+        }
+
+      /* Is there a thread waiting for read data?  */
+
+      if (dev->recvwaiting)
+        {
+          /* Yes... wake it up */
+
+          dev->recvwaiting = false;
+          (void)sem_post(&dev->recvsem);
+        }
+
+      /* Notify all poll/select waiters that and hangup occurred */
+
+      uart_pollnotify(dev, (POLLERR|POLLHUP));
+    }
+
+  irqrestore(flags);
+}
+#endif
+
 
 

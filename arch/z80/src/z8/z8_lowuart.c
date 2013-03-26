@@ -49,7 +49,7 @@
 #include "chip/chip.h"
 #include "common/up_internal.h"
 
-#ifdef USE_LOWUARTINIT
+#ifdef USE_LOWSERIALINIT
 
 extern uint32_t get_freq(void);
 
@@ -70,10 +70,10 @@ extern uint32_t get_freq(void);
  ****************************************************************************/
 
 /****************************************************************************
- * Name: z8_lowuartinit
+ * Name: up_lowserialinit
  ****************************************************************************/
 
-void up_lowuartinit(void)
+void up_lowserialinit(void)
 {
   uint32_t freq = get_freq();
   uint16_t brg;
@@ -127,4 +127,4 @@ void up_lowuartinit(void)
   putreg8(0xc0, U1CTL0);          /* Transmit enable, Receive enable, no Parity, 1 Stop bit */
 #endif
 }
-#endif /* USE_LOWUARTINIT */
+#endif /* USE_LOWSERIALINIT */

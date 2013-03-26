@@ -199,19 +199,19 @@ PIN PIC32 SIGNAL(s)                                  BOARD SIGNAL/USAGE         
 --- ------------------------------------------------ ---------------------------------- ----------------------------------
 29  VSS                                              VSS                                Not available off module
 --- ------------------------------------------------ ---------------------------------- ----------------------------------
-30  OSC1/CLKI/RPA2/RA2                               SO                                 Not available off module
+30  OSC1/CLKI/RPA2/RA2                               SO (R1) DIN0 (R2)                  Not available off module
     OSC1     Oscillator crystal input                Not available
     CLKI     External clock source input             Not available
     RPRA2    Peripheral Selection PORTA, Pin 2       Used for SO
     RA2      PORTA, Pin 2                            Not available
 --- ------------------------------------------------ ---------------------------------- ----------------------------------
-31  OSC2/CLKO/RPA3/RA3                               DIN0                               PORT0, to X1, pin 2
+31  OSC2/CLKO/RPA3/RA3                               DIN0 (R1) DIN3 (R2)                PORT0, to X1, pin 2
     OSC2     Oscillator crystal output               Not available                       (also X13, pin1)
     CLKO     Oscillator crystal output               Not available
     RPA3     Peripheral Selection for PORTA, Pin 3   May be used for peripheral input
     RA3      PORTA, Pin 3                            May be used for GPIO input
 --- ------------------------------------------------ ---------------------------------- ----------------------------------
-32  TDO/RPA8/PMA8/RA8                                DIN3                               PORT3, to X5, pin 2
+32  TDO/RPA8/PMA8/RA8                                DIN3 (R1) S0 (R2)                  PORT3, to X5, pin 2
     TDO      JTAG test data output pin               Not available                       (also X13, pin7)
     RPA8     PORTA, Pin 8                            May be used for peripheral input
     PMA8     Parallel Master Port Address bit 8      Not available
@@ -323,6 +323,12 @@ Additional signals available via Peripheral Pin Selections (PPS)
 Toolchains
 ==========
 
+  Note that in addition to the configuration options listed below, the
+  toolchain can be configured using the mconf utility ('make menuconfig')
+  or by passing CONFIG_MIPS32_TOOLCHAIN=<toolchain> to make, where
+  <toolchain> is one of GNU_ELF, MICROCHIPL, MICROCHIPW, MICROCHIPL_LITE,
+  MICROCHIPW_LITE, MICROCHIPOPENL or PINGUINOW as described below.
+
   MPLAB/C32
   ---------
 
@@ -376,7 +382,7 @@ Toolchains
      Note that the tools will have the prefix, mypic32- so, for example, the
      compiler will be called mypic32-gcc.
 
-  Pinguino mips-elf Toolchain
+  Pinguino mips-elf / Generic mips-elf Toolchain
   ---------------------------
 
   Another option is the mips-elf toolchain used with the Pinguino project.  This
@@ -390,11 +396,14 @@ Toolchains
   configurations.  Use one of these configuration options to select the Pinguino
   mips-elf toolchain:
 
-    CONFIG_PIC32MX_PINGUINOW - Pinguino mips-elf toolchain for Windows
-    CONFIG_PIC32MX_PINGUINOL - Pinguino mips toolchain for Linux
+    CONFIG_PIC32MX_PINGUINOW        - Pinguino mips-elf toolchain for Windows
+    CONFIG_MIPS32_TOOLCHAIN_GNU_ELF - mips-elf toolchain for Linux or OS X
 
   And set the path appropriately in the setenv.sh file.  These tool configurations
   are untested -- expect some additional integration issues.  Good luck!
+
+  This configuration will also work with any generic mips-elf GCC past version
+  4.6 or so.
 
   MPLAB/C32 vs MPLABX/X32
   -----------------------
@@ -448,14 +457,7 @@ Toolchains
      because the dependencies are generated using Windows pathes which do not
      work with the Cygwin make.
 
-     Support has been added for making dependencies with the windows-native toolchains.
-     That support can be enabled by modifying your Make.defs file as follows:
-
-    -  MKDEP                = $(TOPDIR)/tools/mknulldeps.sh
-    +  MKDEP                = $(TOPDIR)/tools/mkdeps.sh --winpaths "$(TOPDIR)"
-
-     If you have problems with the dependency build (for example, if you are not
-     building on C:), then you may need to modify tools/mkdeps.sh
+       MKDEP                = $(TOPDIR)/tools/mknulldeps.sh
 
 Loading NuttX with ICD3
 ========================

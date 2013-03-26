@@ -1,7 +1,7 @@
 ############################################################################
 # apps/examples/udp/Makefile
 #
-#   Copyright (C) 2007-2008, 2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2007-2008, 2011-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -54,10 +54,14 @@ TARG_COBJS	= $(TARG_CSRCS:.c=$(OBJEXT))
 TARG_SRCS	= $(TARG_ASRCS) $(TARG_CSRCS)
 TARG_OBJS	= $(TARG_AOBJS) $(TARG_COBJS)
 
-ifeq ($(WINTOOL),y)
-  TARG_BIN	= "${shell cygpath -w  $(APPDIR)/libapps$(LIBEXT)}"
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  TARG_BIN	= ..\..\libapps$(LIBEXT)
 else
-  TARG_BIN	= "$(APPDIR)/libapps$(LIBEXT)"
+ifeq ($(WINTOOL),y)
+  TARG_BIN	= ..\\..\\libapps$(LIBEXT)
+else
+  TARG_BIN	= ../../libapps$(LIBEXT)
+endif
 endif
 
 HOSTCFLAGS	+= -DCONFIG_EXAMPLES_UDP_HOST=1
@@ -83,7 +87,7 @@ ROOTDEPPATH	= --dep-path .
 VPATH		= 
 
 all: .built
-.PHONY:	clean depend disclean
+.PHONY:	clean depend distclean
 
 $(TARG_AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
@@ -92,9 +96,7 @@ $(TARG_COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 "$(TARG_BIN)": $(TARG_OBJS) $(HOST_BIN)
-	@( for obj in $(TARG_OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(TARG_OBJS))
 
 $(HOST_OBJS): %.o: %.c
 	$(HOSTCC) -c $(HOSTCFLAGS) $< -o $@
@@ -108,17 +110,20 @@ $(HOST_BIN): $(HOST_OBJS)
 context:
 
 .depend: Makefile $(TARG_SRCS)
-	@$(MKDEP) $(ROOTDEPPATH) $(CC) -- $(CFLAGS) -- $(TARG_SRCS) >Make.dep
+	@$(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(TARG_SRCS) >Make.dep
 	@touch $@
 
 depend: .depend
 
 clean:
-	@rm -f $(TARG_BIN) $(HOST_BIN) *.o *~ .*.swp .built
+	$(call DELFILE, .built)
+	$(call DELFILE, $(TARG_BIN))
+	$(call DELFILE, $(HOST_BIN))
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep
 

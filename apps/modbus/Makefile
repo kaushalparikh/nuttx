@@ -66,10 +66,14 @@ COBJS		= $(CSRCS:.c=$(OBJEXT))
 SRCS		= $(ASRCS) $(CSRCS)
 OBJS		= $(AOBJS) $(COBJS)
 
-ifeq ($(WINTOOL),y)
-  BIN		= "${shell cygpath -w  $(APPDIR)/libapps$(LIBEXT)}"
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BIN		= ..\libapps$(LIBEXT)
 else
-  BIN		= "$(APPDIR)/libapps$(LIBEXT)"
+ifeq ($(WINTOOL),y)
+  BIN		= ..\\libapps$(LIBEXT)
+else
+  BIN		= ../libapps$(LIBEXT)
+endif
 endif
 
 # Build targets
@@ -88,29 +92,29 @@ endif
 
 .built: $(OBJS)
 ifeq ($(CONFIG_MODBUS),y)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $(BIN), $${obj}); \
-	done ; )
-	@touch .built
+	$(call ARCHIVE, $(BIN), $(OBJS))
+	$(Q) touch .built
 endif
 
 context:
 
 .depend: Makefile $(SRCS)
 ifeq ($(CONFIG_MODBUS),y)
-	@$(MKDEP) $(DEPPATH) \
-	  $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
-	@touch $@
+	$(Q) $(MKDEP) $(DEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 endif
 
 depend: .depend
 
 clean:
-	@rm -f *.o *~ .*.swp .built
+	$(call DELFILE, .built)
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, .context)
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
+    
 -include Make.dep
 

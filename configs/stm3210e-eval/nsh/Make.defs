@@ -35,8 +35,7 @@
 
 include ${TOPDIR}/.config
 include ${TOPDIR}/tools/Config.mk
-
-# Setup for the selected toolchain
+include ${TOPDIR}/arch/arm/src/armv7-m/Toolchain.defs
 
 ifeq ($(CONFIG_STM32_DFU),y)
   LDSCRIPT = ld.script.dfu
@@ -81,7 +80,7 @@ endif
 
 ifeq ($(WINTOOL),y)
   # Windows-native toolchains
-  DIRLINK = $(TOPDIR)/tools/winlink.sh
+  DIRLINK = $(TOPDIR)/tools/copydir.sh
   DIRUNLINK = $(TOPDIR)/tools/unlink.sh
   MKDEP = $(TOPDIR)/tools/mknulldeps.sh
   ARCHINCLUDES = -I. -isystem "${shell cygpath -w $(TOPDIR)/include}"
@@ -108,7 +107,7 @@ OBJDUMP = $(CROSSDEV)objdump
 ARCHCCVERSION = ${shell $(CC) -v 2>&1 | sed -n '/^gcc version/p' | sed -e 's/^gcc version \([0-9\.]\)/\1/g' -e 's/[-\ ].*//g' -e '1q'}
 ARCHCCMAJOR = ${shell echo $(ARCHCCVERSION) | cut -d'.' -f1}
 
-ifeq ("${CONFIG_DEBUG_SYMBOLS}","y")
+ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
   ARCHOPTIMIZATION = -g
 else
   ARCHOPTIMIZATION = $(MAXOPTIMIZATION) -fno-strict-aliasing -fno-strength-reduce -fomit-frame-pointer

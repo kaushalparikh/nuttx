@@ -76,13 +76,13 @@
 
 void z80_lowputc(char ch) __naked
 {
-  _asm
-	ld	hl, #2
-	add	hl, sp
-	ld	a, (hl)
-	out	(0xbe), a
-	ret
-  _endasm;
+  __asm__ (
+  "\tld hl, #2\n"
+  "\tadd hl, sp\n"
+  "\tld a, (hl)\n"
+  "\tout (0xbe), a\n"
+  "\tret\n"
+  );
 }
 
 /********************************************************************************
@@ -94,10 +94,10 @@ void z80_lowputc(char ch) __naked
 
 char z80_lowgetc(void) __naked
 {
-  _asm
-	in	a, (0xbe)
-	ld	l, a
-	ld	h, #0
-	ret
-  _endasm;
+  __asm__ (
+  "\tin a, (0xbe)\n"
+  "\tld l, a\n"
+  "\tld h, #0\n"
+  "\tret\n"
+  );
 }

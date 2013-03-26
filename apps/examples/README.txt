@@ -580,6 +580,19 @@ examples/json
   on 2011-10-10 so I presume that the code is stable and there is no risk
   of maintaining duplicate logic in the NuttX repository.
 
+examples/keypadtest
+^^^^^^^^^^^^^^^^^^^
+
+  This is a generic keypad test example.  It is similar to the USB hidkbd
+  example, but makes no assumptions about the underlying keyboard interface.
+  It uses the interfaces of include/nuttx/input/keypad.h.
+
+  CONFIG_EXAMPLES_KEYPADTEST - Selects the keypadtest example (only need
+    if the mconf/Kconfig tool is used.
+
+  CONFIG_EXAMPLES_KEYPAD_DEVNAME - The name of the keypad device that will
+    be opened in order to perform the keypad test.  Default: "/dev/keypad"
+
 examples/lcdrw
 ^^^^^^^^^^^^^^
 
@@ -941,8 +954,6 @@ examplex/nxlines
 
   The following configuration options can be selected:
 
-    CONFIG_EXAMPLES_NXLINES_BUILTIN -- Build the NXLINES example as a "built-in"
-      that can be executed from the NSH command line    
     CONFIG_EXAMPLES_NXLINES_VPLANE -- The plane to select from the frame-
       buffer driver for use in the test.  Default: 0
     CONFIG_EXAMPLES_NXLINES_DEVNO - The LCD device to select from the LCD
@@ -979,6 +990,9 @@ examplex/nxlines
       #else
       FAR struct fb_vtable_s *up_nxdrvinit(unsigned int devno);
       #endif
+
+    CONFIG_NSH_BUILTIN_APPS - Build the NX lines examples as an NSH built-in
+      function.
 
 examples/nxtext
 ^^^^^^^^^^^^^^^
@@ -1087,6 +1101,17 @@ examples/ostest
       Specifies the number of threads to create in the barrier
       test.  The default is 8 but a smaller number may be needed on
       systems without sufficient memory to start so many threads.
+  * CONFIG_EXAMPLES_OSTEST_RR_RANGE
+      During round-robin scheduling test two threads are created. Each of the threads
+      searches for prime numbers in the configurable range, doing that configurable
+      number of times.
+      This value specifies the end of search range and together with number of runs
+      allows to configure the length of this test - it should last at least a few
+      tens of seconds. Allowed values [1; 32767], default 10000
+  * CONFIG_EXAMPLES_OSTEST_RR_RUNS
+      During round-robin scheduling test two threads are created. Each of the threads
+      searches for prime numbers in the configurable range, doing that configurable
+      number of times.
 
 examples/pashello
 ^^^^^^^^^^^^^^^^^

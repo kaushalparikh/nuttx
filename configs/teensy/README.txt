@@ -201,7 +201,13 @@ Toolchains
 
 There are several toolchain options.  However, testing has been performed
 using *only* the NuttX buildroot toolchain described below.  Therefore,
-the NuttX buildroot toolchain is the recommended choice:
+the NuttX buildroot toolchain is the recommended choice.
+
+The toolchain may be selected using the mconf tool (via 'make menuconfig'),
+by editing the existing configuration file (defconfig), or by overriding
+the toolchain on the make commandline with CONFIG_AVR_TOOLCHAIN=<toolchain>.
+
+The valid values for <toolchain> are BUILDROOT, CROSSPACK, LINUXGCC and WINAVR.
 
 Buildroot:
 
@@ -239,6 +245,14 @@ Linux:
   After configuring NuttX, make sure that CONFIG_AVR_LINUXGCC=y is set in your
   .config file.
 
+Mac OS X:
+
+  For Mac OS X, the CrossPack for AVR toolchain is available from:
+
+    http://www.obdev.at/products/crosspack/index.html
+
+  This toolchain is functionally equivalent to the Linux GCC toolchain.
+
 Windows Native Toolchains
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -268,15 +282,7 @@ Windows Native Toolchains
      is because the dependencies are generated using Windows pathes which do
      not work with the Cygwin make.
 
-     Support has been added for making dependencies with the windows-native
-     toolchains.  That support can be enabled by modifying your Make.defs
-     file as follows:
-
-    -  MKDEP = $(TOPDIR)/tools/mknulldeps.sh
-    +  MKDEP = $(TOPDIR)/tools/mkdeps.sh --winpaths "$(TOPDIR)"
-
-     If you have problems with the dependency build (for example, if you are
-     not building on C:), then you may need to modify tools/mkdeps.sh
+       MKDEP = $(TOPDIR)/tools/mknulldeps.sh
 
   An additional issue with the WinAVR toolchain, in particular, is that it
   contains an incompatible version of the Cygwin DLL in its bin/ directory.

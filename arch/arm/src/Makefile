@@ -36,7 +36,6 @@
 -include $(TOPDIR)/Make.defs
 -include chip/Make.defs
 
-ARCH_SRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
 ifeq ($(CONFIG_ARCH_CORTEXM3),y)   # Cortex-M3 is ARMv7-M
 ARCH_SUBDIR = armv7-m
 else
@@ -47,16 +46,28 @@ ARCH_SUBDIR = arm
 endif
 endif
 
-ifeq ($(WINTOOL),y)
-  NUTTX = "${shell cygpath -w $(TOPDIR)/nuttx}"
-  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/common}" \
-            -I "${shell cygpath -w $(ARCH_SRCDIR)/$(ARCH_SUBDIR)}" \
-            -I "${shell cygpath -w $(TOPDIR)/sched}"
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  ARCH_SRCDIR = $(TOPDIR)\arch\$(CONFIG_ARCH)\src
+  NUTTX = "$(TOPDIR)\nuttx$(EXEEXT)"
+  CFLAGS += -I$(ARCH_SRCDIR)\chip
+  CFLAGS += -I$(ARCH_SRCDIR)\common
+  CFLAGS += -I$(ARCH_SRCDIR)\$(ARCH_SUBDIR)
+  CFLAGS += -I$(TOPDIR)\sched
 else
-  NUTTX = $(TOPDIR)/nuttx
-  CFLAGS += -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common \
-            -I$(ARCH_SRCDIR)/$(ARCH_SUBDIR) -I$(TOPDIR)/sched
+  ARCH_SRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
+ifeq ($(WINTOOL),y)
+  NUTTX = "${shell cygpath -w $(TOPDIR)/nuttx$(EXEEXT)}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/common}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/$(ARCH_SUBDIR)}"
+  CFLAGS += -I "${shell cygpath -w $(TOPDIR)/sched}"
+else
+  NUTTX = "$(TOPDIR)/nuttx$(EXEEXT)"
+  CFLAGS += -I$(ARCH_SRCDIR)/chip
+  CFLAGS += -I$(ARCH_SRCDIR)/common
+  CFLAGS += -I$(ARCH_SRCDIR)/$(ARCH_SUBDIR)
+  CFLAGS += -I$(TOPDIR)/sched
+endif
 endif
 
 HEAD_OBJ = $(HEAD_ASRC:.S=$(OBJEXT))
@@ -74,20 +85,38 @@ LDFLAGS += $(ARCHSCRIPT)
 
 EXTRA_LIBS ?=
 EXTRA_LIBPATHS ?=
+LINKLIBS ?=
 
-LINKLIBS =
-ifeq ($(WINTOOL),y)
-  LIBPATHS = ${shell for path in $(LINKLIBS); do dir=`dirname $(TOPDIR)/$$path`;echo "-L\"`cygpath -w $$dir`\"";done}
-  LIBPATHS += -L"${shell cygpath -w $(BOARDDIR)}"
-else
-  LIBPATHS = $(addprefix -L$(TOPDIR)/,$(dir $(LINKLIBS)))
-  LIBPATHS += -L"$(BOARDDIR)"
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BOARDMAKE = $(if $(wildcard .\board\Makefile),y,)
+  LIBPATHS += -L"$(TOPDIR)\lib"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"$(TOPDIR)\arch\$(CONFIG_ARCH)\src\board"
 endif
-LDLIBS = $(patsubst lib%,-l%,$(basename $(notdir $(LINKLIBS))))
 
-BOARDDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src/board
+else
+  BOARDMAKE = $(if $(wildcard ./board/Makefile),y,)
 
-LIBGCC = "${shell $(CC) $(ARCHCPUFLAGS) -print-libgcc-file-name}"
+ifeq ($(WINTOOL),y)
+  LIBPATHS += -L"${shell cygpath -w "$(TOPDIR)/lib"}"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"${shell cygpath -w "$(TOPDIR)/arch/$(CONFIG_ARCH)/src/board"}"
+endif
+
+else
+  LIBPATHS += -L"$(TOPDIR)/lib"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"$(TOPDIR)/arch/$(CONFIG_ARCH)/src/board"
+endif
+endif
+endif
+
+LDLIBS = $(patsubst %.a,%,$(patsubst lib%,-l%,$(LINKLIBS)))
+ifeq ($(BOARDMAKE),y)
+  LDLIBS += -lboard
+endif
+
+LIBGCC = "${shell "$(CC)" $(ARCHCPUFLAGS) -print-libgcc-file-name}"
 GCC_LIBDIR := ${shell dirname $(LIBGCC)}
 
 VPATH = chip:common:$(ARCH_SUBDIR)
@@ -103,21 +132,21 @@ $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 libarch$(LIBEXT): $(OBJS)
-	$(Q) ( for obj in $(OBJS) ; do \
-	$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 board/libboard$(LIBEXT):
 	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
 
-nuttx: $(HEAD_OBJ) board/libboard$(LIBEXT)
+nuttx$(EXEEXT): $(HEAD_OBJ) board/libboard$(LIBEXT)
 	$(Q) echo "LD: nuttx"
 	$(Q) $(LD) --entry=__start $(LDFLAGS) $(LIBPATHS) $(EXTRA_LIBPATHS) \
 		-o $(NUTTX)$(EXEEXT) $(HEAD_OBJ) $(EXTRA_OBJS) \
-		--start-group $(LDLIBS) -lboard $(EXTRA_LIBS) $(LIBGCC) --end-group
+		--start-group $(LDLIBS) $(EXTRA_LIBS) $(LIBGCC) --end-group
+ifneq ($(CONFIG_WINDOWS_NATIVE),y)
 	$(Q) $(NM) $(NUTTX)$(EXEEXT) | \
 	grep -v '\(compiled\)\|\(\$(OBJEXT)$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
 	sort > $(TOPDIR)/System.map
+endif
 
 # This is part of the top-level export target
 # Note that there may not be a head object if layout is handled
@@ -126,36 +155,37 @@ nuttx: $(HEAD_OBJ) board/libboard$(LIBEXT)
 export_head: board/libboard$(LIBEXT) $(HEAD_OBJ)
 ifneq ($(HEAD_OBJ),)
 	$(Q) if [ -d "$(EXPORT_DIR)/startup" ]; then \
-	cp -f $(HEAD_OBJ) "$(EXPORT_DIR)/startup"; \
+		cp -f $(HEAD_OBJ) "$(EXPORT_DIR)/startup"; \
 	 else \
-	echo "$(EXPORT_DIR)/startup does not exist"; \
+		echo "$(EXPORT_DIR)/startup does not exist"; \
 	exit 1; \
-	 fi
+	fi
 endif
 
 # Dependencies
 
 .depend: Makefile chip/Make.defs $(SRCS)
-	$(Q) if [ -e board/Makefile ]; then \
-	$(MAKE) -C board TOPDIR="$(TOPDIR)" depend ; \
-	fi
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" depend
+endif
 	$(Q) $(MKDEP) --dep-path chip --dep-path common --dep-path $(ARCH_SUBDIR) \
-	 $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	 "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	$(Q) if [ -e board/Makefile ]; then \
-	$(MAKE) -C board TOPDIR="$(TOPDIR)" clean ; \
-	fi
-	$(Q) rm -f libarch$(LIBEXT) *~ .*.swp
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" clean
+endif
+	$(call DELFILE, libarch$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
-	$(Q) if [ -e board/Makefile ]; then \
-	$(MAKE) -C board TOPDIR="$(TOPDIR)" distclean ; \
-	fi
-	$(Q) rm -f Make.dep .depend
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" distclean
+endif
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

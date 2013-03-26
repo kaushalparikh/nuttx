@@ -34,40 +34,45 @@
 ############################################################################
 
 -include $(TOPDIR)/Make.defs
+DELIM ?= $(strip /)
 
 ifeq ($(WINTOOL),y)
-INCDIROPT		= -w
+INCDIROPT = -w
 endif
-CFLAGS			+= ${shell $(TOPDIR)/tools/incdir.sh $(INCDIROPT) "$(CC)" $(TOPDIR)/sched}
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" "$(TOPDIR)$(DELIM)sched"}
 
 # Basic BINFMT source files 
 
-BINFMT_ASRCS	=
-BINFMT_CSRCS	= binfmt_globals.c binfmt_register.c binfmt_unregister.c \
-				  binfmt_loadmodule.c binfmt_unloadmodule.c binfmt_execmodule.c \
-				  binfmt_exec.c binfmt_dumpmodule.c
+BINFMT_ASRCS  =
+BINFMT_CSRCS  = binfmt_globals.c binfmt_register.c binfmt_unregister.c
+BINFMT_CSRCS += binfmt_loadmodule.c binfmt_unloadmodule.c binfmt_execmodule.c
+BINFMT_CSRCS += binfmt_exec.c binfmt_dumpmodule.c
+
+ifeq ($(CONFIG_BINFMT_EXEPATH),y)
+BINFMT_CSRCS += binfmt_exepath.c
+endif
 
 # Symbol table source files
 
-BINFMT_CSRCS	+= symtab_findbyname.c symtab_findbyvalue.c \
-				   symtab_findorderedbyname.c symtab_findorderedbyvalue.c
+BINFMT_CSRCS += symtab_findbyname.c symtab_findbyvalue.c
+BINFMT_CSRCS += symtab_findorderedbyname.c symtab_findorderedbyvalue.c
 
 # Add configured binary modules
 
-VPATH			= 
-SUBDIRS			=
-DEPPATH			= --dep-path .
+VPATH = 
+SUBDIRS =
+DEPPATH = --dep-path .
 
-include libnxflat/Make.defs
-include libelf/Make.defs
+include libnxflat$(DELIM)Make.defs
+include libelf$(DELIM)Make.defs
 
-BINFMT_AOBJS	= $(BINFMT_ASRCS:.S=$(OBJEXT))
-BINFMT_COBJS	= $(BINFMT_CSRCS:.c=$(OBJEXT))
+BINFMT_AOBJS = $(BINFMT_ASRCS:.S=$(OBJEXT))
+BINFMT_COBJS = $(BINFMT_CSRCS:.c=$(OBJEXT))
 
-BINFMT_SRCS		= $(BINFMT_ASRCS) $(BINFMT_CSRCS)
-BINFMT_OBJS		= $(BINFMT_AOBJS) $(BINFMT_COBJS)
+BINFMT_SRCS = $(BINFMT_ASRCS) $(BINFMT_CSRCS)
+BINFMT_OBJS = $(BINFMT_AOBJS) $(BINFMT_COBJS)
 
-BIN				= libbinfmt$(LIBEXT)
+BIN = libbinfmt$(LIBEXT)
 
 all: $(BIN)
 
@@ -78,24 +83,20 @@ $(BINFMT_COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 $(BIN): $(BINFMT_OBJS)
-	@( for obj in $(BINFMT_OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(BINFMT_OBJS))
 
 .depend: Makefile $(BINFMT_SRCS)
-	@$(MKDEP) $(DEPPATH) $(CC) -- $(CFLAGS) -- $(BINFMT_SRCS) >Make.dep
-	@touch $@
+	$(Q) $(MKDEP) $(DEPPATH) "$(CC)" -- $(CFLAGS) -- $(BINFMT_SRCS) >Make.dep
+	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	@rm -f $(BIN) *~ .*.swp
+	$(call DELFILE, $(BIN))
 	$(call CLEAN)
-	@( for dir in $(SUBDIRS); do \
-		rm -f $${dir}/*~ $${dir}/.*.swp; \
-	done ; )
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

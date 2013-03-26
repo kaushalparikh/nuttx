@@ -33,8 +33,8 @@
  *
  ****************************************************************************/
 
-#ifndef __UP_INTERNAL_H
-#define __UP_INTERNAL_H
+#ifndef __ARCH_Z80_SRC_COMMON_UP_INTERNAL_H
+#define __ARCH_Z80_SRC_COMMON_UP_INTERNAL_H
 
 /****************************************************************************
  * Conditional Compilation
@@ -70,14 +70,14 @@
 
 #if CONFIG_NFILE_DESCRIPTORS == 0 || defined(CONFIG_DEV_LOWCONSOLE)
 #  undef USE_SERIALDRIVER
-#  ifdef CONFIG_HAVE_LOWUARTINIT
-#    define USE_LOWUARTINIT 1
+#  ifdef CONFIG_HAVE_LOWSERIALINIT
+#    define USE_LOWSERIALINIT 1
 #  else
-#    undef USE_LOWUARTINIT
+#    undef USE_LOWSERIALINIT
 #  endif
 #elif defined(CONFIG_DEV_CONSOLE) && CONFIG_NFILE_DESCRIPTORS > 0
 #  define USE_SERIALDRIVER 1
-#  undef USE_LOWUARTINIT
+#  undef USE_LOWSERIALINIT
 #endif
 
 /****************************************************************************
@@ -105,8 +105,8 @@ extern "C" {
 EXTERN void up_irqinitialize(void);
 EXTERN int  up_timerisr(int irq, FAR chipreg_t *regs);
 
-#ifdef USE_LOWUARTINIT
-EXTERN void up_lowuartinit(void);
+#ifdef USE_LOWSERIALINIT
+EXTERN void up_lowserialinit(void);
 #endif
 
 /* Defined in up_doirq.c */
@@ -116,6 +116,12 @@ EXTERN FAR chipreg_t *up_doirq(uint8_t irq, FAR chipreg_t *regs);
 /* Define in up_sigdeliver */
 
 EXTERN void up_sigdeliver(void);
+
+/* Defined in CPU-specific logic (only for Z180) */
+
+#if CONFIG_ADDRENV
+int up_mmuinit(void);
+#endif
 
 /* Defined in up_allocateheap.c */
 
@@ -209,4 +215,4 @@ EXTERN void up_stackdump(void);
 #endif
 #endif
 
-#endif  /* __UP_INTERNAL_H */
+#endif  /* __ARCH_Z80_SRC_COMMON_UP_INTERNAL_H */

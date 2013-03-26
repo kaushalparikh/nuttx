@@ -2,7 +2,7 @@ README
 ======
 
 This README discusses issues unique to NuttX configurations for the
-STMicro STM32F4 Discovery development board.
+STMicro STM32F4Discovery development board.
 
 Contents
 ========
@@ -20,6 +20,7 @@ Contents
   - FPU
   - FSMC SRAM
   - SSD1289
+  - UG-2864AMBAG01
   - STM32F4Discovery-specific Configuration Options
   - Configurations
 
@@ -88,14 +89,7 @@ GNU Toolchain Options
      because the dependencies are generated using Windows pathes which do not
      work with the Cygwin make.
 
-     Support has been added for making dependencies with the windows-native toolchains.
-     That support can be enabled by modifying your Make.defs file as follows:
-
-    -  MKDEP                = $(TOPDIR)/tools/mknulldeps.sh
-    +  MKDEP                = $(TOPDIR)/tools/mkdeps.sh --winpaths "$(TOPDIR)"
-
-     If you have problems with the dependency build (for example, if you are not
-     building on C:), then you may need to modify tools/mkdeps.sh
+       MKDEP                = $(TOPDIR)/tools/mknulldeps.sh
 
   The CodeSourcery Toolchain (2009q1)
   -----------------------------------
@@ -307,8 +301,8 @@ The STM32F4Discovery has no real on-board PWM devices, but the board can be
 configured to output a pulse train using TIM4 CH2 on PD3.  This pin is
 available next to the audio jack.
 
-UART
-====
+UARTs
+=====
 
 UART/USART PINS
 ---------------
@@ -564,7 +558,7 @@ by the "Lite" version of the Atollic toolchain.
 SSD1289
 =======
 
-I purchased an LCD display on eBay from china.  The LCD is 320x240 RGB565 and
+I purchased an LCD display on eBay from China.  The LCD is 320x240 RGB565 and
 is based on an SSD1289 LCD controller and an XPT2046 touch IC.  The pin out
 from the 2x16 connect on the LCD is labeled as follows:
 
@@ -701,6 +695,39 @@ The following summarize the bit banging oprations:
     Index(address);
     WriteData(data);
   }
+
+UG-2864AMBAG01
+==============
+
+I purchased an OLED display on eBay.  The OLDE is 128x64 monochrome and
+is based on an UG-2864AMBAG01 OLED controller.  The OLED can run in either
+parallel or SPI mode.  I am using SPI mode.  In SPI mode, the OLED is
+write only so the driver keeps a 128*64/8 = 1KB framebuffer to remember
+the display contents:
+
+Here is how I have the OLED connected.  But you can change this with the
+settings in include/board.h and src/stm324fdiscovery-internal.h.  Connector
+pinout for the UG-2864AMBAG01 is specific to the theO.net display board
+that I am using:
+
+  --------------------------+----------------------------------------------
+  Connector CON10 J1:      | STM32F4Discovery
+  --------------+-----------+----------------------------------------------
+  CON10 J1:     | CON20 J2: | P1/P2:
+  --------------+-----------+----------------------------------------------
+  1  3v3        | 3,4 3v3   | P2 3V
+  3  /RESET     | 8 /RESET  | P2 PB6 (Arbitrary selection)
+  5  /CS        | 7 /CS     | P2 PB7 (Arbitrary selection)
+  7  A0         | 9 A0      | P2 PB8 (Arbitrary selection)
+  9  LED+ (N/C) | -----     | -----
+  2  5V Vcc     | 1,2 Vcc   | P2 5V
+  4  DI         | 18 D1/SI  | P1 PA7 (GPIO_SPI1_MOSI == GPIO_SPI1_MOSI_1 (1))
+  6  SCLK       | 19 D0/SCL | P1 PA5 (GPIO_SPI1_SCK == GPIO_SPI1_SCK_1 (1))
+  8  LED- (N/C) | -----     | ------
+  10 GND        | 20 GND    | P2 GND
+  --------------+-----------+----------------------------------------------
+  (1) Required because of on-board MEMS
+  -------------------------------------------------------------------------
 
 STM32F4Discovery-specific Configuration Options
 ===============================================
@@ -1057,8 +1084,10 @@ Where <subdir> is one of the following:
        b. Execute 'make menuconfig' in nuttx/ in order to start the
           reconfiguration process.
 
-    2. Default toolchain:
+    2. Default platform/toolchain:
 
+       CONFIG_HOST_WINDOWS=y         : Windows
+       CONFIG_WINDOWS_CYGWIN=y       : Cygwin environment on Windows
        CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
 
     3. By default, this project assumes that you are *NOT* using the DFU
@@ -1299,17 +1328,67 @@ Where <subdir> is one of the following:
 
     The STM32F4Discovery board does not have any graphics capability.  This
     configuration assumes that you have connected an SD1289-based LCD as
-    described about under "SSD1289".  NOTE:  At present, it has not been
+    described above under "SSD1289".  NOTE:  At present, it has not been
     proven that the STM32F4Discovery can actually drive an LCD.  There are
     some issues with how some of the dedicated FSMC pins are used on the
     boards.  This configuration may not be useful and may only serve as
     an illustration of how to build for th SSD1289 LCD.
 
-    Default toolchain:
+  NOTES:
 
-      CONFIG_STM32_CODESOURCERYW=y : CodeSourcery under Windows
+  1. As of this writing, I have not seen the LCD work!
 
-    NOTE: As of this writing, I have not seen the LCD work!
+  2. This configuration uses the mconf-based configuration tool.  To
+     change this configuration using that tool, you should:
+
+     a. Build and install the mconf tool.  See nuttx/README.txt and
+        misc/tools/
+
+     b. Execute 'make menuconfig' in nuttx/ in order to start the
+        reconfiguration process.
+
+  3. This configured can be re-configured to use the UG-2864AMBAG01
+     0.96 inch OLED by adding or changing the following items int
+     the configuration (using 'make menuconfig'):
+
+     +CONFIG_SPI_CMDDATA=y
+
+     -CONFIG_LCD_MAXCONTRAST=1
+     -CONFIG_LCD_MAXPOWER=255
+     +CONFIG_LCD_MAXCONTRAST=255
+     +CONFIG_LCD_MAXPOWER=1
+
+     -CONFIG_LCD_SSD1289=y
+     -CONFIG_SSD1289_PROFILE1=y
+     +CONFIG_LCD_UG2864AMBAG01=y
+     +CONFIG_UG2864AMBAG01_SPIMODE=3
+     +CONFIG_UG2864AMBAG01_FREQUENCY=3500000
+     +CONFIG_UG2864AMBAG01_NINTERFACES=1
+
+     -CONFIG_NX_DISABLE_1BPP=y
+     +CONFIG_NX_DISABLE_16BPP=y
+
+     -CONFIG_EXAMPLES_NXLINES_BGCOLOR=0x0320
+     -CONFIG_EXAMPLES_NXLINES_LINEWIDTH=16
+     -CONFIG_EXAMPLES_NXLINES_LINECOLOR=0xffe0
+     -CONFIG_EXAMPLES_NXLINES_BORDERWIDTH=4
+     -CONFIG_EXAMPLES_NXLINES_BORDERCOLOR=0xffe0
+     -CONFIG_EXAMPLES_NXLINES_CIRCLECOLOR=0xf7bb
+     -CONFIG_EXAMPLES_NXLINES_BPP=16
+     +CONFIG_EXAMPLES_NXLINES_BGCOLOR=0x00
+     +CONFIG_EXAMPLES_NXLINES_LINEWIDTH=4
+     +CONFIG_EXAMPLES_NXLINES_LINECOLOR=0x01
+     +CONFIG_EXAMPLES_NXLINES_BORDERWIDTH=2
+     +CONFIG_EXAMPLES_NXLINES_BORDERCOLOR=0x01
+     +CONFIG_EXAMPLES_NXLINES_CIRCLECOLOR=0x00
+     +CONFIG_EXAMPLES_NXLINES_BPP=1
+     +CONFIG_EXAMPLES_NXLINES_EXTERNINIT=y
+
+     There are some issues with with the presentation... some tuning of the
+     configuration could fix that.  Lower resolution displays are also more
+     subject to the "fat, flat line bug" that I need to fix someday.  See
+     http://www.nuttx.org/doku.php?id=wiki:graphics:nxgraphics for a description
+     of the fat, flat line bug.
 
   pm:
   --
@@ -1357,3 +1436,41 @@ Where <subdir> is one of the following:
     The RTC alarm is used to wake up from STOP mode and to transition to
     STANDBY mode.  This used of the RTC alarm could conflict with other uses of
     the RTC alarm in your application.
+
+  winbuild:
+  --------
+
+    This is a version of the apps/example/ostest, but configure to build natively
+    in the Windows CMD shell.
+
+    NOTES:
+
+    1. The beginnings of a Windows native build are in place but still not full
+       usable as of this writing.  The windows native build logic is currently
+       separate and must be started by:
+
+        make -f Makefile.win
+
+      This build:
+
+        - Uses all Windows style paths
+        - Uses primarily Windows batch commands from cmd.exe, with
+        - A few extensions from GNUWin32 (or MSYS is you prefer)
+
+      In this build, you cannot use a Cygwin or MSYS shell. Rather the build must
+      be performed in a Windows CMD shell. Here is a better shell than than the
+      standard issue, CMD shell:  ConEmu which can be downloaded from:
+      http://code.google.com/p/conemu-maximus5/
+
+       CONFIG_HOST_WINDOWS=y         : Windows
+       CONFIG_WINDOWS_NATIVE=y       : Native Windows environment
+       CONFIG_STM32_CODESOURCERYW=y  : CodeSourcery under Windows
+
+      Build Tools.  The build still relies on some Unix-like commands.  I use
+      the GNUWin32 tools that can be downloaded from http://gnuwin32.sourceforge.net/.
+      The MSYS tools are probably also a option but are likely lower performance
+      since they are based on Cygwin 1.3.
+
+      Host Compiler:  I use the MingGW compiler which can be downloaded from
+      http://www.mingw.org/.  If you are using GNUWin32, then it is recommended
+      the you not install the optional MSYS components as there may be conflicts.

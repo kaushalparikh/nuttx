@@ -56,31 +56,6 @@ config ARCH_FAMILY_LPC176X
 	bool
 	default y if ARCH_CHIP_LPC1764 || ARCH_CHIP_LPC1765 || ARCH_CHIP_LPC1766 || ARCH_CHIP_LPC1767 || ARCH_CHIP_LPC1768 || ARCH_CHIP_LPC1769
 
-choice
-	prompt "Toolchain Selection"
-	default LPC17_CODESOURCERYW
-	depends on ARCH_CHIP_LPC17XX
-
-config LPC17_CODESOURCERYW
-	bool "CodeSourcery for Windows"
-
-config LPC17_CODESOURCERYL
-	bool "CodeSourcery for Linux"
-
-config LPC17_DEVKITARM
-	bool "DevkitARM (Windows)"
-
-config LPC17_BUILDROOT
-	bool "NuttX buildroot (Cygwin or Linux)"
-
-config LPC17_CODEREDW
-	bool "CodeRed for Windows"
-
-config LPC17_CODEREDL
-	bool "CodeRed for Windows"
-
-endchoice
-
 menu "LPC17xx Peripheral Support"
 
 config LPC17_MAINOSC

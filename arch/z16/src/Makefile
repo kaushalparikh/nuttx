@@ -36,38 +36,47 @@
 -include $(TOPDIR)/Make.defs
 -include chip/Make.defs
 
-COMPILER	= ${shell basename $(CC)}
-ARCHSRCDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-ifeq ($(COMPILER),zneocc.exe)
-WARCHSRCDIR	:= ${shell cygpath -w $(ARCHSRCDIR)}
-USRINCLUDES	= -usrinc:'.;$(WTOPDIR)\sched;$(WARCHSRCDIR);$(WARCHSRCDIR)\common'
+COMPILER = ${shell basename "$(CC)"}
+ARCHSRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
+
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  USRINCLUDES = -usrinc:'.;$(TOPDIR)/sched;$(ARCHSRCDIR);$(ARCHSRCDIR)/common'
 else
-WARCHSRCDIR	= $(ARCHSRCDIR)
-USRINCLUDES	= -I$(TOPDIR)/sched -I$(ARCHSRCDIR) -I$(ARCHSRCDIR)/common
-endif
-INCLUDES	= $(ARCHSTDINCLUDES) $(USRINCLUDES)
-CFLAGS		= $(ARCHWARNINGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(INCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
-CPPFLAGS	+= -I$(ARCHSRCDIR)
 ifeq ($(COMPILER),zneocc.exe)
-LDFLAGS 	+= @"${shell cygpath -w $(ARCHSRCDIR)/nuttx.linkcmd}"
+  WARCHSRCDIR := ${shell cygpath -w $(ARCHSRCDIR)}
+  USRINCLUDES = -usrinc:'.;$(WTOPDIR)\sched;$(WARCHSRCDIR);$(WARCHSRCDIR)\common'
+else
+  WARCHSRCDIR = $(ARCHSRCDIR)
+  USRINCLUDES = -I$(TOPDIR)/sched -I$(ARCHSRCDIR) -I$(ARCHSRCDIR)/common
+endif
 endif
 
-HEAD_ASRC	= $(HEAD_SSRC:.S=$(ASMEXT))
-HEAD_OBJ	= $(HEAD_SSRC:.S=$(OBJEXT))
+INCLUDES = $(ARCHSTDINCLUDES) $(USRINCLUDES)
+CFLAGS = $(ARCHWARNINGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(INCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+CPPFLAGS += -I$(ARCHSRCDIR)
 
-SSRCS		= $(CHIP_SSRCS) $(CMN_SSRCS)
-ASRCS		= $(SSRCS:.S=$(ASMEXT))
-AOBJS		= $(SSRCS:.S=$(OBJEXT))
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  LDFLAGS += @"$(ARCHSRCDIR)/nuttx.linkcmd"
+else
+ifeq ($(COMPILER),zneocc.exe)
+  LDFLAGS += @"${shell cygpath -w $(ARCHSRCDIR)/nuttx.linkcmd}"
+endif
+endif
 
-CSRCS		= $(CHIP_CSRCS) $(CMN_CSRCS)
-COBJS		= $(CSRCS:.c=$(OBJEXT))
+HEAD_ASRC = $(HEAD_SSRC:.S=$(ASMEXT))
+HEAD_OBJ = $(HEAD_SSRC:.S=$(OBJEXT))
 
-DEPSRCS 	= $(SSRCS) $(CSRCS)
-OBJS		= $(AOBJS) $(COBJS)
+SSRCS = $(CHIP_SSRCS) $(CMN_SSRCS)
+ASRCS = $(SSRCS:.S=$(ASMEXT))
+AOBJS = $(SSRCS:.S=$(OBJEXT))
 
-BOARDDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src/board
+CSRCS = $(CHIP_CSRCS) $(CMN_CSRCS)
+COBJS = $(CSRCS:.c=$(OBJEXT))
 
-VPATH		= chip:common
+DEPSRCS = $(SSRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+VPATH = chip:common
 
 all: $(HEAD_OBJ) libarch$(LIBEXT)
 
@@ -75,9 +84,9 @@ all: $(HEAD_OBJ) libarch$(LIBEXT)
 
 ifeq ($(COMPILER),zneocc.exe)
 $(ASRCS) $(HEAD_ASRC): %$(ASMEXT): %.S
-	@$(CPP) $(CPPFLAGS) $< -o $@.tmp
-	@cat $@.tmp | sed -e "s/^#/;/g" > $@
-	@rm $@.tmp
+	$(Q) $(CPP) $(CPPFLAGS) $< -o $@.tmp
+	$(Q) cat $@.tmp | sed -e "s/^#/;/g" > $@
+	$(Q) rm $@.tmp
 
 $(AOBJS) $(HEAD_OBJ): %$(OBJEXT): %$(ASMEXT)
 	$(call ASSEMBLE, $<, $@)
@@ -90,67 +99,94 @@ $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 libarch$(LIBEXT): $(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 board/libboard$(LIBEXT):
-	@$(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
 
 ifeq ($(COMPILER),zneocc.exe)
 nuttx.linkcmd: $(LINKCMDTEMPLATE)
-	@cp -f $(LINKCMDTEMPLATE) nuttx.linkcmd
+	$(Q) cp -f $(LINKCMDTEMPLATE) nuttx.linkcmd
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	@echo "$(TOPDIR)\nuttx"= \>>nuttx.linkcmd
+	@echo   "$(ARCHSRCDIR)\$(HEAD_OBJ)", \>>nuttx.linkcmd
+	$(Q) for %%G in ($(LINKLIBS)) do ( echo   "$(TOPDIR)\lib\%%G", \>>nuttx.linkcmd )
+	@echo   "$(ARCHSRCDIR)\board\libboard$(LIBEXT)", \>>nuttx.linkcmd
+	@echo   "$(ZDSSTDLIBDIR)\chelpld$(LIBEXT)", \>>nuttx.linkcmd
+	@echo   "$(ZDSSTDLIBDIR)\fpld$(LIBEXT)">>nuttx.linkcmd
+else
 	@echo "\"${shell cygpath -w $(TOPDIR)/nuttx}\"= \\" >>nuttx.linkcmd
 	@echo "  \"${shell cygpath -w $(ARCHSRCDIR)/$(HEAD_OBJ)}\", \\" >>nuttx.linkcmd
-	@( for lib in $(LINKLIBS); do \
-		echo "  \"`cygpath -w $(TOPDIR)/$${lib}`\", \\" >>nuttx.linkcmd; \
+	$(Q) ( for lib in $(LINKLIBS); do \
+		echo "  \"`cygpath -w $(TOPDIR)/lib/$${lib}`\", \\" >>nuttx.linkcmd; \
 	done ; )
 	@echo "  \"${shell cygpath -w $(ARCHSRCDIR)/board/libboard$(LIBEXT)}\", \\"  >>nuttx.linkcmd
 	@echo "  \"${shell cygpath -w $(ZDSSTDLIBDIR)/chelpld$(LIBEXT)}\", \\"  >>nuttx.linkcmd
 	@echo "  \"${shell cygpath -w $(ZDSSTDLIBDIR)/fpld$(LIBEXT)}\""  >>nuttx.linkcmd
+endif
 else
 nuttx.linkcmd:
 endif
 
 nuttx$(EXEEXT): $(HEAD_OBJ) board/libboard$(LIBEXT) nuttx.linkcmd
-	@echo "LD:  nuttx.hex"
-	@$(LD) $(LDFLAGS)
+	@echo "LD:  nuttx$(EXEEXT)"
+	$(Q) $(LD) $(LDFLAGS)
 
 .depend: Makefile chip/Make.defs $(DEPSRCS)
-	@if [ -e board/Makefile ]; then \
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist board$(DELIM)Makefile ( $(MAKE) -C board TOPDIR="$(TOPDIR)" depend )
+else
+	$(Q) if [ -e board/Makefile ]; then \
 		$(MAKE) -C board TOPDIR="$(TOPDIR)" depend ; \
 	fi
-	@$(MKDEP) --dep-path chip --dep-path common $(CC) -- $(CFLAGS) -- $(DEPSRCS) >Make.dep
-	@touch $@
+endif
+	$(Q) $(MKDEP) --dep-path chip --dep-path common "$(CC)" -- $(CFLAGS) -- $(DEPSRCS) >Make.dep
+	$(Q) touch $@
 
 # This is part of the top-level export target
 
 export_head: board/libboard$(LIBEXT) $(HEAD_OBJ)
-	@if [ -d "$(EXPORT_DIR)/startup" ]; then \
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist "$(EXPORT_DIR)$(DELIM)startup" ( copy $(HEAD_OBJ) "$(EXPORT_DIR)$(DELIM)startup$(DELIM)." /b /y)
+else
+	$(Q) if [ -d "$(EXPORT_DIR)/startup" ]; then \
 		cp -f $(HEAD_OBJ) "$(EXPORT_DIR)/startup"; \
 	 else \
 		echo "$(EXPORT_DIR)/startup does not exist"; \
 		exit 1; \
 	 fi
+endif
 
 # Dependencies
 
 depend: .depend
 
 clean:
-	@if [ -e board/Makefile ]; then \
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist board$(DELIM)Makefile ( $(MAKE) -C board TOPDIR="$(TOPDIR)" clean )
+else
+	$(Q) if [ -e board/Makefile ]; then \
 		$(MAKE) -C board TOPDIR="$(TOPDIR)" clean ; \
 	fi
-	@rm -f libarch$(LIBEXT) *~ .*.swp
-ifeq ($(COMPILER),zneocc.exe)
-	@rm -f nuttx.linkcmd *.asm *.tmp *.map
 endif
+ifeq ($(COMPILER),zneocc.exe)
+	$(call DELFILE, nuttx.linkcmd)
+	$(call DELFILE, *.asm)
+	$(call DELFILE, *.tmp)
+	$(call DELFILE, *.map)
+endif
+	$(call DELFILE, libarch$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
-	@if [ -e board/Makefile ]; then \
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) if exist board$(DELIM)Makefile ( $(MAKE) -C board TOPDIR="$(TOPDIR)" distclean )
+else
+	$(Q) if [ -e board/Makefile ]; then \
 		$(MAKE) -C board TOPDIR="$(TOPDIR)" distclean ; \
 	fi
-	@rm -f Make.dep .depend
+endif
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

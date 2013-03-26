@@ -40,11 +40,11 @@ CFLAGS += -I$(TOPDIR)/sched
 ASRCS = up_setjmp.S
 AOBJS = $(ASRCS:.S=$(OBJEXT))
 CSRCS = up_initialize.c up_idle.c up_interruptcontext.c \
-		  up_initialstate.c up_createstack.c up_usestack.c \
-		  up_releasestack.c  up_unblocktask.c up_blocktask.c \
-		  up_releasepending.c up_reprioritizertr.c \
-		  up_exit.c up_schedulesigaction.c up_allocateheap.c \
-		  up_devconsole.c
+		up_initialstate.c up_createstack.c up_usestack.c \
+		up_releasestack.c  up_unblocktask.c up_blocktask.c \
+		up_releasepending.c up_reprioritizertr.c \
+		up_exit.c up_schedulesigaction.c up_allocateheap.c \
+		up_devconsole.c
 HOSTSRCS = up_stdio.c up_hostusleep.c
 
 ifeq ($(CONFIG_NX_LCDDRIVER),y)
@@ -126,14 +126,15 @@ endif
 # Determine which NuttX libraries will need to be linked in
 # Most are provided by LINKLIBS on the MAKE command line
 
-LINKLIBS =
-LDPATHS = $(addprefix -L$(TOPDIR)/,$(dir $(LINKLIBS)))
-LDLIBS = $(patsubst lib%,-l%,$(basename $(notdir $(LINKLIBS))))
+LINKLIBS ?=
+RELLIBS = $(patsubst %.a,%,$(patsubst lib%,-l%,$(LINKLIBS)))
+RELPATHS += -L"$(TOPDIR)/lib"
 
 # Add the board-specific library and directory
 
-LDPATHS += -L board 
-LDLIBS += -lboard
+LIBPATHS += -L board 
+RELPATHS += -L board
+RELLIBS += -lboard
 
 # Make targets begin here
 
@@ -149,14 +150,12 @@ $(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
 
 $(HOSTOBJS): %$(OBJEXT): %.c
 	$(Q) echo "CC:  $<"
-	$(Q) $(CC) -c $(HOSTCFLAGS) $< -o $@
+	$(Q) "$(CC)" -c $(HOSTCFLAGS) $< -o $@
 
 # The architecture-specific library
 
 libarch$(LIBEXT): $(NUTTXOBJS)
-	$(Q) ( for obj in $(NUTTXOBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(NUTTXOBJS))
 
 # The "board"-specific library. Of course, there really are no boards in
 # the simulation.  However, this is a good place to keep parts of the simulation
@@ -179,7 +178,7 @@ Cygwin-names.dat: nuttx-names.dat
 
 nuttx.rel : libarch$(LIBEXT) board/libboard$(LIBEXT) $(HOSTOS)-names.dat $(LINKOBJS)
 	$(Q) echo "LD:  nuttx.rel"
-	$(Q) $(LD) -r $(LDLINKFLAGS) $(LDPATHS) $(EXTRA_LIBPATHS) -o $@ $(REQUIREDOBJS) --start-group $(LDLIBS) $(EXTRA_LIBS) --end-group
+	$(Q) $(LD) -r $(LDLINKFLAGS) $(RELPATHS) $(EXTRA_LIBPATHS) -o $@ $(REQUIREDOBJS) --start-group $(RELLIBS) $(EXTRA_LIBS) --end-group
 	$(Q) $(OBJCOPY) --redefine-syms=$(HOSTOS)-names.dat $@
 
 # Generate the final NuttX binary by linking the host-specific objects with the NuttX
@@ -187,7 +186,7 @@ nuttx.rel : libarch$(LIBEXT) board/libboard$(LIBEXT) $(HOSTOS)-names.dat $(LINKO
 
 nuttx$(EXEEXT): cleanrel nuttx.rel $(HOSTOBJS)
 	$(Q) echo "LD:  nuttx$(EXEEXT)"
-	$(Q) $(CC) $(CCLINKFLAGS) $(LDPATHS) -o $(TOPDIR)/$@ nuttx.rel $(HOSTOBJS) $(DRVLIB) $(STDLIBS)
+	$(Q) "$(CC)" $(CCLINKFLAGS) $(LIBPATHS) -o $(TOPDIR)/$@ nuttx.rel $(HOSTOBJS) $(DRVLIB) $(STDLIBS)
 	$(Q) $(NM) $(TOPDIR)/$@ | \
 		grep -v '\(compiled\)\|\(\.o$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
 		sort > $(TOPDIR)/System.map
@@ -203,7 +202,7 @@ export_head: board/libboard$(LIBEXT) up_head.o $(HOSTOBJS)
 # Dependencies
 
 .depend: Makefile $(SRCS)
-	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) $(MKDEP) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	$(Q) touch $@
 
 depend: .depend
@@ -215,14 +214,16 @@ clean: cleanrel
 	$(Q) if [ -e board/Makefile ]; then \
 		$(MAKE) -C board TOPDIR="$(TOPDIR)" clean ; \
 	fi
-	$(Q) rm -f nuttx.rel libarch$(LIBEXT) *~ .*.swp
+	$(call DELFILE, nuttx.rel)
+	$(call DELFILE, libarch$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
 	$(Q) if [ -e board/Makefile ]; then \
 		$(MAKE) -C board TOPDIR="$(TOPDIR)" distclean ; \
 	fi
-	$(Q) rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 	$(Q) rm -rf GNU
 
 -include Make.dep

@@ -1,7 +1,7 @@
 ############################################################################
 # apps/examples/pashello/Makefile
 #
-#   Copyright (C) 2008-2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2008-2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -39,26 +39,38 @@ include $(APPDIR)/Make.defs
 
 # Pascal Add-On Example
 
-ASRCS		=
-CSRCS		= pashello.c device.c
-
-AOBJS		= $(ASRCS:.S=$(OBJEXT))
-COBJS		= $(CSRCS:.c=$(OBJEXT))
-
-SRCS		= $(ASRCS) $(CSRCS)
-OBJS		= $(AOBJS) $(COBJS)
-
 ifeq ($(WINTOOL),y)
-  BIN		= "${shell cygpath -w  $(APPDIR)/libapps$(LIBEXT)}"
+INCDIROPT = -w
+endif
+CFLAGS += ${shell $(INCDIR) $(INCDIROPT) "$(CC)" \
+  "." \
+  "$(APPDIR)$(DELIM)interpreters$(DELIM)pcode$(DELIM)include" \
+  "$(APPDIR)$(DELIM)interpreters$(DELIM)pcode$(DELIM)insn$(DELIM)include"}
+
+ASRCS =
+CSRCS = pashello.c device.c
+
+AOBJS = $(ASRCS:.S=$(OBJEXT))
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BIN = ..\..\libapps$(LIBEXT)
 else
-  BIN		= "$(APPDIR)/libapps$(LIBEXT)"
+ifeq ($(WINTOOL),y)
+  BIN = ..\\..\\libapps$(LIBEXT)
+else
+  BIN = ../../libapps$(LIBEXT)
+endif
 endif
 
-ROOTDEPPATH	= --dep-path .
+ROOTDEPPATH = --dep-path .
 
 # Common build
 
-VPATH		= 
+VPATH = 
 
 all: .built
 .PHONY: clean depend distclean
@@ -70,24 +82,23 @@ $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 .built: $(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $(BIN), $${obj}); \
-	done ; )
+	$(call ARCHIVE, $(BIN), $(OBJS))
 	@touch .built
 
 context:
 
 .depend: Makefile $(SRCS)
-	@$(MKDEP) $(ROOTDEPPATH) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	@$(MKDEP) $(ROOTDEPPATH) "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
 	@touch $@
 
 depend: .depend
 
 clean:
-	@rm -f *.o *~ .*.swp .built
+	$(call DELFILE, .built)
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

@@ -1,7 +1,7 @@
 ############################################################################
 # libxx/Makefile
 #
-#   Copyright (C) 2009 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2009, 2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -46,7 +46,12 @@ CXXSRCS  = libxx_cxapurevirtual.cxx libxx_eabi_atexit.cxx  libxx_cxa_atexit.cxx
 # uClibx++ replaces them
 
 ifneq ($(CONFIG_UCLIBCXX),y)
-CXXSRCS += libxx_delete.cxx libxx_deletea.cxx libxx_new.cxx libxx_newa.cxx 
+CXXSRCS += libxx_delete.cxx libxx_deletea.cxx libxx_new.cxx libxx_newa.cxx
+CXXSRCS += libxx_stdthrow.cxx
+else
+ifneq ($(UCLIBCXX_EXCEPTION),y)
+CXXSRCS += libxx_stdthrow.cxx
+endif
 endif
 
 # Paths
@@ -77,7 +82,7 @@ CXXOBJS = $(CXXSRCS:.cxx=$(OBJEXT))
 SRCS = $(ASRCS) $(CSRCS) $(CXXSRCS)
 OBJS = $(AOBJS) $(COBJS) $(CXXOBJS)
 
-BIN = liblibxx$(LIBEXT)
+BIN = libcxx$(LIBEXT)
 
 all: $(BIN)
 
@@ -91,21 +96,20 @@ $(CXXOBJS): %$(OBJEXT): %.cxx
 	$(call COMPILEXX, $<, $@)
 
 $(BIN):	$(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
-	@$(MKDEP) $(DEPPATH) $(CXX) -- $(CXXFLAGS) -- $(SRCS) >Make.dep
-	@touch $@
+	$(Q) $(MKDEP) $(DEPPATH) "$(CXX)" -- $(CXXFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	@rm -f $(BIN) *~ .*.swp
+	$(call DELFILE, $(BIN))
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

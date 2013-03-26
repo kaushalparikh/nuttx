@@ -1,7 +1,7 @@
 ############################################################################
 # configs/xtrs/src/Makefile
 #
-#   Copyright (C) 2008 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2008, 2012 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
 
 -include $(TOPDIR)/Make.defs
 
-CFLAGS		+= -I$(TOPDIR)/sched -I$(TOPDIR)/arch/z80/src/common -I$(TOPDIR)/arch/z80/src/z80
+CFLAGS		+= -I$(TOPDIR)$(DELIM)sched -I$(TOPDIR)$(DELIM)arch$(DELIM)z80$(DELIM)src$(DELIM)common -I$(TOPDIR)$(DELIM)arch$(DELIM)z80$(DELIM)src$(DELIM)z80
 
 ASRCS		= 
 AOBJS		= $(ASRCS:$(ASMEXT)=$(OBJEXT))
@@ -45,8 +45,8 @@ COBJS		= $(CSRCS:.c=$(OBJEXT))
 SRCS		= $(ASRCS) $(CSRCS)
 OBJS		= $(AOBJS) $(COBJS)
 
-CFLAGS		+= -I $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-CFLAGS		+= -I $(TOPDIR)/arch/$(CONFIG_ARCH)/include
+CFLAGS		+= -I $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src
+CFLAGS		+= -I $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)include
 
 all: libboard$(LIBEXT)
 
@@ -57,21 +57,20 @@ $(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 libboard$(LIBEXT): $(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
-	@$(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
-	@touch $@
+	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	@rm -f libboard$(LIBEXT) *~ .*.swp
+	$(call DELFILE, libboard$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
-	@rm -f Make.dep .depend
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

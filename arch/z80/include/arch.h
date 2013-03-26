@@ -33,12 +33,12 @@
  *
  ****************************************************************************/
 
-/* This file should never be included directed but, rather,
- * only indirectly through nuttx/arch.h
+/* This file should never be included directed but, rather, only indirectly
+ * through nuttx/arch.h
  */
 
-#ifndef __ARCH_ARCH_H
-#define __ARCH_ARCH_H
+#ifndef __ARCH_Z80_INCLUDE_ARCH_H
+#define __ARCH_Z80_INCLUDE_ARCH_H
 
 /****************************************************************************
  * Included Files
@@ -47,7 +47,7 @@
 #include <arch/chip/arch.h>
 
 /****************************************************************************
- * Definitions
+ * Pre-processor Definitions
  ****************************************************************************/
 
 /****************************************************************************
@@ -66,17 +66,5 @@
  * Public Function Prototypes
  ****************************************************************************/
 
-#ifdef __cplusplus
-#define EXTERN extern "C"
-extern "C" {
-#else
-#define EXTERN extern
-#endif
-
-#undef EXTERN
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* __ARCH_ARCH_H */
+#endif /* __ARCH_Z80_INCLUDE_ARCH_H */
 

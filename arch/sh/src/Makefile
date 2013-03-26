@@ -36,32 +36,79 @@
 -include $(TOPDIR)/Make.defs
 -include chip/Make.defs
 
-ARCH_SRCDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src
-CFLAGS		+= -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common -I$(TOPDIR)/sched
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  ARCH_SRCDIR = $(TOPDIR)\arch\$(CONFIG_ARCH)\src
+  NUTTX = $(TOPDIR)\nuttx$(EXEEXT)
+  CFLAGS += -I$(ARCH_SRCDIR)\chip
+  CFLAGS += -I$(ARCH_SRCDIR)\common
+  CFLAGS += -I$(ARCH_SRCDIR)\$(ARCH_SUBDIR)
+  CFLAGS += -I$(TOPDIR)\sched
+else
+  ARCH_SRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
+ifeq ($(WINTOOL),y)
+  NUTTX = "${shell cygpath -w $(TOPDIR)/nuttx$(EXEEXT)}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/common}"
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/$(ARCH_SUBDIR)}"
+  CFLAGS += -I "${shell cygpath -w $(TOPDIR)/sched}"
+else
+  NUTTX = $(TOPDIR)/nuttx$(EXEEXT)
+  CFLAGS += -I$(ARCH_SRCDIR)/chip
+  CFLAGS += -I$(ARCH_SRCDIR)/common
+  CFLAGS += -I$(ARCH_SRCDIR)/$(ARCH_SUBDIR)
+  CFLAGS += -I$(TOPDIR)/sched
+endif
+endif
 
-HEAD_OBJ	= $(HEAD_ASRC:.S=$(OBJEXT))
+CFLAGS += -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common -I$(TOPDIR)/sched
 
-ASRCS		= $(CHIP_ASRCS) $(CMN_ASRCS)
-AOBJS		= $(ASRCS:.S=$(OBJEXT))
+HEAD_OBJ = $(HEAD_ASRC:.S=$(OBJEXT))
 
-CSRCS		= $(CHIP_CSRCS) $(CMN_CSRCS)
-COBJS		= $(CSRCS:.c=$(OBJEXT))
+ASRCS = $(CHIP_ASRCS) $(CMN_ASRCS)
+AOBJS = $(ASRCS:.S=$(OBJEXT))
 
-SRCS		= $(ASRCS) $(CSRCS)
-OBJS		= $(AOBJS) $(COBJS)
+CSRCS = $(CHIP_CSRCS) $(CMN_CSRCS)
+COBJS = $(CSRCS:.c=$(OBJEXT))
 
-LDFLAGS		+= $(ARCHSCRIPT)
-EXTRA_LIBS	?=
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
 
-LINKLIBS	=
-LDPATHES	= $(addprefix -L$(TOPDIR)/,$(dir $(LINKLIBS)))
-LDLIBS		= $(patsubst lib%,-l%,$(basename $(notdir $(LINKLIBS))))
+LDFLAGS += $(ARCHSCRIPT)
+EXTRA_LIBS ?=
+LINKLIBS ?=
 
-BOARDDIR	= $(TOPDIR)/arch/$(CONFIG_ARCH)/src/board
+ifeq ($(CONFIG_WINDOWS_NATIVE),y)
+  BOARDMAKE = $(if $(wildcard .\board\Makefile),y,)
+  LIBPATHS += -L"$(TOPDIR)\lib"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"$(TOPDIR)\arch\$(CONFIG_ARCH)\src\board"
+endif
 
-LIBGCC		= ${shell $(CC) $(ARCHCPUFLAGS) -print-libgcc-file-name}
+else
+  BOARDMAKE = $(if $(wildcard ./board/Makefile),y,)
 
-VPATH		= chip:common
+ifeq ($(WINTOOL),y)
+  LIBPATHS += -L"${shell cygpath -w "$(TOPDIR)/lib"}"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"${shell cygpath -w "$(TOPDIR)/arch/$(CONFIG_ARCH)/src/board"}"
+endif
+
+else
+  LIBPATHS += -L"$(TOPDIR)/lib"
+ifeq ($(BOARDMAKE),y)
+  LIBPATHS += -L"$(TOPDIR)/arch/$(CONFIG_ARCH)/src/board"
+endif
+endif
+endif
+
+LDLIBS = $(patsubst %.a,%,$(patsubst lib%,-l%,$(LINKLIBS)))
+ifeq ($(BOARDMAKE),y)
+  LDLIBS += -lboard
+endif
+
+LIBGCC = ${shell "$(CC)" $(ARCHCPUFLAGS) -print-libgcc-file-name}
+
+VPATH = chip:common
 
 all: $(HEAD_OBJ) libarch$(LIBEXT)
 
@@ -74,25 +121,25 @@ $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
 libarch$(LIBEXT): $(OBJS)
-	@( for obj in $(OBJS) ; do \
-		$(call ARCHIVE, $@, $${obj}); \
-	done ; )
+	$(call ARCHIVE, $@, $(OBJS))
 
 board/libboard$(LIBEXT):
-	@$(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
 
-nuttx: $(HEAD_OBJ) board/libboard$(LIBEXT)
+nuttx$(EXEEXT): $(HEAD_OBJ) board/libboard$(LIBEXT)
 	@echo "LD: nuttx"
-	@$(LD) --entry=__start $(LDFLAGS) $(LDPATHES) -L$(BOARDDIR) -o $(TOPDIR)/$@ $(HEAD_OBJ) \
-		--start-group $(LDLIBS) -lboard $(EXTRA_LIBS) $(LIBGCC) --end-group
-	@$(NM) $(TOPDIR)/$@ | \
+	$(Q) $(LD) --entry=__start $(LDFLAGS) $(LIBPATHS) -o $(TOPDIR)/$@ $(HEAD_OBJ) \
+		--start-group $(LDLIBS) $(EXTRA_LIBS) $(LIBGCC) --end-group
+ifneq ($(CONFIG_WINDOWS_NATIVE),y)
+	$(Q) $(NM) $(TOPDIR)/$@ | \
 	grep -v '\(compiled\)\|\(\$(OBJEXT)$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
 	sort > $(TOPDIR)/System.map
+endif
 
 # This is part of the top-level export target
 
 export_head: board/libboard$(LIBEXT) $(HEAD_OBJ)
-	@if [ -d "$(EXPORT_DIR)/startup" ]; then \
+	$(Q) if [ -d "$(EXPORT_DIR)/startup" ]; then \
 		cp -f $(HEAD_OBJ) "$(EXPORT_DIR)/startup"; \
 	 else \
 		echo "$(EXPORT_DIR)/startup does not exist"; \
@@ -102,25 +149,26 @@ export_head: board/libboard$(LIBEXT) $(HEAD_OBJ)
 # Dependencies
 
 .depend: Makefile chip/Make.defs $(SRCS)
-	@if [ -e board/Makefile ]; then \
-		$(MAKE) -C board TOPDIR="$(TOPDIR)" depend ; \
-	fi
-	@$(MKDEP) --dep-path chip --dep-path common $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
-	@touch $@
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" depend
+endif
+	$(Q) $(MKDEP) --dep-path chip --dep-path common "$(CC)" -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
 
 depend: .depend
 
 clean:
-	@if [ -e board/Makefile ]; then \
-		$(MAKE) -C board TOPDIR="$(TOPDIR)" clean ; \
-	fi
-	@rm -f libarch$(LIBEXT) *~ .*.swp
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" clean
+endif
+	$(call DELFILE, libarch$(LIBEXT))
 	$(call CLEAN)
 
 distclean: clean
-	@if [ -e board/Makefile ]; then \
-		$(MAKE) -C board TOPDIR="$(TOPDIR)" distclean ; \
-	fi
-	@rm -f Make.dep .depend
+ifeq ($(BOARDMAKE),y)
+	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" distclean
+endif
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
 
 -include Make.dep

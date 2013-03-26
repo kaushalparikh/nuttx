@@ -68,7 +68,7 @@
 #endif
 
 /* Debug ********************************************************************/
-/* Define the CONFIG_LCD_UGDEBUG to enable detailed debug output (stuff you
+/* Define the CONFIG_DEBUG_LCD to enable detailed debug output (stuff you
  * would never want to see unless you are debugging this file).
  *
  * Verbose debug must also be enabled
@@ -80,10 +80,10 @@
 #endif
 
 #ifndef CONFIG_DEBUG_VERBOSE
-#  undef CONFIG_LCD_UGDEBUG
+#  undef CONFIG_DEBUG_LCD
 #endif
 
-#ifdef CONFIG_LCD_UGDEBUG
+#ifdef CONFIG_DEBUG_LCD
 #  define ugdbg(format, arg...)  vdbg(format, ##arg)
 #  define oleddc_dumpgpio(m)     lpc17_dumpgpio(LPCXPRESSO_OLED_POWER, m)
 #  define oledcs_dumpgpio(m)     lpc17_dumpgpio(LPCXPRESSO_OLED_CS, m)

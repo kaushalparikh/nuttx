@@ -44,6 +44,7 @@
 #include <nuttx/compiler.h>
 
 #include "chip.h"
+#include "lm_gpio.h"
 
 /************************************************************************************
  * Definitions
@@ -54,7 +55,7 @@
  * expanded).
  */
 
-#if LM3S_NSSI == 0
+#if LM_NSSI == 0
 #  undef CONFIG_SSI0_DISABLE
 #  define CONFIG_SSI0_DISABLE 1
 #endif
@@ -111,14 +112,14 @@
 #ifndef __ASSEMBLY__
 
 /************************************************************************************
- * Name: lm3s_ssiinitialize
+ * Name: lm_ssiinitialize
  *
  * Description:
  *   Called to configure SPI chip select GPIO pins for the MDL-S2E.
  *
  ************************************************************************************/
 
-extern void weak_function lm3s_ssiinitialize(void);
+extern void weak_function lm_ssiinitialize(void);
 
 #endif /* __ASSEMBLY__ */
 #endif /* __CONFIGS_LM3S6432_S2E_SRC_LM3S6432S2E_INTERNAL_H */

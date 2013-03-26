@@ -3,6 +3,14 @@
 # see misc/tools/kconfig-language.txt.
 #
 
+config DISABLE_POLL
+	bool "Disable driver poll interfaces"
+	default n
+	---help---
+		The sizes of drivers can be reduced if the poll() method is not
+		supported.  If you do not use poll() or select(), then you can
+		select DISABLE_POLL to reduce the code footprint by a small amount.
+
 config DEV_NULL
 	bool "Enable /dev/null"
 	default y
@@ -140,7 +148,8 @@ menuconfig SPI
 	bool "SPI Driver Support"
 	default n
 	---help---
-		This selection enables building of the "upper-half" SPI driver.
+		This selection enables selection of common SPI options.  This option
+		should be enabled by all platforms that support SPI interfaces.
 		See include/nuttx/spi.h for further SPI driver information.
 
 if SPI

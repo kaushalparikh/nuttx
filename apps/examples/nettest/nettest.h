@@ -40,7 +40,7 @@
  * Included Files
  ****************************************************************************/
 
-#ifdef CONFIG_EXAMPLES_NETTEST_HOST
+#ifdef NETTEST_HOST
 #else
 # include <debug.h>
 #endif
@@ -49,7 +49,7 @@
  * Definitions
  ****************************************************************************/
 
-#ifdef CONFIG_EXAMPLES_NETTEST_HOST
+#ifdef NETTEST_HOST
    /* HTONS/L macros are unique to uIP */
 
 #  define HTONS(a)       htons(a)
@@ -69,12 +69,12 @@
 
 #else
 
-   /* Used lib_rawprintf() so that there is not confusion from buffered IO */
+   /* Used syslog() so that there is not confusion from buffered IO */
 
 #  ifdef CONFIG_CPP_HAVE_VARARGS
-#    define message(...) lib_rawprintf(__VA_ARGS__)
+#    define message(...) syslog(__VA_ARGS__)
 #  else
-#    define message lib_rawprintf
+#    define message syslog
 #  endif
 
    /* At present, uIP does only abortive disconnects */

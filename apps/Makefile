@@ -44,11 +44,11 @@ APPDIR = ${shell pwd}
 #   action. It is created by the configured appconfig file (a copy of which
 #   appears in this directory as .config)
 # SUBDIRS is the list of all directories containing Makefiles.  It is used
-#   only for cleaning. namedapp must always be the first in the list.  This
+#   only for cleaning. builtin must always be the first in the list.  This
 #   list can be extended by the .config file as well.
 
 CONFIGURED_APPS =
-SUBDIRS = examples graphics interpreters modbus namedapp nshlib netutils system
+SUBDIRS = examples graphics interpreters modbus builtin nshlib netutils system
 
 # There are two different mechanisms for obtaining the list of configured
 # directories:
@@ -69,9 +69,9 @@ SUBDIRS = examples graphics interpreters modbus namedapp nshlib netutils system
 
 ifeq ($(CONFIG_NUTTX_NEWCONFIG),y)
 
-# namedapp/Make.defs must be included first
+# builtin/Make.defs must be included first
 
-include namedapp/Make.defs
+include builtin/Make.defs
 include examples/Make.defs
 include graphics/Make.defs
 include interpreters/Make.defs
@@ -82,7 +82,7 @@ include system/Make.defs
 
 # INSTALLED_APPS is the list of currently available application directories.  It
 # is the same as CONFIGURED_APPS, but filtered to exclude any non-existent
-# application directory. namedapp is always in the list of applications to be
+# application directory. builtin is always in the list of applications to be
 # built.
 
 INSTALLED_APPS =
@@ -94,10 +94,10 @@ else
 
 # INSTALLED_APPS is the list of currently available application directories.  It
 # is the same as CONFIGURED_APPS, but filtered to exclude any non-existent
-# application directory. namedapp is always in the list of applications to be
+# application directory. builtin is always in the list of applications to be
 # built.
 
-INSTALLED_APPS = namedapp
+INSTALLED_APPS = builtin
 endif
 
 # Create the list of available applications (INSTALLED_APPS)
@@ -132,21 +132,16 @@ $(INSTALLED_APPS):
 
 $(BIN):	$(INSTALLED_APPS)
 
-.context:
+context:
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
 	$(Q) for %%G in ($(INSTALLED_APPS)) do ( \
-		if exist %%G\.context del /f /q %%G\.context \
 		$(MAKE) -C %%G TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" context \
 	)
 else
 	$(Q) for dir in $(INSTALLED_APPS) ; do \
-		rm -f $$dir/.context ; \
 		$(MAKE) -C $$dir TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" context ; \
 	done
 endif
-	$(Q) touch $@
-
-context: .context
 
 .depend: context Makefile $(SRCS)
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
@@ -177,13 +172,12 @@ endif
 	$(call DELFILE, $(BIN))
 	$(call CLEAN)
 
-distclean: # clean
+distclean:
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
 	$(Q) for %%G in ($(SUBDIRS)) do ( \
 		$(MAKE) -C %%G distclean TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)" \
 	)
 	$(call DELFILE, .config)
-	$(call DELFILE, .context)
 	$(call DELFILE, .depend)
 	$(Q) ( if exist  external ( \
 		echo ********************************************************" \
@@ -195,7 +189,6 @@ else
 		$(MAKE) -C $$dir distclean TOPDIR="$(TOPDIR)" APPDIR="$(APPDIR)"; \
 	done
 	$(call DELFILE, .config)
-	$(call DELFILE, .context)
 	$(call DELFILE, .depend)
 	$(Q) ( if [ -e external ]; then \
 		echo "********************************************************"; \

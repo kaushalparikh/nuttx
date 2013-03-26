@@ -148,9 +148,9 @@ If you are running X11 applications as NSH add-on programs, then the stack
 size of the add-on program is controlled in another way.  Here are the
 steps for increasing the stack size in that case:
 
-  cd ../apps/namedapps  # Go to the namedapps directory
-  vi namedapps_list.h   # Edit this file and increase the stack size of the add-on
-  rm .built *.o         # This will force the namedapps logic to rebuild
+  cd ../apps/builtin    # Go to the builtin apps directory
+  vi builtin_list.h     # Edit this file and increase the stack size of the add-on
+  rm .built *.o         # This will force the builtin apps logic to rebuild
 
 Buffered I/O Issues
 -------------------
@@ -209,8 +209,8 @@ cxxtest
   2. This configuration uses the mconf-based configuration tool.  To
      change this configuration using that tool, you should:
 
-     a. Build and install the mconf tool.  See nuttx/README.txt and
-        misc/tools/
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
 
      b. Execute 'make menuconfig' in nuttx/ in order to start the
         reconfiguration process.
@@ -276,12 +276,53 @@ nsh
     cd <nuttx-directory>/tools
     ./configure.sh sim/nsh
 
+  NOTES:
+  ------ 
+  1. This configuration uses the mconf-based configuration tool.  To
+     change this configuration using that tool, you should:
+
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
+
+     b. Execute 'make menuconfig' in nuttx/ in order to start the
+        reconfiguration process.
+
+  2. This version has one builtin function:  This configuration:
+     apps/examples/hello.
+
+  3. This configuration has BINFS enabled so that the builtin applications
+     can be made visible in the file system.  Because of that, the
+     build in applications do not work as other examples.
+
+     For example trying to execute the hello builtin application will
+     fail:
+
+       nsh> hello   
+       nsh: hello: command not found
+       nsh>
+
+     Unless you first mount the BINFS file system:
+
+       nsh> mount -t binfs /bin
+       nsh> ls /bin
+       /bin:
+         hello
+       nsh> echo $PATH
+       /bin
+       nsh> hello
+       Hello, World!!
+       nsh> 
+
+     Notice that the executable 'hello' is found using the value in the PATH
+     variable (which was preset to "/bin").  If the PATH variable were not set
+     then you would have to use /bin/hello on the command line.
+
 nsh2
 
   Description
   -----------
   This is another example that configures to use the NuttShell at apps/examples/nsh.
-  Unlike nsh, this version uses NSH built-in functions.  The nx, nxhello, and
+  Like nsh, this version uses NSH built-in functions:  The nx, nxhello, and
   nxlines examples are included as built-in functions.
 
   X11 Configuration
@@ -446,6 +487,21 @@ nx11
 
   See apps/examples/README.txt for further details.
 
+nxlines
+
+  This is the apps/examples/nxlines test.
+
+  NOTES:
+  ------ 
+  1. This configuration uses the mconf-based configuration tool.  To
+     change this configuration using that tool, you should:
+
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
+
+     b. Execute 'make menuconfig' in nuttx/ in order to start the
+        reconfiguration process.
+
 nxwm
 
   This is a special configuration setup for the NxWM window manager
@@ -461,46 +517,57 @@ nxwm
 
     nuttx-code/NxWidgets/UnitTests/READEM.txt
 
-  NOTE:  There is an issue with running this example under the
-  simulation.  In the default configuration, this example will
-  run the NxConsole example which waits on readline() for console
-  intput.  When it calls readline(), the whole system blocks
-  waiting from input from the host OS.  So, in order to get
-  this example to run, you must comment out the readline call in
-  apps/nshlib/nsh_consolemain.c like:
+  NOTES
+  -----
+  1. This configuration uses the mconf-based configuration tool.  To
+     change this configuration using that tool, you should:
 
-  Index: nsh_consolemain.c
-  ===================================================================
-  --- nsh_consolemain.c   (revision 4681)
-  +++ nsh_consolemain.c   (working copy)
-  @@ -117,7 +117,8 @@
-     /* Execute the startup script */
+     a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+        and misc/tools/
+
+     b. Execute 'make menuconfig' in nuttx/ in order to start the
+        reconfiguration process.
+
+  2. There is an issue with running this example under the
+     simulation.  In the default configuration, this example will
+     run the NxConsole example which waits on readline() for console
+     input.  When it calls readline(), the whole system blocks
+     waiting from input from the host OS.  So, in order to get
+     this example to run, you must comment out the readline call in
+     apps/nshlib/nsh_consolemain.c like:
+
+     Index: nsh_consolemain.c
+     ===================================================================
+     --- nsh_consolemain.c   (revision 4681)
+     +++ nsh_consolemain.c   (working copy)
+     @@ -117,7 +117,8 @@
+        /* Execute the startup script */
  
-   #ifdef CONFIG_NSH_ROMFSETC
-  -  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
-  +// REMOVE ME
-  +//  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
-   #endif
+      #ifdef CONFIG_NSH_ROMFSETC
+     -  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
+     +// REMOVE ME
+     +//  (void)nsh_script(&pstate->cn_vtbl, "init", NSH_INITPATH);
+      #endif
    
-     /* Then enter the command line parsing loop */
-  @@ -130,7 +131,8 @@
-         fflush(pstate->cn_outstream);
+        /* Then enter the command line parsing loop */
+     @@ -130,7 +131,8 @@
+            fflush(pstate->cn_outstream);
    
-         /* Get the next line of input */
-  -
-  +sleep(2); // REMOVE ME
-  +#if 0 // REMOVE ME
-         ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
-                        INSTREAM(pstate), OUTSTREAM(pstate));
-         if (ret > 0)
-  @@ -153,6 +155,7 @@
-                     "readline", NSH_ERRNO_OF(-ret));
-             nsh_exit(&pstate->cn_vtbl, 1);
-           }
-  +#endif // REMOVE ME
-       }
+            /* Get the next line of input */
+     -
+     +sleep(2); // REMOVE ME
+     +#if 0 // REMOVE ME
+            ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
+                           INSTREAM(pstate), OUTSTREAM(pstate));
+            if (ret > 0)
+     @@ -153,6 +155,7 @@
+                        "readline", NSH_ERRNO_OF(-ret));
+                nsh_exit(&pstate->cn_vtbl, 1);
+              }
+     +#endif // REMOVE ME
+          }
  
-     /* Clean up */
+        /* Clean up */
 
 ostest
 
@@ -517,8 +584,8 @@ ostest
   1. This configuration uses the mconf-based configuration tool.  To
      change this configuration using that tool, you should:
 
-     a. Build and install the mconf tool.  See nuttx/README.txt and
-        misc/tools/
+     a. Build and install the kconfig mconf tool.  See nuttx/README.txt
+        and misc/tools/
 
      b. Execute 'make menuconfig' in nuttx/ in order to start the
         reconfiguration process.

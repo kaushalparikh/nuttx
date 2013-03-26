@@ -13,7 +13,7 @@
       <h1><big><font color="#3c34ec"><i>NuttX Operating System<p>User's Manual</i></font></big></h1>
       <p><small>by</small></p>
       <p>Gregory Nutt<p>
-      <p>Last Updated: November 20, 2012</p>
+      <p>Last Updated: January 23, 2013</p>
     </td>
   </tr>
 </table>
@@ -193,14 +193,51 @@ paragraphs.
 <p><b>Task Control Interfaces</b>.
   The following task control interfaces are provided by NuttX:
 </p>
+<p>
+  Non-standard task control interfaces inspired by VxWorks interfaces:
+</p>
 <ul>
   <li><a href="#taskcreate">2.1.1 task_create</a></li>
   <li><a href="#taskinit">2.1.2 task_init</a></li>
   <li><a href="#taskactivate">2.1.3 task_activate</a></li>
   <li><a href="#taskdelete">2.1.4 task_delete</a></li>
-  <li><a href="#exit">2.1.5 exit</a></li>
-  <li><a href="#taskrestart">2.1.6 task_restart</a></li>
+  <li><a href="#taskrestart">2.1.5 task_restart</a></li>
+</ul>
+<p>
+  Standard interfaces
+</p>
+<ul>
+  <li><a href="#exit">2.1.6 exit</a></li>
   <li><a href="#getpid">2.1.7 getpid</a></li>
+</ul>
+<p>
+  Standard <code>vfork</code> and <code>exec[v|l]</code> interfaces:
+</p>
+<ul>
+  <li><a href="#vfork">2.1.8 vfork</a></li>
+  <li><a href="#execv">2.1.9 execv</a></li>
+  <li><a href="#execl">2.1.10 execl</a></li>
+</ul>
+<p>
+  Standard <code>posix_spawn</code> interfaces:
+</p>
+
+<ul>
+  <li><a href="#posix_spawn">2.1.11 posix_spawn and posix_spawnp</a></li>
+  <li><a href="#posix_spawn_file_actions_init">2.1.12 posix_spawn_file_actions_init</a></li>
+  <li><a href="#posix_spawn_file_actions_destroy">2.1.13 posix_spawn_file_actions_destroy</a></li>
+  <li><a href="#posix_spawn_file_actions_addclose">2.1.14 posix_spawn_file_actions_addclose</a></li>
+  <li><a href="#posix_spawn_file_actions_adddup2">2.1.15 posix_spawn_file_actions_adddup2</a></li>
+  <li><a href="#posix_spawn_file_actions_addopen">2.1.16 posix_spawn_file_actions_addopen</a></li>
+  <li><a href="#posix_spawnattr_init">2.1.17 posix_spawnattr_init</a></li>
+  <li><a href="#posix_spawnattr_getflags">2.1.18 posix_spawnattr_getflags</a></li>
+  <li><a href="#posix_spawnattr_getschedparam">2.1.19 posix_spawnattr_getschedparam</a></li>
+  <li><a href="#posix_spawnattr_getschedpolicy">2.1.20 posix_spawnattr_getschedpolicy</a></li>
+  <li><a href="#posix_spawnattr_getsigmask">2.1.21 posix_spawnattr_getsigmask</a></li>
+  <li><a href="#posix_spawnattr_setflags">2.1.22 posix_spawnattr_setflags</a></li>
+  <li><a href="#posix_spawnattr_setschedparam">2.1.23 posix_spawnattr_setschedparam</a></li>
+  <li><a href="#posix_spawnattr_setschedpolicy">2.1.24 posix_spawnattr_setschedpolicy</a></li>
+  <li><a href="#posix_spawnattr_setsigmask">2.1.25 posix_spawnattr_setsigmask</a></li>
 </ul>
 
 <H3><a name="taskcreate">2.1.1 task_create</a></H3>
@@ -469,53 +506,7 @@ STATUS taskDelete(int tid);
   <li>Deletion of self is supported, but only because <code>task_delete()</code> will re-direct processing to <code>exit()</code>.
 </ul>
 
-<H3><a name="exit">2.1.5 exit</a></H3>
-
-<p>
-<b>Function Prototype:</b> 
-<pre>
-    #include &lt;sched.h&gt;
-    void exit(int code);
-
-    #include &lt;nuttx/unistd.h&gt;
-    void _exit(int code);
-</pre>
-
-<p>
-<b>Description:</b> This function causes the calling task to cease
-to exist -- its stack and TCB will be deallocated.  exit differs from
-_exit in that it flushes streams, closes file descriptors and will
-execute any function registered with <code>atexit()</code> or <code>on_exit()</code>.
-<p>
-<b>Input Parameters:</b> 
-<ul>
-<li><code>code</code>. (ignored)
-</ul>
-
-<p>
-<b>Returned Value:</b>  None.
-
-<p>
-<b>Assumptions/Limitations:</b> 
-
-<p>
-<b>POSIX Compatibility:</b> This is equivalent to the ANSI interface:
-<pre>
-    void exit(int code);
-</pre>
-And the UNIX interface:
-<pre>
-    void _exit(int code);
-</pre>
-
-<p>
-  The NuttX exit() differs from ANSI exit() in the following ways:
-</p>
-<ul>
-<li>The <code>code</code> parameter is ignored.
-</ul>
-
-<H3><a name="taskrestart">2.1.6 task_restart</a></H3>
+<H3><a name="taskrestart">2.1.5 task_restart</a></H3>
 <p>
 <b>Function Prototype:</b>
 <ul><pre>
@@ -585,6 +576,52 @@ VxWorks provides the following similar interface:
   </li>
 </ul>
 
+<H3><a name="exit">2.1.6 exit</a></H3>
+
+<p>
+<b>Function Prototype:</b> 
+<pre>
+    #include &lt;sched.h&gt;
+    void exit(int code);
+
+    #include &lt;nuttx/unistd.h&gt;
+    void _exit(int code);
+</pre>
+
+<p>
+<b>Description:</b> This function causes the calling task to cease
+to exist -- its stack and TCB will be deallocated.  exit differs from
+_exit in that it flushes streams, closes file descriptors and will
+execute any function registered with <code>atexit()</code> or <code>on_exit()</code>.
+<p>
+<b>Input Parameters:</b> 
+<ul>
+<li><code>code</code>. (ignored)
+</ul>
+
+<p>
+<b>Returned Value:</b>  None.
+
+<p>
+<b>Assumptions/Limitations:</b> 
+
+<p>
+<b>POSIX Compatibility:</b> This is equivalent to the ANSI interface:
+<pre>
+    void exit(int code);
+</pre>
+And the UNIX interface:
+<pre>
+    void _exit(int code);
+</pre>
+
+<p>
+  The NuttX exit() differs from ANSI exit() in the following ways:
+</p>
+<ul>
+<li>The <code>code</code> parameter is ignored.
+</ul>
+
 <H3><a name="getpid">2.1.7 getpid</a></H3>
 
 <p>
@@ -611,6 +648,759 @@ level.
 <p>
 <b>POSIX Compatibility:</b>
 Compatible with the POSIX interface of the same name.
+</p>
+
+<H3><a name="vfork">2.1.8 vfork</a></H3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;unistd.h&gt;
+pid_t vfork(void);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>vfork()</code> function has the same effect as <code>fork()</code>, except that the behavior is undefined if the process created by <code>vfork()</code> either modifies any data other than a variable of type <code>pid_t</code> used to store the return value from <code>vfork()</code>, or returns from the function in which <code>vfork()</code> was called, or calls any other function before successfully calling <code>_exit()</code> or one of the <code>exec</code> family of functions. 
+<p>
+<blockquote><small>
+  <b>NOTE:</b>
+  <code>vfork()</code> is not an independent NuttX feature, but is implemented in architecture-specific logic (using only helper functions from the NuttX core logic).
+  As a result, <code>vfork()</code> may not be available on all architectures.
+</small></blockquote>
+<p>
+  <b>Input Parameters:</b>
+  None.
+</p>
+<p>
+  <b>Returned Value:</b> 
+  Upon successful completion, <code>vfork()</code> returns 0 to the child process and returns
+  the process ID of the child process to the parent process.
+  Otherwise, -1 is returned to the parent, no child process is created, and <code>errno</code> is set to indicate the error. 
+<p>
+  <b>Assumptions/Limitations:</b> 
+</p>
+<p>
+  <b>POSIX Compatibility:</b>
+  Compatible with the Unix interface of the same name.
+</p>
+
+<H3><a name="execv">2.1.9 execv</a></H3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;unistd.h&gt;
+#ifdef CONFIG_LIBC_EXECFUNCS
+int execv(FAR const char *path, FAR char *const argv[]);
+#endif
+</pre></ul>
+<p>
+  <b>Description:</b>
+   The standard <code>exec</code> family of functions will replace the current process image with a new process image.
+   The new image will be constructed from a regular, executable file called the new process image file.
+   There will be no return from a successful <code>exec</code>, because the calling process image is overlaid by the new process image.
+</p>
+<p>
+   Simplified <code>execl()</code> and <code>execv()</code> functions are provided by NuttX for compatibility.
+   NuttX is a tiny embedded RTOS that does not support processes and hence the concept of overlaying a tasks process image with a new process image does not make any sense.
+   In NuttX, these functions are wrapper functions that:
+</p>
+<ol>
+  <li>
+    Call the non-standard <code>binfmt</code> function <code>exec()</code>, and then
+  </li>
+  <li>
+     <code>exit(0)</code>.
+   </li>
+</ol>
+<p>
+   Note the inefficiency when <code>execv()</code> or <code>execl()</code> is called in the normal, two-step process:
+   (1) first call <code>vfork()</code> to create a new thread, then (2) call <code>execv()</code> or <code>execl()</code> to replace the new thread with a program from the file system.
+   Since the new thread will be terminated by the <code>execv()</code> or <code>execl()</code> call, it really served no purpose other than to support Unix compatility.
+</p>
+<p>
+   The non-standard binfmt function <code>exec()</code> needs to have (1) a symbol table that provides the list of symbols exported by the base code, and (2) the number of symbols in that table.
+   This information is currently provided to <code>exec()</code> from <code>execv()</code> or <code>execl()</code> via NuttX configuration settings:
+</p>
+<ul>
+  <li>
+     <code>CONFIG_LIBC_EXECFUNCS</code>:
+     Enable <code>execv()</code> and <code>execl()</code> support
+  </li>
+  <li>
+     <code>CONFIG_EXECFUNCS_SYMTAB</code>:
+     Symbol table used by <code>execv()</code> or <code>execl()</code>.
+  </li>
+  <li>
+     <code>CONFIG_EXECFUNCS_NSYMBOLS</code>:
+     Number of symbols in the symbol table
+  </li>
+</ul>
+<p>
+   As a result of the above, the current implementations of <code>execl()</code> and <code>execv()</code> suffer from some incompatibilities that may or may not be addressed in a future version of NuttX.
+   Other than just being an inefficient use of MCU resource, the most serious of these is that
+   the <code>exec</code>'ed task will not have the same task ID as the <code>vfork</code>'ed function.
+   So the parent function cannot know the ID of the <code>exec</code>'ed task.<p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>path</code>:
+     The path to the program to be executed.
+     If <code>CONFIG_BINFMT_EXEPATH</code> is defined in the configuration, then this may be a relative path from the current working directory.
+     Otherwise, <code>path</code> must be the absolute path to the program.
+   <li>
+   </li>
+     <code>argv</code>:
+     A pointer to an array of string arguments.
+     The end of the array is indicated with a NULL entry.
+  </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  This function does not return on success.
+  On failure, it will return -1 (<code>ERROR</code>) and will set the <code>errno</code> value appropriately. 
+<p>
+  <b>Assumptions/Limitations:</b> 
+</p>
+<p>
+  <b>POSIX Compatibility:</b>
+  Similar with the Unix interface of the same name.
+  There are, however, several compatibility issues as detailed in the description above.
+</p>
+
+<H3><a name="execl">2.1.10 execl</a></H3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;unistd.h&gt;
+#ifdef CONFIG_LIBC_EXECFUNCS
+int execl(FAR const char *path, ...);
+#endif
+</pre></ul>
+<p>
+  <b>Description:</b>
+  <code>execl()</code> is functionally equivalent to <a href="#execv">execv()</a>, differing only in the form of its input parameters.
+  See the decription of <a href="#execv">execv()</a> for additional information.
+<p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>path</code>:
+     The path to the program to be executed.
+     If <code>CONFIG_BINFMT_EXEPATH</code> is defined in the configuration, then this may be a relative path from the current working directory.
+     Otherwise, <code>path</code> must be the absolute path to the program.
+   <li>
+   </li>
+     <code>...</code>:
+     A list of the string arguments to be recevied by the program. 
+     Zero indicates the end of the list.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  This function does not return on success.
+  On failure, it will return -1 (<code>ERROR</code>) and will set the <code>errno</code> value appropriately. 
+<p>
+  <b>Assumptions/Limitations:</b> 
+</p>
+<p>
+  <b>POSIX Compatibility:</b>
+  Similar with the Unix interface of the same name.
+  There are, however, several compatibility issues as detailed in the description of <a href="#execv">execv()</a>.
+</p>
+
+<h3><a name="posix_spawn">2.1.11 posix_spawn and posix_spawnp</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn(FAR pid_t *pid, FAR const char *path,
+      FAR const posix_spawn_file_actions_t *file_actions,
+      FAR const posix_spawnattr_t *attr,
+      FAR char *const argv[], FAR char *const envp[]);
+int posix_spawnp(FAR pid_t *pid, FAR const char *file,
+      FAR const posix_spawn_file_actions_t *file_actions,
+      FAR const posix_spawnattr_t *attr,
+      FAR char *const argv[], FAR char *const envp[]);
+</pre></ul>
+<p>
+  <b>Description:</b>
+   The <code>posix_spawn()</code> and <code>posix_spawnp()</code> functions will create a new, child task, constructed from a regular executable file.<p>
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <p>
+       <code>pid</code>:
+       Upon successful completion, <code>posix_spawn()</code> and <code>posix_spawnp()</code> will return the task ID of the child task to the parent task, in the variable pointed to by a non-NULL <code>pid</code> argument.
+       If the <code>pid</code> argument is a null pointer, the process ID of the child is not returned to the caller.
+     </p>
+   </li>
+   <li>
+     <p>
+       <code>path</code> or <code>file</code>:
+       The <code>path</code> argument to <code>posix_spawn()</code> is the absolute path that identifies the file to execute.
+       The <code>file</code> argument to <code>posix_spawnp()</code> may also be a relative path and will be used to construct a pathname that identifies the file to execute.
+       In the case of a relative path, the path prefix for the file will be obtained by a search of the directories passed as the environment variable PATH.
+     </p>
+     <p>
+       NOTE: NuttX provides only one implementation:
+       If <code>CONFIG_BINFMT_EXEPATH</code> is defined, then only <code>posix_spawnp()</code> behavior is supported; otherwise, only <code>posix_spawn</code> behavior is supported.
+   </li>
+   <li>
+     <p>
+       <code>file_actions</code>:
+       If <code>file_actions</code> is a null pointer, then file descriptors open in the calling process will remain open in the child process (unless <code>CONFIG_FDCLONE_STDIO</code> is defined).
+       If <code>file_actions</code> is not NULL, then the file descriptors open in the child process will be those open in the calling process as modified by the spawn file actions object pointed to by <code>file_actions</code>.
+     </p>
+   </li>
+   <li>
+     <p>
+       <code>attr</code>:
+       If the value of the <code>attr</code> parameter is <code>NULL</code>, the all default values for the POSIX spawn attributes will be used.
+       Otherwise, the attributes will be set according to the spawn flags.
+       The <code>posix_spawnattr_t</code> spawn attributes object type is defined in <code>spawn.h</code>.
+       It will contains these attributes, not all of which are supported by NuttX:
+     </p>
+     <ul>
+       <li>
+         <code>POSIX_SPAWN_SETPGROUP</code>:
+         Setting of the new task's process group is not supported.
+         NuttX does not support process groups.
+       </li>
+       <li>
+         <code>POSIX_SPAWN_SETSCHEDPARAM</code>:
+         Set new tasks priority to the <code>sched_param</code> value.
+       </li>
+       <li>
+         <code>POSIX_SPAWN_SETSCHEDULER</code>:
+         Set the new task's scheduler policy to the <code>sched_policy</code> value.
+       </li>
+       <li>
+         <code>POSIX_SPAWN_RESETIDS</code>
+         Resetting of the effective user ID of the child process is not supported.
+         NuttX does not support effective user IDs.
+       </li>
+       <li>
+         <code>POSIX_SPAWN_SETSIGMASK</code>:
+         Set the new task's signal mask.
+       </li>
+       <li>
+         <code>POSIX_SPAWN_SETSIGDEF</code>:
+         Resetting signal default actions is not supported.
+         NuttX does not support default signal actions.
+       </li>
+    </ul>
+  </li>
+   <li>
+     <p>
+       <code>argv</code>:
+       <code>argv[]</code> is the argument list for the new task.  <code>argv[]</code> is an array of pointers to null-terminated strings.
+       The list is terminated with a null pointer.
+     </p>
+   </li>
+   <li>
+     <p>
+       <code>envp</code>:
+       The <code>envp[]</code> argument is not used by NuttX and may be <code>NULL</code>.
+       In standard implementations, <code>envp[]</code> is an array of character pointers to null-terminated strings that provide the environment for the new process image.
+       The environment array is terminated by a null pointer.
+       In NuttX, the <code>envp[]</code> argument is ignored and the new task will inherit the environment of the parent task unconditionally.     </p>
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  <code>posix_spawn()</code> and <code>posix_spawnp()</code> will return zero on success.
+  Otherwise, an error number will be returned as the function return value to indicate the error:
+</p>
+<ul>
+  <li>
+    <code>EINVAL</code>:
+    The value specified by <code>file_actions</code> or <code>attr</code> is invalid.
+  </li>
+  <li>
+     Any errors that might have been return if <code>vfork()</code> and <code>excec[l|v]()</code> had been called.
+  </li>
+</ul>
+<p>
+  <b>Assumptions/Limitations:</b> 
+</p>
+<ul>
+  <li>
+    NuttX provides only <code>posix_spawn()</code> or <code>posix_spawnp()</code> behavior depending upon the setting of <code>CONFIG_BINFMT_EXEPATH</code>:
+    If <code>CONFIG_BINFMT_EXEPATH</code> is defined, then only <code>posix_spawnp()</code> behavior is supported; otherwise, only <code>posix_spawn()</code> behavior is supported.
+  </li>
+  <li>
+    The <code>envp</code> argument is not used and the <code>environ</code> variable is not altered (NuttX does not support the <code>environ</code> variable).
+  </li>
+  <li>
+    Process groups are not supported (See <code>POSIX_SPAWN_SETPGROUP</code> above).
+  </li>
+  <li>
+    Effective user IDs are not supported (See <code>POSIX_SPAWN_RESETIDS</code> above).
+  </li>
+  <li>
+    Signal default actions cannot be modified in the newly task executed  because NuttX does not support default signal actions (See <code>POSIX_SPAWN_SETSIGDEF</code>).
+  </li>
+</ul>
+<p>
+  <b>POSIX Compatibility:</b>
+  The value of the <code>argv[0]</code> received by the child task is assigned by NuttX.
+  For the caller of <code>posix_spawn()</code>, the provided argv[0] will correspond to <code>argv[1]</code> received by the new task.
+</p>
+
+<h3><a name="posix_spawn_file_actions_init">2.1.12 posix_spawn_file_actions_init</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn_file_actions_init(FAR posix_spawn_file_actions_t *file_actions);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawn_file_actions_init()</code> function initializes the object referenced by <code>file_actions</code> to an empty set of file actions for subsequent use in a call to <code>posix_spawn()</code> or <code>posix_spawnp()</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>file_actions</code>:
+     The address of the <code>posix_spawn_file_actions_t</code> to be initialized.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b>
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>.
+<p>
+
+<h3><a name="posix_spawn_file_actions_destroy">2.1.13 posix_spawn_file_actions_destroy</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn_file_actions_destroy(FAR posix_spawn_file_actions_t *file_actions);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawn_file_actions_destroy()</code> function destroys the object referenced by <code>file_actions</code> which was previously intialized by <code>posix_spawn_file_actions_init()</code>, returning any resources obtained at the time of initialization to the system for subsequent reuse.
+  A <code>posix_spawn_file_actions_t</code> may be reinitialized after having been destroyed, but must not be reused after destruction, unless it has been reinitialized.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>file_actions</code>:
+     The address of the <code>posix_spawn_file_actions_t</code> to be destroyed.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+<p>
+
+<h3><a name="posix_spawn_file_actions_addclose">2.1.14 posix_spawn_file_actions_addclose</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn_file_actions_addclose(FAR posix_spawn_file_actions_t *file_actions, int fd);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawn_file_actions_addclose()</code> function adds a <i>close</i> operation to the list of operations associated with the object referenced by <code>file_actions</code>, for subsequent use in a call to <code>posix_spawn()</code> or <code>posix_spawnp()</code>.
+  The descriptor referred to by <code>fd</code> is closed as if <code>close()</code> had been called on it prior to the new child process starting execution.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>file_actions</code>:
+     The address of the <code>posix_spawn_file_actions_t</code> object to which the <i>close</i> operation will be appended.
+   </li>
+   <li>
+     <code>fd</code>:
+     The file descriptor to be closed.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawn_file_actions_adddup2">2.1.15 posix_spawn_file_actions_adddup2</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn_file_actions_adddup2(FAR posix_spawn_file_actions_t *file_actions, int fd1, int fd2);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawn_file_actions_adddup2()</code> function adds a <i>dup2</i> operation to the list of operations associated with the object referenced by <code>file_actions</code>, for subsequent use in a call to <code>posix_spawn()</code> or <code>posix_spawnp()</code>.
+  The descriptor referred to by <code>fd2</code> is created as if <code>dup2()</code> had been called on <code>fd1</code> prior to the new child process starting execution.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>file_actions</code>:
+     The address of the <code>posix_spawn_file_actions_t</code> object to which the <i>dup2</i> operation will be appended.
+   </li>
+   <li>
+     <code>fd1</code>:
+     The file descriptor to be be duplicated.
+     The first file descriptor to be argument to <code>dup2()</code>.
+   </li>
+   <li>
+     <code>fd2</code>:
+     The file descriptor to be be created.
+     The second file descriptor to be argument to <code>dup2()</code>.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawn_file_actions_addopen">2.1.16 posix_spawn_file_actions_addopen</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawn_file_actions_addopen(FAR posix_spawn_file_actions_t *file_actions,
+      int fd, FAR const char *path, int oflags, mode_t mode);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawn_file_actions_addopen()</code> function adds an <i>open</i> operation to the list of operations associated with the object referenced by <code>file_actions</code>, for subsequent use in a call to <code>posix_spawn()</code> or <code>posix_spawnp()</code>.
+  The descriptor referred to by <code>fd</code> is opened using the <code>path</code>, <code>oflag</code>, and <code>mode</code> arguments as if <code>open()</code> had been called on it prior to the new child process starting execution.
+  The string path is copied by the <code>posix_spawn_file_actions_addopen()</code> function during this process, so storage need not be persistent in the caller.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>file_actions</code>:
+     The address of the <code>posix_spawn_file_actions_t</code> object to which the <i>open</i> operation will be appended.
+   </li>
+   <li>
+     <code>fd</code>:
+     The file descriptor to be opened.
+   </li>
+   <li>
+     <code>path</code>:
+     The path to be opened.
+   </li>
+   <li>
+     <code>oflags</code>:
+     Open flags.
+   </li>
+   <li>
+     <code>mode</code>:
+     File creation mode/
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_init">2.1.17 posix_spawnattr_init</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_init(FAR posix_spawnattr_t *attr);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_init()</code> function initializes the object referenced by <code>attr</code>, to an empty set of spawn attributes for subsequent use in a call to  <code>posix_spawn()</code> or  <code>posix_spawnp()</code>.
+<p>
+<p>
+  Then the spawn attributes are no longer needed, they should be destroyed by calling <code>posix_spawnattr_destroyed()</code>.
+  In NuttX, however, <code>posix_spawnattr_destroyed()</code> is just stub:
+</p>
+<ul><pre>
+#define posix_spawnattr_destroy(attr) (0)
+</pre></ul>
+<p>
+  For portability, the convention of calling <code>posix_spawnattr_destroyed()</code> when the attributes are not longer needed should still be followed.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address of the spawn attributes to be initialized.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_getflags">2.1.18 posix_spawnattr_getflags</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_getflags(FAR const posix_spawnattr_t *attr, FAR short *flags);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_getflags()</code> function will obtain the value of the <i>spawn-flags</i> attribute from the attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be queried.
+   </li>
+   <li>
+     <code>flags</code>:
+      The location to return the spawn flags
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_getschedparam">2.1.19 posix_spawnattr_getschedparam</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_getschedparam(FAR const posix_spawnattr_t *attr, FAR struct sched_param *param);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_getschedparam()</code> function will obtain the value of the <i>spawn-schedparam</i> attribute from the attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be queried.
+   </li>
+   <li>
+     <code>param</code>:
+      The location to return the <i>spawn-schedparam</i> value.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_getschedpolicy">2.1.20 posix_spawnattr_getschedpolicy</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_getschedpolicy(FAR const posix_spawnattr_t *attr, FAR int *policy);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_getschedpolicy()</code> function will obtain the value of the <i>spawn-schedpolicy</i> attribute from the attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be queried.
+   </li>
+   <li>
+     <code>policy</code>:
+      The location to return the <i>spawn-schedpolicy</i> value.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_getsigmask">2.1.21 posix_spawnattr_getsigmask</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+#ifndef CONFIG_DISABLE_SIGNALS
+int posix_spawnattr_getsigmask(FAR const posix_spawnattr_t *attr, FAR sigset_t *sigmask);
+#endif
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_getsigdefault()</code> function will obtain the value of the <i>spawn-sigmask</i> attribute from the attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be queried.
+   </li>
+   <li>
+     <code>sigmask</code>:
+      The location to return the <i>spawn-sigmask</i> value.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_setflags">2.1.22 posix_spawnattr_setflags</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_setflags(FAR posix_spawnattr_t *attr, short flags);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_setflags()</code> function will set the <i>spawn-flags</i> attribute in an initialized attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be used.
+   </li>
+   <li>
+     <code>flags</code>:
+      The new value of the <i>spawn-flags</i> attribute.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_setschedparam">2.1.23 posix_spawnattr_setschedparam</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_setschedparam(FAR posix_spawnattr_t *attr, FAR const struct sched_param *param);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_setschedparam()</code> function will set the <i>spawn-schedparam</i> attribute in an initialized attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be used.
+   </li>
+   <li>
+     <code>param</code>:
+      The new value of the <i>spawn-schedparam</i> attribute.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b>
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+ 
+<h3><a name="posix_spawnattr_setschedpolicy">2.1.24 posix_spawnattr_setschedpolicy</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+int posix_spawnattr_setschedpolicy(FAR posix_spawnattr_t *attr, int policy);
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_setschedpolicy()</code> function will set the <i>spawn-schedpolicy</i> attribute in an initialized attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be used.
+   </li>
+   <li>
+     <code>policy</code>:
+      The new value of the <i>spawn-schedpolicy</i> attribute.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b>
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
+</p>
+
+<h3><a name="posix_spawnattr_setsigmask">2.1.25 posix_spawnattr_setsigmask</a></h3>
+<p>
+  <b>Function Prototype:</b>
+</p>
+  <ul><pre>
+#include &lt;spawn.h&gt;
+#ifndef CONFIG_DISABLE_SIGNALS
+int posix_spawnattr_setsigmask(FAR posix_spawnattr_t *attr, FAR const sigset_t *sigmask);
+#endif
+</pre></ul>
+<p>
+  <b>Description:</b>
+  The <code>posix_spawnattr_setsigmask()</code> function will set the <i>spawn-sigmask</i> attribute in an initialized attributes object referenced by <code>attr</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+</p>
+<ul>
+   <li>
+     <code>attr</code>:
+     The address spawn attributes to be used.
+   </li>
+   <li>
+     <code>sigmask</code>:
+      The new value of the <i>spawn-sigmask</i> attribute.
+   </li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  On success, this function returns 0; on failure it will return an error number from <code>&lt;errno.h&gt;</code>
 </p>
 
 <table width ="100%">
@@ -977,18 +1767,114 @@ priority of the calling task is returned.
   </tr>
 </table>
 
-<p>Scheduler locking interfaces</p>
+<p>
+  <b>Task Control Interfaces</b>.
+</p>
 <ul>
-  <li><a href="#schedlock">2.3.1 sched_lock</a></li>
-  <li><a href="#schedunlock">2.3.2 sched_unlock</a></li>
-  <li><a href="#schedlockcount">2.3.3 sched_lockcount</a></li>
+  <li>
+    <p>
+      <b>Scheduler locking interfaces</b>.
+      This <i>non-standard</i> interfaces are used to enable and disable pre-emption and to test is pre-emption is currently enabled.
+    </p>
+    <ul>
+      <li><a href="#schedlock">2.3.1 sched_lock</a></li>
+      <li><a href="#schedunlock">2.3.2 sched_unlock</a></li>
+      <li><a href="#schedlockcount">2.3.3 sched_lockcount</a></li>
+    </ul>
+  </li>
+  <li>
+    <p>
+      <b>Task synchronization interfaces</b>.
+      <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code> may be used to wait for termination of child tasks.
+    </p>
+    <ul>
+      <li><a href="#waitpid">2.3.4 waitpid</a></li>
+      <li><a href="#waitid">2.3.5 waitid</a></li>
+      <li><a href="#wait">2.3.6 wait</a></li>
+    </ul>
+    <p>
+      <code>atexit()</code> and <code>on_exit()</code> may be use to register callback functions that are executed when a task exits.
+    </p>
+    <ul>
+      <li><a href="#atexit">2.3.7 atexit</a></li>
+      <li><a href="#onexit">2.3.8 on_exit</a></li>
+    </ul>
+  </li>
 </ul>
-<p>Task synchronization interfaces</p>
+
+<p>
+  <b>Parent and Child Tasks</b>.
+  The task synchronization interfaces historically depend upon parent and child relationships between tasks.
+  But default, NuttX does not use any parent/child knowledge.
+  However, there are three important configuration options that can change that.
+</p>
 <ul>
-  <li><a href="#waitpid">2.3.4 waitpid</a></li>
-  <li><a href="#atexit">2.3.5 atexit</a></li>
-  <li><a href="#onexit">2.3.6 on_exit</a></li>
+  <li>
+    <p>
+      <b><code>CONFIG_SCHED_HAVE_PARENT</code></b>.
+      If this setting is defined, then it instructs NuttX to remember the task ID of the parent task when each new child task is created.
+      This support enables some additional features (such as <code>SIGCHLD</code>) and modifies the behavior of other interfaces.
+      For example, it makes <code>waitpid()</code> more standards complete by restricting the waited-for tasks to the children of the caller.
+    </p>
+  </li>
+  <li>
+    <p>
+      <b><code>CONFIG_SCHED_CHILD_STATUS</code></b>
+      If this option is selected, then the exit status of the child task will be retained after the child task exits.
+      This option should be selected if you require knowledge of a child process' exit status.
+      Without this setting, <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code> may fail.
+      For example, if you do:
+    </p>
+    <ol>
+      <li>
+        Start child task
+      </li>
+      <li>
+        Wait for exit status (using <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>).
+      </li>
+    </ol>
+    <p>
+      This may fail because the child task may run to completion before the wait begins.
+      There is a non-standard work-around in this case:
+      The above sequence will work if you disable pre-emption using <code>sched_lock()</code> prior to starting the child task, then re-enable pre-emption with <code>sched_unlock()</code> after the wait completes.
+      This works because the child task is not permitted to run until the wait is in place.
+    </p>
+    <p>
+      The standard solution would be to enable <code>CONFIG_SCHED_CHILD_STATUS</code>.
+      In this case the exit status of the child task is retained after the child exits and the wait will successful obtain the child task's exit status whether it is called before the child task exits or not.
+    </p>
+  </li>
+  <li>
+    <p>
+      <b><code>CONFIG_PREALLOC_CHILDSTATUS</code></b>.
+      To prevent runaway child status allocations and to improve allocation performance, child task exit status structures are pre-allocated when the system boots.
+      This setting determines the number of child status structures that will be pre-allocated.
+      If this setting is not defined or if it is defined to be zero then a value of 2*<code>MAX_TASKS</code> is used.
+    </p>
+    <p>
+      Note that there cannot be more that <code>CONFIG_MAX_TASKS</code> tasks in total.
+      However, the number of child status structures may need to be significantly larger because this number includes the maximum number of tasks that are running PLUS the number of tasks that have exit'ed without having their exit status reaped (via <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>).
+    </p>
+    <p>
+      Obviously, if tasks spawn children indefinitely and never have the exit status reaped, then you may have a memory leak!
+      (See <b>Warning</b> below)
+    </p>
+  </li>
 </ul>
+<p>
+  <b>Warning</b>:
+  If you enable the <code>CONFIG_SCHED_CHILD_STATUS</code> feature, then your application must either (1) take responsibility for reaping the child status with <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>, or (2) suppress retention of child status.
+  If you do not reap the child status, then you have a memory leak and your system will eventually fail.
+</p>
+  Retention of child status can be suppressed on the parent using logic like:
+</p>
+<ul><pre>
+struct sigaction sa;
+
+sa.sa_handler = SIG_IGN;
+sa.sa_flags = SA_NOCLDWAIT;
+int ret = sigaction(SIGCHLD, &sa, NULL);
+</pre></ul>
 
 <H3><a name="schedlock">2.3.1 sched_lock</a></H3>
 
@@ -1096,10 +1982,12 @@ on this thread of execution.
   <b>Description:</b> 
 </p>
 <blockquote><small>
-  The following discussion is a general description of the <code>waitpid(</code>) interface.
-  However, as of this writing, the implementation of <code>waitpid()</code> is fragmentary (but usable).
-  It simply supports waiting for any task to complete execution.
-  NuttX does not support any concept of parent/child processes or of process groups nor signals related to child processes (<code>SIGCHLD</code>).
+  The following discussion is a general description of the <code>waitpid()</code> interface.
+  However, as of this writing, the implementation of <code>waitpid()</code> is incomplete (but usable).
+  If <code>CONFIG_SCHED_HAVE_PARENT</code> is defined, <code>waitpid()</code> will be a little more compliant to specifications.
+  Without <code>CONFIG_SCHED_HAVE_PARENT</code>, <code>waitpid()</code> simply supports waiting for any task to complete execution.
+  With <code>CONFIG_SCHED_HAVE_PARENT</code>, <code>waitpid()</code> will use <code>SIGCHLD</code> and can, therefore, wait for any child of the parent to complete.
+  The implementation is incomplete in either case, however: NuttX does not support any concept of process groups.
   Nor does NuttX retain the status of exited tasks so if <code>waitpid()</code> is called after a task has exited, then no status will be available.
   The options argument is currently ignored.
 </small></blockquote>
@@ -1248,7 +2136,158 @@ on this thread of execution.
   Comparable to the POSIX interface of the same name, but the implementation is incomplete (as detailed above).
 </P>
 
-<H3><a name="atexit">2.3.5 atexit</a></H3>
+<h3><a name="waitid">2.3.5 waitid</a></li></h3>
+<p>
+<b>Function Prototype:</b> 
+<pre>
+    #include &lt;sys/wait.h&gt;
+    #ifdef CONFIG_SCHED_HAVE_PARENT
+    int waitid(idtype_t idtype, id_t id, FAR siginfo_t *info, int options);
+    #endif
+</pre>
+<p>
+  <b>Description:</b>
+</p>
+<blockquote><small>
+  The following discussion is a general description of the <code>waitid()</code> interface.
+  However, as of this writing, the implementation of <code>waitid()</code> is incomplete (but usable).
+  If <code>CONFIG_SCHED_HAVE_PARENT</code> is defined, <code>waitid()</code> will be a little more compliant to specifications.
+  <code>waitpid()</code> simply supports waiting a specific child task (<code>P_PID</code> or for any child task <code>P_ALL</code> to complete execution.
+  <code>SIGCHLD</code> is used.
+  The implementation is incomplete in either case, however: NuttX does not support any concept of process groups.
+  Nor does NuttX retain the status of exited tasks so if <code>waitpid()</code> is called after a task has exited, then no status will be available.
+  The options argument is currently ignored.
+</small></blockquote>
+<p>
+  The <code>waitid()</code> function suspends the calling thread until one child of the process containing the calling thread changes state.
+  It records the current state of a child in the structure pointed to by <code>info</code>.
+  If a child process changed state prior to the call to <code>waitid()</code>, <code>waitid()</code> returns immediately.
+  If more than one thread is suspended in <code>wait()</code> or <code>waitpid()</code> waiting termination of the same process, exactly one thread will return the process status at the time of the target process termination
+</p>
+<p>
+  The <code>idtype</code> and <code>id</code> arguments are used to specify which children <code>waitid()</code> will wait for.
+</p>
+<p>
+<ul>
+  <li>
+   If <code>idtype</code> is P_PID, <code>waitid()</code> will wait for the child with a process ID equal to (pid_t)<code>id</code>.
+  </li>
+  <li>
+   If <code>idtype</code> is P_PGID, <code>waitid()</code> will wait for any child with a process group ID equal to (pid_t)<code>id</code>.
+  </li>
+  <li>
+   If <code>idtype</code> is P_ALL, <code>waitid()</code> will wait for any children and <code>id</code> is ignored.
+</ul>
+<p>
+  The <code>options</code> argument is used to specify which state changes <code>waitid()</code> will will wait for.
+  It is formed by OR-ing together one or more of the following flags:
+</p>
+<ul>
+  <li>
+    <code>WEXITED</code>:
+    Wait for processes that have exited. 
+  </li>
+  <li>
+    <code>WSTOPPED</code>:
+    Status will be returned for any child that has stopped upon receipt of a signal. 
+  </li>
+  <li>
+    <code>WCONTINUES</code>:
+    Status will be returned for any child that was stopped and has been continued. 
+  </li>
+  <li>
+    <code>WNOHANG</code>:
+    Return immediately if there are no children to wait for. 
+  </li>
+  <li>
+    <code>WNOWAIT</code>:
+    Keep the process whose status is returned in <code>info</code> in a waitable state.
+    This will not affect the state of the process;
+    the process may be waited for again after this call completes. 
+  </li>
+</ul>
+  The <code>info</code> argument must point to a <code>siginfo_t</code> structure.
+  If <code>waitid()</code> returns because a child process was found that satisfied the conditions indicated by the arguments <code>idtype</code> and options, then the structure pointed to by <code>info</code> will be filled in by the system with the status of the process.
+  The <code>si_signo</code> member will always be equal to <code>SIGCHLD</code>.
+</p>
+<p>
+  <b>Input Parameters:</b>
+  See the description above.
+</p>
+<p>
+  <b>Returned Value:</b> 
+  If <code>waitid()</code> returns due to the change of state of one of its children, 0 is returned.
+  Otherwise, -1 is returned and <code>errno</code> is set to indicate the error. 
+</p>
+<p>
+  The <code>waitid()</code> function will fail if:
+</p>
+<ul>
+  <li>
+    <code>ECHILD</code>:
+  </li>
+    The calling process has no existing unwaited-for child processes. 
+  <li>
+    <code>EINTR</code>:
+  </li>
+    The <code>waitid()</code> function was interrupted by a signal. 
+  <li>
+    <code>EINVAL</code>:
+     An invalid value was specified for <code>options</code>, or <code>idtype</code> and <code>id</code> specify an invalid set of processes.
+  </li>
+</ul>
+<p>
+  <b>Assumptions/Limitations:</b> 
+<p>
+  <b>POSIX  Compatibility:</b>
+  Comparable to the POSIX interface of the same name, but the implementation is incomplete (as detailed in the description above).
+</p>
+
+<h3><a name="wait">2.3.6 wait</a></li></h3>
+<p>
+<b>Function Prototype:</b> 
+<pre>
+    #include &lt;sys/wait.h&gt;
+    #ifdef CONFIG_SCHED_HAVE_PARENT
+    pid_t wait(FAR int *stat_loc);
+    #endif
+</pre>
+<p>
+  <b>Description:</b> 
+</p>
+<blockquote><small>
+  The following discussion is a general description of the <code>wait()</code> interface.
+  However, as of this writing, the implementation of <code>wait()</code> is incomplete (but usable).
+  <code>wait()</code> is based on <a href="#waitpid"><code>waitpaid()</code></a>.
+  See the description of <a href="#waitpid"><code>waitpaid()</code></a> for further information.
+</small></blockquote>
+<p>
+  The <code>wait()</code> function will suspend execution of the calling thread until status information for one of its terminated child processes is available, or until delivery of a signal whose action is either to execute a signal-catching function or to terminate the process.
+  If more than one thread is suspended in <code>wait()</code> awaiting termination of the same process, exactly one thread will return the process status at the time of the target process termination.
+  If status information is available prior to the call to<code>wait()</code>, return will be immediate.
+</p>
+<p>
+  The <code>waitpid()</code> function will behave identically to <code>wait()</code>, if its <code>pid</code> argument is (pid_t)-1 and the options argument is 0.
+  Otherwise, its behavior will be modified by the values of the <code>pid</code> and <code>options</code> arguments.
+</p>
+<p>
+  <b>Input Parameters:</b> 
+</p>
+<ul>
+  <li><code>stat_loc</code>. The location to return the exit status</li>
+</ul>
+<p>
+  <b>Returned Value:</b> 
+  See the values returned by <a href="#waitpid"><code>waitpaid()</code></a>.
+</p>
+<p>
+  <b>Assumptions/Limitations:</b> 
+<p>
+  <b>POSIX  Compatibility:</b>
+  Comparable to the POSIX interface of the same name, but the implementation is incomplete (as detailed in the description <a href="#waitpid"><code>waitpaid()</code></a>).
+</p>
+
+<h3><a name="atexit">2.3.7 atexit</a></h3>
 
 <p>
 <b>Function Prototype:</b> 
@@ -1287,7 +2326,7 @@ on this thread of execution.
   <li><code>atexit()</code> functions are not inherited when a new task is created.</li>
 </ol>
 
-<H3><a name="onexit">2.3.6 on_exit</a></H3>
+<H3><a name="onexit">2.3.8 on_exit</a></H3>
 
 <p>
 <b>Function Prototype:</b> 
@@ -3644,10 +4683,14 @@ sigaction().
 interface of the same name.
 Differences from the POSIX implementation include:
 <ul>
-<li>Special values of sa_handler in the struct sigaction act input
-not handled (SIG_DFL, SIG_IGN).
-<li>All sa_flags in struct sigaction of act input are ignored
-(all treated like SA_SIGINFO).
+  <li>
+    There are no default actions so the special value <code>SIG_DFL</code> is treated like <code>SIG_IGN</code>.
+  </li>
+  <li>
+    All <code>sa_flags</code> in struct sigaction of act input are ignored (all treated like <code>SA_SIGINFO</code>).
+    The one exception is if <code>CONFIG_SCHED_CHILDSTATUS</code> is defined;
+    then <code>SA_NOCLDWAIT</code> is supported but only for <code>SIGCHLD</code>.
+  </li>
 </ul>
 
 <H3><a name="sigprocmask">2.8.7 sigprocmask</a></H3>
@@ -6741,6 +7784,7 @@ int        telldir(FAR DIR *dirp);
 <ul><pre>
 #include &lt;unistd.h&gt;
 
+pid_t   vfork(void);
 pid_t   getpid(void);
 void    _exit(int status) noreturn_function;
 unsigned int sleep(unsigned int seconds);
@@ -6762,6 +7806,12 @@ FAR char *getcwd(FAR char *buf, size_t size);
 
 int     unlink(FAR const char *pathname);
 int     rmdir(FAR const char *pathname);
+
+#ifdef CONFIG_LIBC_EXECFUNCS
+int     execl(FAR const char *path, ...);
+int     execv(FAR const char *path, FAR char *const argv[]);
+#endif
+
 int     getopt(int argc, FAR char *const argv[], FAR const char *optstring);
 </pre></ul>
 </a>
@@ -8162,7 +9212,9 @@ notify a task when a message is available on a queue.
   <li><a href="#driveroperations">Driver operations</a></li>
   <li><a href="#drvrunistdops">dup</a></li>
   <li><a href="#drvrunistdops">dup2</a></li>
+  <li><a href="#execl">execl</a></li>
   <li><a href="#mmapxip">eXecute In Place (XIP)</a></li>
+  <li><a href="#execv">execv</a></li>
   <li><a href="#exit">exit</a></li>
   <li><a href="#fatsupport">FAT File System Support</a></li>
   <li><a href="#standardio">fclose</a></li>
@@ -8219,13 +9271,30 @@ notify a task when a message is available on a queue.
   <li><a href="#onexit">on_exit</a>
   <li><a href="#drvrfcntlops">open</a></li>
   <li><a href="#dirdirentops">opendir</a></li>
-</td>
-<td valign="top" width="33%">
   <li><a href="#OS_Interfaces">OS Interfaces</a></li>
   <li><a href="#pause">pause</a></li>
   <li><a href="#pipe">pipe</a></li>
   <li><a href="#poll">poll</a></li>
   <li><a href="#drvrpollops">poll.h</a></li>
+  <li><a href="#posix_spawn">posix_spawn</a></li>
+</td>
+<td valign="top" width="33%">
+  <li><a href="#posix_spawn_file_actions_addclose">posix_spawn_file_actions_addclose</a></li>
+  <li><a href="#posix_spawn_file_actions_adddup2">posix_spawn_file_actions_adddup2</a></li>
+  <li><a href="#posix_spawn_file_actions_addopen">posix_spawn_file_actions_addopen</a></li>
+  <li><a href="#posix_spawn_file_actions_destroy">posix_spawn_file_actions_destroy</a></li>
+  <li><a href="#posix_spawn_file_actions_init">posix_spawn_file_actions_init</a></li>
+  <li><a href="#posix_spawnattr_init">posix_spawnattr_init</a></li>
+  <li><a href="#posix_spawnattr_init">posix_spawnattr_destroy</a></li>
+  <li><a href="#posix_spawnattr_getflags">posix_spawnattr_getflags</a></li>
+  <li><a href="#posix_spawnattr_getschedparam">posix_spawnattr_getschedparam</a></li>
+  <li><a href="#posix_spawnattr_getschedpolicy">posix_spawnattr_getschedpolicy</a></li>
+  <li><a href="#posix_spawnattr_getsigmask">posix_spawnattr_getsigmask</a></li>
+  <li><a href="#posix_spawnattr_setflags">posix_spawnattr_setflags</a></li>
+  <li><a href="#posix_spawnattr_setschedparam">posix_spawnattr_setschedparam</a></li>
+  <li><a href="#posix_spawnattr_setschedpolicy">posix_spawnattr_setschedpolicy</a></li>
+  <li><a href="#posix_spawnattr_setsigmask">posix_spawnattr_setsigmask</a></li>
+  <li><a href="#posix_spawn">posix_spawnp</a></li>
   <li><a href="#standardio">printf</a></li>
   <li><a href="#Pthread">Pthread Interfaces</a>
   <li><a href="#pthreadattrdestroy">pthread_attr_destroy</a></li>
@@ -8293,12 +9362,12 @@ notify a task when a message is available on a queue.
   <li><a href="#standardio">rename</a></li>
   <li><a href="#standardio">rmdir</a></li>
   <li><a href="#dirdirentops">rewinddir</a></li>
+</td>
+<td valign="top">
   <li><a href="#mmapxip">ROM disk driver</a></li>
   <li><a href="#mmapxip">ROMFS</a></li>
   <li><a href="#schedgetparam">sched_getparam</a></li>
   <li><a href="#schedgetprioritymax">sched_get_priority_max</a></li>
-</td>
-<td valign="top">
   <li><a href="#schedgetprioritymin">sched_get_priority_min</a></li>
   <li><a href="#schedgetrrinterval">sched_get_rr_interval</a></li>
   <li><a href="#schedlockcount">sched_lockcount</a></li>
@@ -8363,9 +9432,12 @@ notify a task when a message is available on a queue.
   <li><a href="#drvrunistdops">unistd.h</a>,
       <a href="#dirunistdops">unistd.h</a></li>
   <li><a href="#drvrunistdops">unlink</a></li>
+  <li><a href="#vfork">vfork</a></li>
   <li><a href="#standardio">vfprintf</a></li>
   <li><a href="#standardio">vprintf</a></li>
   <li><a href="#standardio">vsprintf</a></li>
+  <li><a href="#wait">wait</a></li>
+  <li><a href="#waitid">waitid</a></li>
   <li><a href="#waitpid">waitpid</a>
   <li><a href="#Watchdogs">Watchdog Timer Interfaces</a>
   <li><a href="#wdcancel">wd_cancel</a></li>

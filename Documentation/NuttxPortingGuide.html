@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NuttX RTOS Porting Guide</i>
       </font></big></h1>
-      <p>Last Updated: December 18, 2012</p>
+      <p>Last Updated: January 23, 2013</p>
     </td>
   </tr>
 </table>
@@ -131,7 +131,8 @@
        <a href="#pwmdrivers">6.3.12 PWM Drivers</a><br>
        <a href="#candrivers">6.3.13 CAN Drivers</a><br>
        <a href="#quadencoder">6.3.14 Quadrature Encoder Drivers</a><br>
-       <a href="#wdogdriver">6.3.15 Watchdog Timer Drivers</a>
+       <a href="#wdogdriver">6.3.15 Watchdog Timer Drivers</a><br>
+       <a href="#kbddriver">6.3.16 Keyboard/Keypad Drivers</a><br>
     </ul>
     <a href="#pwrmgmt">6.4 Power Management</a>
     <ul>
@@ -1262,23 +1263,23 @@ tools/
 |-- Makefile.host
 |-- Makefile.export
 |-- README.txt
-|-- configure.sh
+|-- configure.sh / configure.bat
 |-- cfgparser.c
 |-- cfgparser.h
-|-- copydir.sh
-|-- define.sh
-|-- incdir.sh
+|-- copydir.sh / copydir.bat
+|-- define.sh / define.bat
+|-- incdir.sh / indir.bat
 |-- indent.sh
-|-- link.sh
+|-- link.sh / link.bat
 |-- mkconfig.c
-|-- mkdeps.sh
+|-- mkdeps.sh / mkdeps.bat
 |-- mkexport.sh
 |-- mkimage.sh
 |-- mknulldeps.sh
 |-- mkromfsimg.sh
 |-- mksyscall.c
 |-- mkversion.c
-|-- unlink.sh
+|-- unlink.sh / unlink.bat
 |-- version.sh
 `-- zipme.sh
 </pre></ul>
@@ -1415,17 +1416,28 @@ netutils/
 </p>
 <ul><pre>
   cd tools
-  ./configure.sh <i>&lt;board-name&gt;</i></i>[/<i>&lt;config-dir&gt;</i>]
+  ./configure.sh <i>&lt;board-name&gt;</i>[/<i>&lt;config-dir&gt;</i>]
 </pre></ul>
 
 <p>
-  And if <code>configs/</code><i>&lt;board-name&gt;</i><code>/[</code><i>&lt;config-dir&gt;</i><code>/appconfig</code>
+  There is an alternative Windows batch file, <code>configure.bat</code>,  that can be used insteach of <code>configure.sh</code> in the windows native enironment like:
+</p>
+<ul><pre>
+  cd tools
+  configure.bat <i>&lt;board-name&gt;</i>[\<i>&lt;config-dir&gt;</i>]
+</pre></ul>
+<p>
+  See <code>tools/README.txt</code> for more information about these scripts.
+</p>
+
+<p>
+  If <code>configs/</code><i>&lt;board-name&gt;</i><code>/[</code><i>&lt;config-dir&gt;</i>]<code>/appconfig</code>
   exists and your application directory is not in the standard loction (<config>../apps</config>),
   then you should also specify the location of the application directory on the command line like:
 </p>
 <ul><pre>
   cd tools
-  ./configure.sh -a &lt;app-dir&gt; <i>&lt;board-name&gt;</i></i>[/<i>&lt;config-dir&gt;</i>]
+  ./configure.sh -a &lt;app-dir&gt; <i>&lt;board-name&gt;</i>[/<i>&lt;config-dir&gt;</i>]
 </pre></ul>
 
 <p>
@@ -2889,7 +2901,7 @@ extern void up_ledoff(int led);
   <li>
     <p>
     <b>Examples</b>:
-    <code>arch/arm/src/chip/lm3s_serial.c</code>, <code>arch/arm/src/lpc214x/lpc214x_serial.c</code>, <code>arch/z16/src/z16f/z16f_serial.c</code>, etc.
+    <code>arch/arm/src/chip/lm_serial.c</code>, <code>arch/arm/src/lpc214x/lpc214x_serial.c</code>, <code>arch/z16/src/z16f/z16f_serial.c</code>, etc.
     </p>
   </li>
 </ul>
@@ -3620,6 +3632,231 @@ extern void up_ledoff(int led);
   </li>
 </ul>
 
+<h3><a name="kbddriver">6.3.16 Keyboard/Keypad Drivers</a></h3>
+<p>
+  <b>Keypads vs. Keyboards</b>
+  Keyboards and keypads are really the same devices for NuttX.
+  A keypad is thought of as simply a keyboard with fewer keys.
+</p>
+<p>
+  <b>Special Commands</b>.
+  In NuttX, a keyboard/keypad driver is simply a character driver that may have an (optional) encoding/decoding layer on the data returned by the character driver.
+  A keyboard may return simple text data (alphabetic, numeric, and punctuaction) or control characters (enter,  control-C, etc.) when a key is pressed.
+  We can think about this the &quot;normal&quot; keyboard data stream.
+  However, in addition, most keyboards support actions that cannot be represented as text or control data.
+  Such actions include things like cursor controls (home, up arrow, page down, etc.), editing functions (insert, delete, etc.), volume controls, (mute, volume up, etc.) and other special functions.
+  In this case, some special encoding may be required to multiplex the normal text data and special command key press data streams.
+</p>
+<p>
+  <b>Key Press and Release Events</b>
+  Sometimes the time that a key is released is needed by applications as well.
+  Thus, in addition to normal and special key press events, it may also be necessary to encode normal and special key release events.
+</p>
+<p>
+  <b>Encoding/Decoding</b> Layer</b>.
+  An optional encoding/decoding layer can be used with the basic character driver to encode the keyboard events into the text data stream.
+  The function interfaces that comprise that encoding/decoding layer are defined in the header file <code>include/nuttx/input/kbd_code.h</code>.
+  These functions provide an matched set of (a) driver encoding interfaces, and (b) application decoding interfaces.
+</p>
+<ol>
+  <li>
+    <p>
+      <b>Driver Encoding Interfaces</b>.
+      These are interfaces used by the keyboard/keypad driver to encode keyboard events and data.
+    </p>
+    <ul>
+      <li>
+        <p>
+          <b><code>kbd_press()</code></b>
+        </p>
+        <p><b>Function Prototype:</b></p>
+          <ul><pre>
+#include &lt;nuttx/streams.h&gt;
+#include &lt;nuttx/input/kbd_codec.h&gt;
+void kbd_press(int ch, FAR struct lib_outstream_s *stream);
+</pre></ul>
+        <p><b>Description:</b></p>
+        <ul>
+          Indicates a normal key press event.
+          Put one byte of normal keyboard  data into the output stream.
+        </ul>
+        <p><b>Input Pameters:</b></p>
+        <ul>
+          <li>
+            <code>ch</code>:  The character to be added to the output stream.
+          </li>
+          <li>
+            <code>stream</code>:  An instance of <code>lib_outstream_s</code> to perform the actual low-level put operation.
+          </li>
+        </ul>
+        <p><b>Returned Value:</b></p>
+        <ul>
+          None.
+        </ul>
+      </li>
+      <li>
+        <p>
+          <b><code>kbd_release()</code></b>
+        </p>
+        <p><b>Function Prototype:</b></p>
+          <ul><pre>
+#include &lt;nuttx/streams.h&gt;
+#include &lt;nuttx/input/kbd_codec.h&gt;
+void kbd_release(uint8_t ch, FAR struct lib_outstream_s *stream);
+</pre></ul>
+        <p><b>Description:</b></p>
+        <ul>
+          Encode the release of a normal key.
+        </ul>
+        <p><b>Input Pameters:</b></p>
+        <ul>
+          <li>
+            <code>ch</code>:  The character associated with the key that was releared.
+          </li>
+          <li>
+            <code>stream</code>:  An instance of <code>lib_outstream_s</code> to perform the actual low-level put operation.
+          </li>
+        </ul>
+        <p><b>Returned Value:</b></p>
+        <ul>
+          None.
+        </ul>
+      </li>
+      <li>
+        <p>
+          <b><code>kbd_specpress()</code></b>
+        </p>
+        <p><b>Function Prototype:</b></p>
+          <ul><pre>
+#include &lt;nuttx/streams.h&gt;
+#include &lt;nuttx/input/kbd_codec.h&gt;
+void kbd_specpress(enum kbd_keycode_e keycode, FAR struct lib_outstream_s *stream);
+</pre></ul>
+        <p><b>Description:</b></p>
+        <ul>
+           Denotes a special key press event.
+           Put one special keyboard command into the output stream.
+         </ul>
+        <p><b>Input Pameters:</b></p>
+        <ul>
+          <li>
+            <code>keycode</code>:  The command to be added to the output stream.
+            The enumeration <code>enum kbd_keycode_e keycode</code> identifies all commands known to the system.
+          </li>
+          <li>
+            <code>stream</code>:  An instance of <code>lib_outstream_s</code> to perform the actual low-level put operation.
+          </li>
+        </ul>
+        <p><b>Returned Value:</b></p>
+        <ul>
+          None.
+        </ul>
+      </li>
+      <li>
+        <p>
+          <b><code>kbd_specrel()</code></b>
+        </p>
+        <p><b>Function Prototype:</b></p>
+          <ul><pre>
+#include &lt;nuttx/streams.h&gt;
+#include &lt;nuttx/input/kbd_codec.h&gt;
+void kbd_specrel(enum kbd_keycode_e keycode, FAR struct lib_outstream_s *stream);
+</pre></ul>
+        <p><b>Description:</b></p>
+        <ul>
+           Denotes a special key release event.
+           Put one special keyboard command into the output stream.
+         </ul>
+        <p><b>Input Pameters:</b></p>
+        <ul>
+          <li>
+            <code>keycode</code>:  The command to be added to the output stream.
+            The enumeration <code>enum kbd_keycode_e keycode</code> identifies all commands known to the system.
+          </li>
+          <li>
+            <code>stream</code>:  An instance of <code>lib_outstream_s</code> to perform the actual low-level put operation.
+          </li>
+        </ul>
+        <p><b>Returned Value:</b></p>
+        <ul>
+          None.
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>
+    <p>
+      <b>Application Decoding Interfaces</b>.
+      These are user interfaces to decode the values returned by the keyboard/keypad driver.
+    </p>
+    <ul>
+      <li>
+        <p>
+          <b><code>kbd_decode()</code></b>
+        </p>
+        <p><b>Function Prototype:</b></p>
+          <ul><pre>
+#include &lt;nuttx/streams.h&gt;
+#include &lt;nuttx/input/kbd_codec.h&gt;
+int kbd_decode(FAR struct lib_instream_s *stream, FAR struct kbd_getstate_s *state, FAR uint8_t *pch);
+</pre></ul>
+        <p><b>Description:</b></p>
+        <ul>
+           Get one byte of data or special command from the driver provided input buffer.
+        </ul>
+        <p><b>Input Pameters:</b></p>
+        <ul>
+          <li>
+            <code>stream</code>:  An instance of <code>lib_instream_s</code> to perform the actual low-level get operation.
+          </li>
+          <li>
+            <code>pch</code>:  The location to save the returned value. 
+            This may be either a normal, character code or a special command (i.e., a value from <code>enum kbd_getstate_s</code>.
+          </li>
+          <li>
+            <code>state</code>:  A user provided buffer to support parsing. 
+            This structure should be cleared the first time that <code>kbd_decode()</code> is called.
+          </li>
+        </ul>
+        <p><b>Returned Value:</b></p>
+        <ul>
+          <li>
+            <b><code>KBD_PRESS</code> (0)</b>:
+            Indicates the successful receipt of normal, keyboard data.
+            This corresponds to a keypress event.
+            The returned value in <code>pch</code> is a simple byte of text or control data.
+          </li>
+          <li>
+            <b><code>KBD_RELEASE</code> (1)</b>:
+            Indicates a key release event.
+            The returned value in <code>pch</code> is the byte of text or control data corresponding to the released key.
+          </li>
+          <li>
+            <b><code>KBD_SPECPRESS</code> (2)</b>:
+             Indicates the successful receipt of a special keyboard command.
+             The returned value in <code>pch</code> is a value from <code>enum kbd_getstate_s</code>.
+          </li>
+          <li>
+            <b><code>KBD_SPECREL</code> (3)</b>:
+            Indicates a special command key release event.
+             The returned value in <code>pch</code> is a value from <code>enum kbd_getstate_s</code>.
+          </li>
+          <li>
+            <b><code>KBD_ERROR</code> (<code>EOF</code>)</b>:
+            An error has getting the next character (reported by the <code>stream</code>).
+            Normally indicates the end of file.
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ol>
+<p>
+  <b>I/O Streams</b>.
+  Notice the use of the abstract I/O streams in these interfaces.
+  These stream interfaces are defined in <code>include/nuttx/streams.h</code>.
+</p>
+
 <h2><a name="pwrmgmt">6.4 Power Management</a></h2>
 
 <h3><a name="pmoverview">6.4.1 Overview</a></h3>
@@ -4087,17 +4324,17 @@ build
   <li>
     <code>CONFIG_DEBUG</code>: enables built-in debug options.
     This includes more extensive parameter checking, debug assertions, and other debug logic.
-    This option is also necessary (but not sufficient) to enable debug console output;
-    Debug console output must also be enabled on a subsystem-by-subsystem basis as described below.
+    This option is also necessary (but not sufficient) to enable debug syslog output;
+    Debug syslog output must also be enabled on a subsystem-by-subsystem basis as described below.
   </li>
   <li>
-    <code>CONFIG_DEBUG_VERBOSE</code>: If debug console output is enabled, the option enables more verbose debug output.
+    <code>CONFIG_DEBUG_VERBOSE</code>: If debug syslog output is enabled, the option enables more verbose debug output.
     Ignored if <code>CONFIG_DEBUG</code> is not defined.
     If only <code>CONFIG_DEBUG</code> then the only output will be errors, warnings, and critical information.
-    If <code>CONFIG_DEBUG_VERBOSE</code> is defined in addition, then general debug comments will also be included in the console output.
+    If <code>CONFIG_DEBUG_VERBOSE</code> is defined in addition, then general debug comments will also be included in the syslog output.
   </li>
   <li>
-    <code>CONFIG_DEBUG_ENABLE</code>: Support an interface to enable or disable debug output.
+    <code>CONFIG_SYSLOG_ENABLE</code>: Support an interface to enable or disable syslog output.
   </li>
   <li>
     <code>CONFIG_DEBUG_SYMBOLS</code>: build without optimization and with debug symbols (needed for use with a debugger).
@@ -4244,6 +4481,74 @@ build
     instrumentation is selected.  Set to zero to disable.
   </li>
   <li>
+    <code>CONFIG_SCHED_HAVE_PARENT</code>: Remember the ID of the parent thread when a new child task is created.
+    This support enables some additional features (such as <code>SIGCHLD</code>) and modifies the behavior of other interfaces.
+    For example, it makes <code>waitpid()</code> more standards complete by restricting the waited-for tasks to the children of the caller.
+    Default: disabled.
+  </li>
+  <li>
+    <code>CONFIG_SCHED_CHILD_STATUS</code>: If this option is selected, then the exit status of the child task will be retained after the child task exits.
+    This option should be selected if you require knowledge of a child process' exit status.
+    Without this setting, <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code> may fail.
+    For example, if you do:
+    <p><ol>
+      <li>
+        Start child task
+      </li>
+      <li>
+        Wait for exit status (using <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>).
+      </li>
+    </ol></p>
+    <p>
+      This can fail because the child task may run to completion before the wait begins.
+      There is a non-standard work-around in this case:
+      The above sequence will work if you disable pre-emption using <code>sched_lock()</code> prior to starting the child task, then re-enable pre-emption with <code>sched_unlock()</code> after the wait completes.
+      This works because the child task is not permitted to run until the wait is in place.
+    </p>
+    <p>
+      The standard solution would be to enable <code>CONFIG_SCHED_CHILD_STATUS</code>.
+      In this case the exit status of the child task is retained after the child exits and the wait will successful obtain the child task's exit status whether it is called before the child task exits or not.
+    </p>
+    <p>
+      <b>Warning</b>:
+      If you enable this feature, then your application must either (1) take responsibility for reaping the child status with <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>, or (2) suppress retention of child status.
+      If you do not reap the child status, then you have a memory leak and your system will eventually fail.
+    </p>
+      Retention of child status can be suppressed on the parent using logic like:
+    </p>
+    <ul><pre>
+struct sigaction sa;
+
+sa.sa_handler = SIG_IGN;
+sa.sa_flags = SA_NOCLDWAIT;
+int ret = sigaction(SIGCHLD, &sa, NULL);
+</pre></ul>
+  </li>
+  <li>
+    <code>CONFIG_PREALLOC_CHILDSTATUS</code>: To prevent runaway child status allocations and to improve
+      allocation performance, child task exit status structures are pre-allocated when the system boots.
+      This setting determines the number of child status structures that will be pre-allocated.
+      If this setting is not defined or if it is defined to be zero then a value of 2*<code>MAX_TASKS</code> is used.
+    <p>
+      Note that there cannot be more that <code>CONFIG_MAX_TASKS</code> tasks in total.
+      However, the number of child status structures may need to be significantly larger because this number includes the maximum number of tasks that are running PLUS the number of tasks that have exit'ed without having their exit status reaped (via <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code>).
+    </p>
+    <p>
+      Obviously, if tasks spawn children indefinitely and never have the exit status reaped, then you may have a memory leak!
+      If you enable the <code>SCHED_CHILD_STATUS</code> feature, then your application must take responsibility for either (1) reaping the child status with <code>wait()</code>, <code>waitpid()</code> or <code>waitid()</code> or it must (2) suppress retention of child status.  Otherwise, your system will eventually fail.
+    </p>
+    <p>
+      Retention of child status can be suppressed on the parent using logic like:
+    </p>
+    <ul><pre>
+struct sigaction sa;
+
+sa.sa_handler = SIG_IGN;
+sa.sa_flags = SA_NOCLDWAIT;
+int ret = sigaction(SIGCHLD, &sa, NULL);
+</pre></ul>
+  </li>
+  <li>
   <code>CONFIG_SYSTEM_TIME16</code>:
     The range of system time is, by default, 32-bits.
     However, if the MCU supports type <code>long long</code> and <code>CONFIG_SYSTEM_TIME16</code> is selected,
@@ -4345,7 +4650,7 @@ build
   </li>
   <li>
     <code>CONFIG_SIG_SIGWORK</code>: The signal number that will be used to wake-up
-    the worker thread.  Default: 4
+    the worker thread.  Default: 17
   </li>
   <li>
     <code>CONFIG_SCHED_LPWORK</code>: If CONFIG_SCHED_WORKQUEUE</code> is defined, then a single work queue is created by default.
@@ -4359,10 +4664,11 @@ build
     <code>CONFIG_SCHED_LPWORKPERIOD</code>:  How often the lower priority worker thread checks for work in units of microseconds.  Default: 50*1000 (50 MS).
   </li>
   <li>
-    <code>CONFIG_SCHED_LPWORKSTACKSIZE - The stack size allocated for the lower priority worker thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
+    <code>CONFIG_SCHED_LPWORKSTACKSIZE</code>: The stack size allocated for the lower priority worker thread.  Default: CONFIG_IDLETHREAD_STACKSIZE.
   </li>
   <li>
-    <code>CONFIG_SCHED_WAITPID</code>: Enables the <a href="NuttxUserGuide.html#waitpid"><code>waitpid()</code><a> API
+    <code>CONFIG_SCHED_WAITPID</code>: Enables the <a href="NuttxUserGuide.html#waitpid"><code>waitpid()</code><a> interface in a default, non-standard mode (non-standard in the sense that the waited for PID need not be child of the caller).
+    If <code>SCHED_HAVE_PARENT</code> is also defined, then this setting will modify the behavior or <a href="NuttxUserGuide.html#waitpid"><code>waitpid()</code><a> (making more spec compliant) and will enable the <a href="NuttxUserGuide.html#waitid"><code>waitid()</code><a> and <a href="NuttxUserGuide.html#wait"><code>waitp()</code><a> interfaces as well.
   </li>
   <li>
     <code>CONFIG_SCHED_ATEXIT</code>:  Enables the <a href="NuttxUserGuide.html#atexit">atexit()</code><a> API
@@ -4387,9 +4693,41 @@ build
     <code>user_start</code>.
   </li>
 </ul>
+<p>
+  <b>Signal Numbers</b>:
+</p>
+<ul>
+  <li>
+    <code>CONFIG_SIG_SIGUSR1</code>:
+    Value of standard user signal 1 (<code>SIGUSR1</code>).  Default: 1
+  </li>
+  <li>
+    <code>CONFIG_SIG_SIGUSR2</code>:
+    Value of standard user signal 2 (<code>SIGUSR2</code>).  Default: 2
+  </li>
+  <li>
+    <code>CONFIG_SIG_SIGALARM</code>:
+    Default the standard signal used with POSIX timers (<code>SIGALRM</code>).  Default: 3
+  </li>
+  <li>
+    <code>CONFIG_SIG_SIGCHLD</code>:
+    The <code>SIGCHLD</code> signal is sent to the parent of a child process when it exits, is interrupted (stopped), or resumes after being interrupted.
+    Default: 4
+  </li>
+  <li>
+    <code>CONFIG_SIG_SIGCONDTIMEDOUT</code>:
+    This non-standard signal number is used in the implementation of <code>pthread_cond_timedwait()</code>.
+    Default 16.
+  </li>
+  <li>
+    <code>CONFIG_SIG_SIGWORK</code>:
+    <code>SIGWORK</code> is a non-standard signal used to wake up the internal NuttX worker thread.
+    Default: 17.
+  </li>
+</ul>
 
 <p>
-  Binary Loaders:
+  <b>Binary Loaders</b>:
 </p>
 <ul>
   <li>
@@ -4443,7 +4781,7 @@ build
 </ul>
 
 <p>
-  System Logging:
+  <b>System Logging</b>:
 </p>
 <ul>
   <li>
@@ -4500,7 +4838,7 @@ build
 </ul>
 
 <p>
- Kernel build options:
+ <b>Kernel build options</b>:
 </p>
 <ul>
   <li>
@@ -4511,7 +4849,7 @@ build
 </ul>
 
 <p>
- OS setup related to on-demand paging:
+ <b>OS setup related to on-demand paging</b>:
 </p>
 <ul>
   <li>
@@ -4669,6 +5007,7 @@ build
   </li>
 </ul>
 <p>
+  <b>Disabling OS Features</b>.
   The following can be used to disable categories of APIs supported
   by the OS.  If the compiler supports weak functions, then it
   should not be necessary to disable functions unless you want to

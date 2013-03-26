@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/mips/src/mips32/up_assert.c
  *
- *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@
 
 #ifdef CONFIG_ARCH_STACKDUMP
 # undef  lldbg
-# define lldbg lib_lowprintf
+# define lldbg lowsyslog
 #endif
 
 /* The following is just intended to keep some ugliness out of the mainline
@@ -70,7 +70,7 @@
  *
  *  CONFIG_TASK_NAME_SIZE > 0 &&    <-- The task has a name
  *  (defined(CONFIG_DEBUG)    ||    <-- And the debug is enabled (lldbg used)
- *   defined(CONFIG_ARCH_STACKDUMP) <-- Or lib_lowprintf() is used
+ *   defined(CONFIG_ARCH_STACKDUMP) <-- Or lowsyslog() is used
  */
 
 #undef CONFIG_PRINT_TASKNAME
@@ -90,7 +90,8 @@
  * Name: _up_assert
  ****************************************************************************/
 
-static void _up_assert(int errorcode) /* noreturn_function */
+static void _up_assert(int errorcode) noreturn_function;
+static void _up_assert(int errorcode)
 {
   /* Are we in an interrupt handler or the idle task? */
 

@@ -2,7 +2,7 @@
  * arch/arm/src/sam3u/sam3u_irq.c
  * arch/arm/src/chip/sam3u_irq.c
  *
- *   Copyright (C) 2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -185,6 +185,29 @@ static int sam3u_reserved(int irq, FAR void *context)
 #endif
 
 /****************************************************************************
+ * Name: sam3u_prioritize_syscall
+ *
+ * Description:
+ *   Set the priority of an exception.  This function may be needed
+ *   internally even if support for prioritized interrupts is not enabled.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_ARMV7M_USEBASEPRI
+static inline void sam3u_prioritize_syscall(int priority)
+{
+  uint32_t regval;
+
+  /* SVCALL is system handler 11 */
+
+  regval  = getreg32(NVIC_SYSH8_11_PRIORITY);
+  regval &= ~NVIC_SYSH_PRIORITY_PR11_MASK;
+  regval |= (priority << NVIC_SYSH_PRIORITY_PR11_SHIFT);
+  putreg32(regval, NVIC_SYSH8_11_PRIORITY);
+}
+#endif
+
+/****************************************************************************
  * Name: sam3u_irqinfo
  *
  * Description:
@@ -296,6 +319,9 @@ void up_irqinitialize(void)
 #ifdef CONFIG_ARCH_IRQPRIO
 /* up_prioritize_irq(SAM3U_IRQ_PENDSV, NVIC_SYSH_PRIORITY_MIN); */
 #endif
+#ifdef CONFIG_ARMV7M_USEBASEPRI
+   sam3u_prioritize_syscall(NVIC_SYSH_SVCALL_PRIORITY);
+#endif
 
   /* If the MPU is enabled, then attach and enable the Memory Management
    * Fault handler.
@@ -334,8 +360,7 @@ void up_irqinitialize(void)
 
   /* And finally, enable interrupts */
 
-  setbasepri(NVIC_SYSH_PRIORITY_MAX);
-  irqrestore(0);
+  irqenable();
 #endif
 }
 
@@ -436,15 +461,28 @@ int up_prioritize_irq(int irq, int priority)
   uint32_t regval;
   int shift;
 
-  DEBUGASSERT(irq >= SAM3U_IRQ_MEMFAULT && irq < SAM3U_IRQ_NIRQS && (unsigned)priority <= NVIC_SYSH_PRIORITY_MIN);
+#ifdef CONFIG_ARMV7M_USEBASEPRI
+  DEBUGASSERT(irq >= SAM3U_IRQ_MEMFAULT && irq < SAM3U_IRQ_NIRQS &&
+              priority >= NVIC_SYSH_DISABLE_PRIORITY &&
+              priority <= NVIC_SYSH_PRIORITY_MIN);
+#else
+  DEBUGASSERT(irq >= SAM3U_IRQ_MEMFAULT && irq < SAM3U_IRQ_NIRQS &&
+              (unsigned)priority <= NVIC_SYSH_PRIORITY_MIN);
+#endif
 
   if (irq < SAM3U_IRQ_EXTINT)
     {
-      irq    -= 4;
+      /* NVIC_SYSH_PRIORITY() maps {0..15} to one of three priority
+       * registers (0-3 are invalid)
+       */
+
       regaddr = NVIC_SYSH_PRIORITY(irq);
+      irq    -= 4;
     }
   else
     {
+      /* NVIC_IRQ_PRIORITY() maps {0..} to one of many priority registers */
+
       irq    -= SAM3U_IRQ_EXTINT;
       regaddr = NVIC_IRQ_PRIORITY(irq);
     }

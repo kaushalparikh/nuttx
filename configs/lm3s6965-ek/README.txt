@@ -15,6 +15,7 @@ Contents
   NXFLAT Toolchain
   USB Device Controller Functions
   OLED
+  Using OpenOCD and GDB with an FT2232 JTAG emulator
   Stellaris LM3S6965 Evaluation Kit Configuration Options
   Configurations
 
@@ -103,6 +104,85 @@ OLED
   display.  Some tweaks to drivers/lcd/p14201.c would be required to support that
   LCD.
 
+Using OpenOCD and GDB with an FT2232 JTAG emulator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  Building OpenOCD under Cygwin:
+
+    Refer to configs/olimex-lpc1766stk/README.txt
+
+  Installing OpenOCD in Linux:
+
+    sudo apt-get install openocd
+
+  Helper Scripts.
+
+    I have been using the on-board FT2232 JTAG/SWD/SWO interface.  OpenOCD
+    requires a configuration file.  I keep the one I used last here:
+    
+      configs/lm3s6965-ek/tools/lm3s6965-ek.cfg
+
+    However, the "correct" configuration script to use with OpenOCD may
+    change as the features of OpenOCD evolve.  So you should at least
+    compare that lm3s6965-ek.cfg file with configuration files in
+    /usr/share/openocd/scripts.  As of this writing, the configuration
+    files of interest were:
+
+      /usr/share/openocd/scripts/interface/luminary.cfg
+      /usr/share/openocd/scripts/board/ek-lm3s6965.cfg
+      /usr/share/openocd/scripts/target/stellaris.cfg
+
+    There is also a script on the tools/ directory that I use to start
+    the OpenOCD daemon on my system called oocd.sh.  That script will
+    probably require some modifications to work in another environment:
+  
+    - Possibly the value of OPENOCD_PATH and TARGET_PATH
+    - It assumes that the correct script to use is the one at
+      configs/lm3s6965-ek/tools/lm3s6965-ek.cfg
+
+  Starting OpenOCD
+
+    Then you should be able to start the OpenOCD daemon like:
+
+      configs/lm3s6965-ek/tools/oocd.sh $PWD
+
+  Connecting GDB
+
+    Once the OpenOCD daemon has been started, you can connect to it via
+    GDB using the following GDB command:
+
+      arm-nuttx-elf-gdb
+      (gdb) target remote localhost:3333
+
+    NOTE:  The name of your GDB program may differ.  For example, with the
+    CodeSourcery toolchain, the ARM GDB would be called arm-none-eabi-gdb.
+
+    After starting GDB, you can load the NuttX ELF file:
+
+      (gdb) symbol-file nuttx
+      (gdb) monitor reset
+      (gdb) monitor halt
+      (gdb) load nuttx
+
+    NOTES:
+    1. Loading the symbol-file is only useful if you have built NuttX to
+       include debug symbols (by setting CONFIG_DEBUG_SYMBOLS=y in the
+       .config file).
+    2. The MCU must be halted prior to loading code using 'mon reset'
+       as described below.
+ 
+    OpenOCD will support several special 'monitor' commands.  These
+    GDB commands will send comments to the OpenOCD monitor.  Here
+    are a couple that you will need to use:
+  
+     (gdb) monitor reset
+     (gdb) monitor halt
+
+    NOTES:
+    1. The MCU must be halted using 'mon halt' prior to loading code.
+    2. Reset will restart the processor after loading code.
+    3. The 'monitor' command can be abbreviated as just 'mon'.
+
 Development Environment
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -126,12 +206,12 @@ GNU Toolchain Options
   the CodeSourcery or devkitARM, you simply need to add one of the following
   configuration options to your .config (or defconfig) file:
 
-    CONFIG_LM3S_CODESOURCERYW=y   : CodeSourcery under Windows
-    CONFIG_LM3S_CODESOURCERYL=y   : CodeSourcery under Linux
-    CONFIG_LM3S_DEVKITARM=y       : devkitARM under Windows
-    CONFIG_LM3S_BUILDROOT=y       : NuttX buildroot under Linux or Cygwin (default)
+    CONFIG_LM_CODESOURCERYW=y   : CodeSourcery under Windows
+    CONFIG_LM_CODESOURCERYL=y   : CodeSourcery under Linux
+    CONFIG_LM_DEVKITARM=y       : devkitARM under Windows
+    CONFIG_LM_BUILDROOT=y       : NuttX buildroot under Linux or Cygwin (default)
 
-  If you are not using CONFIG_LM3S_BUILDROOT, then you may also have to modify
+  If you are not using CONFIG_LM_BUILDROOT, then you may also have to modify
   the PATH in the setenv.h file if your make cannot find the tools.
 
   NOTE: the CodeSourcery (for Windows) and devkitARM are Windows native toolchains.
@@ -197,13 +277,13 @@ IDEs
   2) Start the NuttX build at least one time from the Cygwin command line
      before trying to create your project.  This is necessary to create
      certain auto-generated files and directories that will be needed.
-  3) Set up include pathes:  You will need include/, arch/arm/src/lm3s,
+  3) Set up include pathes:  You will need include/, arch/arm/src/lm,
      arch/arm/src/common, arch/arm/src/armv7-m, and sched/.
   4) All assembly files need to have the definition option -D __ASSEMBLY__
      on the command line.
 
   Startup files will probably cause you some headaches.  The NuttX startup file
-  is arch/arm/src/lm3s/lm3s_vectors.S.
+  is arch/arm/src/lm/lm_vectors.S.
 
 NuttX EABI "buildroot" Toolchain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -357,7 +437,7 @@ Stellaris LM3S6965 Evaluation Kit Configuration Options
 
     CONFIG_ARCH_CHIP - Identifies the arch/*/chip subdirectory
 
-       CONFIG_ARCH_CHIP=lm3s
+       CONFIG_ARCH_CHIP=lm
 
     CONFIG_ARCH_CHIP_name - For use in C code to identify the exact
        chip:
@@ -387,7 +467,7 @@ Stellaris LM3S6965 Evaluation Kit Configuration Options
 
        CONFIG_DRAM_START=0x20000000
 
-    CONFIG_ARCH_IRQPRIO - The LM3S6918 supports interrupt prioritization
+    CONFIG_ARCH_IRQPRIO - The LM3S6965 supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
 
@@ -411,21 +491,21 @@ Stellaris LM3S6965 Evaluation Kit Configuration Options
        the delay actually is 100 seconds.
 
   There are configurations for disabling support for interrupts GPIO ports.
-  GPIOJ must be disabled because it does not exist on the LM3S6918.
+  GPIOJ must be disabled because it does not exist on the LM3S6965.
   Additional interrupt support can be disabled if desired to reduce memory
   footprint.
 
-    CONFIG_LM3S_DISABLE_GPIOA_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOB_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOC_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOD_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOE_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOF_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOG_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOH_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOJ_IRQS=y
+    CONFIG_LM_DISABLE_GPIOA_IRQS=n
+    CONFIG_LM_DISABLE_GPIOB_IRQS=n
+    CONFIG_LM_DISABLE_GPIOC_IRQS=n
+    CONFIG_LM_DISABLE_GPIOD_IRQS=n
+    CONFIG_LM_DISABLE_GPIOE_IRQS=n
+    CONFIG_LM_DISABLE_GPIOF_IRQS=n
+    CONFIG_LM_DISABLE_GPIOG_IRQS=n
+    CONFIG_LM_DISABLE_GPIOH_IRQS=n
+    CONFIG_LM_DISABLE_GPIOJ_IRQS=y
  
-  LM3S6818 specific device driver settings
+  LM3S6965 specific device driver settings
 
     CONFIG_UARTn_SERIAL_CONSOLE - selects the UARTn for the
        console and ttys0 (default is the UART0).
@@ -448,18 +528,18 @@ Stellaris LM3S6965 Evaluation Kit Configuration Options
       value is large, then larger values of this setting may cause
       Rx FIFO overrun errors.  Default: half of the Tx FIFO size (4).
 
-    CONFIG_LM3S_ETHERNET - This must be set (along with CONFIG_NET)
-      to build the LM3S Ethernet driver
-    CONFIG_LM3S_ETHLEDS - Enable to use Ethernet LEDs on the board.
-    CONFIG_LM3S_BOARDMAC - If the board-specific logic can provide
-      a MAC address (via lm3s_ethernetmac()), then this should be selected.
-    CONFIG_LM3S_ETHHDUPLEX - Set to force half duplex operation
-    CONFIG_LM3S_ETHNOAUTOCRC - Set to suppress auto-CRC generation
-    CONFIG_LM3S_ETHNOPAD - Set to suppress Tx padding
-    CONFIG_LM3S_MULTICAST - Set to enable multicast frames
-    CONFIG_LM3S_PROMISCUOUS - Set to enable promiscuous mode
-    CONFIG_LM3S_BADCRC - Set to enable bad CRC rejection.
-    CONFIG_LM3S_DUMPPACKET - Dump each packet received/sent to the console.
+    CONFIG_LM_ETHERNET - This must be set (along with CONFIG_NET)
+      to build the Stellaris Ethernet driver
+    CONFIG_LM_ETHLEDS - Enable to use Ethernet LEDs on the board.
+    CONFIG_LM_BOARDMAC - If the board-specific logic can provide
+      a MAC address (via lm_ethernetmac()), then this should be selected.
+    CONFIG_LM_ETHHDUPLEX - Set to force half duplex operation
+    CONFIG_LM_ETHNOAUTOCRC - Set to suppress auto-CRC generation
+    CONFIG_LM_ETHNOPAD - Set to suppress Tx padding
+    CONFIG_LM_MULTICAST - Set to enable multicast frames
+    CONFIG_LM_PROMISCUOUS - Set to enable promiscuous mode
+    CONFIG_LM_BADCRC - Set to enable bad CRC rejection.
+    CONFIG_LM_DUMPPACKET - Dump each packet received/sent to the console.
 
 Configurations
 ^^^^^^^^^^^^^^
@@ -478,21 +558,68 @@ Where <subdir> is one of the following:
     Configures the NuttShell (nsh) located at examples/nsh.  The
     Configuration enables both the serial and telnetd NSH interfaces.
 
-    NOTE: As it is configured now, you MUST have a network connected.
-    Otherwise, the NSH prompt will not come up because the Ethernet
-    driver is waiting for the network to come up.  That is probably
-    a bug in the Ethernet driver behavior!
+    NOTES:
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
 
-    Network File System (NFS) support can be added by setting the
-    following in your configuration file:
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default platform/toolchain:
+
+       CONFIG_HOST_LINUX=y                 : Linux (Cygwin under Windows okay too).
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot (arm-nuttx-elf-gcc)
+       CONFIG_RAW_BINARY=y                 : Output formats: ELF and raw binary
+
+    3. As it is configured now, you MUST have a network connected.
+       Otherwise, the NSH prompt will not come up because the Ethernet
+       driver is waiting for the network to come up.  That is probably
+       a bug in the Ethernet driver behavior!
+
+    4. Network File System (NFS) support can be added by setting the
+      following in your configuration file:
 
       CONFIG_NFS=y
+
   nx:
     And example using the NuttX graphics system (NX).  This example
     uses the P14201 OLED driver.
+
+    NOTES:
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default platform/toolchain:
+
+       CONFIG_HOST_LINUX=y                 : Linux (Cygwin under Windows okay too).
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot (arm-nuttx-elf-gcc)
+       CONFIG_RAW_BINARY=y                 : Output formats: ELF and raw binary
 
   ostest:
     This configuration directory, performs a simple OS test using
     examples/ostest.
 
+    NOTES:
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
 
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default platform/toolchain:
+
+       CONFIG_HOST_LINUX=y                 : Linux (Cygwin under Windows okay too).
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot (arm-nuttx-elf-gcc)
+       CONFIG_RAW_BINARY=y                 : Output formats: ELF and raw binary

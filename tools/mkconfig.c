@@ -1,7 +1,7 @@
 /****************************************************************************
  * tools/mkconfig.c
  *
- *   Copyright (C) 2007-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "cfgparser.h"
+#include "cfgdefine.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -99,7 +99,7 @@ int main(int argc, char **argv, char **envp)
   printf("#ifndef __INCLUDE_NUTTX_CONFIG_H\n");
   printf("#define __INCLUDE_NUTTX_CONFIG_H\n\n");
   printf("/* Architecture-specific options *************************/\n\n");
-  parse_file(stream);
+  generate_definitions(stream);
   printf("\n/* Sanity Checks *****************************************/\n\n");
   printf("/* If this is an NXFLAT, external build, then make sure that\n");
   printf(" * NXFLAT support is enabled in the base code.\n");
@@ -116,7 +116,7 @@ int main(int argc, char **argv, char **envp)
   printf(" * configured (at present, NXFLAT is the only supported binary.\n");
   printf(" * format).\n");
   printf(" */\n\n");
-  printf("#if !defined(CONFIG_NXFLAT) && !defined(CONFIG_ELF)\n");
+  printf("#if !defined(CONFIG_NXFLAT) && !defined(CONFIG_ELF) && !defined(CONFIG_BUILTIN)\n");
   printf("# undef CONFIG_BINFMT_DISABLE\n");
   printf("# define CONFIG_BINFMT_DISABLE 1\n");
   printf("#endif\n\n");
@@ -126,17 +126,23 @@ int main(int argc, char **argv, char **envp)
   printf("#ifndef CONFIG_RR_INTERVAL\n");
   printf("# define CONFIG_RR_INTERVAL 0\n");
   printf("#endif\n\n");
-  printf("/* The correct way to disable filesystem supuport is to set the\n");
-  printf(" * number of file descriptors to zero.\n");
+  printf("/* The correct way to disable filesystem supuport is to set the number of\n");
+  printf(" * file descriptors to zero.\n");
   printf(" */\n\n");
   printf("#ifndef CONFIG_NFILE_DESCRIPTORS\n");
   printf("# define CONFIG_NFILE_DESCRIPTORS 0\n");
   printf("#endif\n\n");
-  printf("/* If a console is selected, then make sure that there are\n");
-  printf(" * resources for 3 file descriptors and, if any streams are\n");
-  printf(" * selected, also for 3 file streams.\n");
+  printf("/* If a console is selected, then make sure that there are resources for\n");
+  printf(" * three file descriptors and, if any streams are selected, also for three\n");
+  printf(" * file streams.\n");
+  printf(" *\n");
+  printf(" * CONFIG_DEV_CONSOLE means that a builtin console device exists at /dev/console\n");
+  printf(" * and can be opened during boot-up.  Other consoles, such as USB consoles, may\n");
+  printf(" * not exist at boot-upand have to be handled in a different way.  Three file\n");
+  printf(" * descriptors and three file streams are still needed.\n");
   printf(" */\n\n");
-  printf("#ifdef CONFIG_DEV_CONSOLE\n");
+  printf("#if defined(CONFIG_DEV_CONSOLE) || defined(CONFIG_CDCACM_CONSOLE) || \\\n");
+  printf("    defined(CONFIG_PL2303_CONSOLE)\n");
   printf("# if CONFIG_NFILE_DESCRIPTORS < 3\n");
   printf("#   undef CONFIG_NFILE_DESCRIPTORS\n");
   printf("#   define CONFIG_NFILE_DESCRIPTORS 3\n");
@@ -145,12 +151,10 @@ int main(int argc, char **argv, char **envp)
   printf("#  undef CONFIG_NFILE_STREAMS\n");
   printf("#  define CONFIG_NFILE_STREAMS 3\n");
   printf("# endif\n\n");
-  printf("/* If no console is selected, then disable all console devices */\n\n");
+  printf("/* If no console is selected, then disable all builtin console devices */\n\n");
   printf("#else\n");
   printf("#  undef CONFIG_DEV_LOWCONSOLE\n");
   printf("#  undef CONFIG_RAMLOG_CONSOLE\n");
-  printf("#  undef CONFIG_CDCACM_CONSOLE\n");
-  printf("#  undef CONFIG_PL2303_CONSOLE\n");
   printf("#endif\n\n");
   printf("/* If priority inheritance is disabled, then do not allocate any\n");
   printf(" * associated resources.\n");
@@ -213,14 +217,14 @@ int main(int argc, char **argv, char **envp)
   printf("# undef CONFIG_FS_FAT\n");
   printf("# undef CONFIG_FS_ROMFS\n");
   printf("# undef CONFIG_FS_NXFFS\n");
-  printf("# undef CONFIG_APPS_BINDIR\n");
+  printf("# undef CONFIG_FS_BINFS\n");
   printf("# undef CONFIG_NFS\n");
   printf("#endif\n\n");
   printf("/* Check if any readable and writable filesystem (OR USB storage) is supported */\n\n");
   printf("#undef CONFIG_FS_READABLE\n");
   printf("#undef CONFIG_FS_WRITABLE\n");
   printf("#if defined(CONFIG_FS_FAT) || defined(CONFIG_FS_ROMFS) || defined(CONFIG_USBMSC) || \\\n");
-  printf("    defined(CONFIG_FS_NXFFS) || defined(CONFIG_APPS_BINDIR) || defined(CONFIG_NFS)\n");
+  printf("    defined(CONFIG_FS_NXFFS) || defined(CONFIG_FS_BINFS) || defined(CONFIG_NFS)\n");
   printf("# define CONFIG_FS_READABLE 1\n");
   printf("#endif\n\n");
   printf("#if defined(CONFIG_FS_FAT) || defined(CONFIG_USBMSC) || defined(CONFIG_FS_NXFFS) || \\\n");

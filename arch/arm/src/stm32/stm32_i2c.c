@@ -159,7 +159,7 @@
 #endif
 
 /* I2C event trace logic.  NOTE:  trace uses the internal, non-standard, low-level
- * debug interface lib_rawprintf() but does not require that any other debug
+ * debug interface syslog() but does not require that any other debug
  * is enabled.
  */
 
@@ -899,11 +899,11 @@ static void stm32_i2c_tracedump(FAR struct stm32_i2c_priv_s *priv)
   struct stm32_trace_s *trace;
   int i;
 
-  lib_rawprintf("Elapsed time: %d\n",  clock_systimer() - priv->start_time);
+  syslog("Elapsed time: %d\n",  clock_systimer() - priv->start_time);
   for (i = 0; i <= priv->tndx; i++)
     {
       trace = &priv->trace[i];
-      lib_rawprintf("%2d. STATUS: %08x COUNT: %3d EVENT: %2d PARM: %08x TIME: %d\n",
+      syslog("%2d. STATUS: %08x COUNT: %3d EVENT: %2d PARM: %08x TIME: %d\n",
                     i+1, trace->status, trace->count,  trace->event, trace->parm,
                     trace->time - priv->start_time);
     }
@@ -1245,11 +1245,11 @@ static int stm32_i2c_isr(struct stm32_i2c_priv_s *priv)
 
           /* Disable acknowledge when last byte is to be received */
 
+          priv->dcnt--;
           if (priv->dcnt == 1)
             {
               stm32_i2c_modifyreg(priv, STM32_I2C_CR1_OFFSET, I2C_CR1_ACK, 0);  
             }
-          priv->dcnt--;
 
 #ifdef CONFIG_I2C_POLLED
           irqrestore(state);
@@ -1985,7 +1985,6 @@ int up_i2creset(FAR struct i2c_dev_s * dev)
   unit32_ scl_gpio;
   unit32_ sda_gpio;
   int ret = ERROR;
-  irqstate_t state;
 
   ASSERT(dev);
 
@@ -2010,6 +2009,10 @@ int up_i2creset(FAR struct i2c_dev_s * dev)
   scl_gpio = MKI2C_OUTPUT(priv->config->scl_pin);
   sda_gpio = MKI2C_OUTPUT(priv->config->sda_pin);
 
+  /* Let SDA go high */
+
+  stm32_gpiowrite(sda_gpio, 1);
+
   /* Clock the bus until any slaves currently driving it let it go. */
 
   clock_count = 0;
@@ -2017,7 +2020,7 @@ int up_i2creset(FAR struct i2c_dev_s * dev)
     {
       /* Give up if we have tried too hard */
 
-      if (clock_count++ > 1000)
+      if (clock_count++ > 10)
         { 
           goto out;
         }
@@ -2032,7 +2035,7 @@ int up_i2creset(FAR struct i2c_dev_s * dev)
         { 
           /* Give up if we have tried too hard */
 
-          if (stretch_count++ > 1000)
+          if (stretch_count++ > 10)
             { 
               goto out;
             }

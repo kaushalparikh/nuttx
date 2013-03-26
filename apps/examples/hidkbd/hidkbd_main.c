@@ -46,9 +46,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <string.h>
+#include <ctype.h>
+#include <assert.h>
 #include <errno.h>
 
 #include <nuttx/usb/usbhost.h>
+
+#ifdef CONFIG_EXAMPLES_HIDKBD_ENCODED
+#  include <nuttx/streams.h>
+#  include <nuttx/input/kbd_codec.h>
+#endif
 
 /****************************************************************************
  * Definitions
@@ -83,9 +91,22 @@
 #  define CONFIG_EXAMPLES_HIDKBD_DEVNAME "/dev/kbda"
 #endif
 
+#if !defined(CONFIG_HIDKBD_ENCODED) || !defined(CONFIG_LIB_KBDCODEC)
+#  undef CONFIG_EXAMPLES_HIDKBD_ENCODED
+#endif
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
+
+#ifdef CONFIG_EXAMPLES_HIDKBD_ENCODED
+struct hidbkd_instream_s
+{
+  struct lib_instream_s stream;
+  FAR char *buffer;
+  ssize_t nbytes;
+};
+#endif
 
 /****************************************************************************
  * Private Data
@@ -98,8 +119,99 @@ static struct usbhost_driver_s *g_drvr;
  ****************************************************************************/
 
 /****************************************************************************
- * Public Functions
+ * Name: hidkbd_getstream
+ *
+ * Description:
+ *   Get one character from the keyboard.
+ *
  ****************************************************************************/
+
+#ifdef CONFIG_EXAMPLES_HIDKBD_ENCODED
+static int hidkbd_getstream(FAR struct lib_instream_s *this)
+{
+  FAR struct hidbkd_instream_s *kbdstream = (FAR struct hidbkd_instream_s *)this;
+
+  DEBUGASSERT(kbdstream && kbdstream->buffer);
+  if (kbdstream->nbytes > 0)
+    {
+      kbdstream->nbytes--;
+      kbdstream->stream.nget++;
+      return (int)*kbdstream->buffer++;
+    }
+
+  return EOF;
+}
+#endif
+
+/****************************************************************************
+ * Name: hidkbd_decode
+ *
+ * Description:
+ *   Decode encoded keyboard input
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_EXAMPLES_HIDKBD_ENCODED
+static void hidkbd_decode(FAR char *buffer, ssize_t nbytes)
+{
+  struct hidbkd_instream_s kbdstream;
+  struct kbd_getstate_s state;
+  uint8_t ch;
+  int ret;
+
+  /* Initialize */
+
+  memset(&state, 0, sizeof(struct kbd_getstate_s));
+  kbdstream.stream.get  = hidkbd_getstream;
+  kbdstream.stream.nget = 0;
+  kbdstream.buffer      = buffer;
+  kbdstream.nbytes      = nbytes;
+
+  /* Loop until all of the bytes have been consumed.  We implicitly assume
+   * that the the escaped sequences do not cross buffer boundaries.  That
+   * might be true if the read buffer were small or the data rates high.
+   */
+
+  for (;;)
+    {
+      /* Decode the next thing from the buffer */
+
+      ret = kbd_decode((FAR struct lib_instream_s *)&kbdstream, &state, &ch);
+      if (ret == KBD_ERROR) /* Error or end-of-file */
+        {
+          /* Break out when all of the data has been processed */
+
+          break;
+        }
+
+      /* Normal data?  Or special key?  Press?  Or release? */
+
+      switch (ret)
+        {
+        case KBD_PRESS: /* Key press event */
+          printf("Normal Press:    %c [%02x]\n", isprint(ch) ? ch : '.', ch);
+          break;
+
+        case KBD_RELEASE: /* Key release event */
+          printf("Normal Release:  %c [%02x]\n", isprint(ch) ? ch : '.', ch);
+          break;
+
+        case KBD_SPECPRESS: /* Special key press event */
+          printf("Special Press:   %d\n", ch);
+          break;
+
+        case KBD_SPECREL: /* Special key release event */
+          printf("Special Release: %d\n", ch);
+          break;
+
+        case KBD_ERROR: /* Error or end-of-file, already handled */
+        default:
+          printf("Unexpected:      %d\n", ret);
+          break;
+        }
+    }
+}
+#endif
 
 /****************************************************************************
  * Name: hidkbd_waiter
@@ -139,6 +251,10 @@ static int hidkbd_waiter(int argc, char *argv[])
 
   return 0;
 }
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
 
 /****************************************************************************
  * Name: hidkbd_main
@@ -206,7 +322,7 @@ int hidkbd_main(int argc, char *argv[])
           printf("Device %s opened\n", CONFIG_EXAMPLES_HIDKBD_DEVNAME);
           fflush(stdout);
 
-          /* Loop until there is a read failure */
+          /* Loop until there is a read failure (or EOF?) */
 
           do
             {
@@ -217,15 +333,20 @@ int hidkbd_main(int argc, char *argv[])
                 {
                   /* On success, echo the buffer to stdout */
 
+#ifdef CONFIG_EXAMPLES_HIDKBD_ENCODED
+                  hidkbd_decode(buffer, nbytes);
+#else
                   (void)write(1, buffer, nbytes);
+#endif
                 }
             }
-          while (nbytes >= 0);
+          while (nbytes > 0);
 
           printf("Closing device %s: %d\n", CONFIG_EXAMPLES_HIDKBD_DEVNAME, (int)nbytes);
           fflush(stdout);
           close(fd);
         }
     }
+
   return 0;
 }

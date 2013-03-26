@@ -55,13 +55,14 @@
 #include <arch/irq.h>
 #include <arch/board/board.h>
 
-#include "chip.h"
 #include "up_arch.h"
 #include "up_internal.h"
 
-#include "lpc17_internal.h"
-#include "lpc17_usb.h"
-#include "lpc17_syscon.h"
+#include "chip.h"
+#include "chip/lpc17_usb.h"
+#include "chip/lpc17_syscon.h"
+#include "lpc17_gpio.h"
+#include "lpc17_gpdma.h"
 
 /*******************************************************************************
  * Definitions
@@ -2174,6 +2175,22 @@ static int lpc17_usbinterrupt(int irq, FAR void *context)
             {
               usbtrace(TRACE_INTDECODE(LPC17_TRACEINTID_SUSPENDCHG),
                        (uint16_t)g_usbdev.devstatus);
+
+              /* Inform the Class driver of the change */
+
+              if (priv->driver)
+                {
+                  if (DEVSTATUS_SUSPEND(g_usbdev.devstatus))
+                    {
+                      CLASS_SUSPEND(priv->driver, &priv->usbdev);
+                    }
+                  else
+                    {
+                      CLASS_RESUME(priv->driver, &priv->usbdev);
+                    }
+                }
+
+              /* TODO: Perform power management operations here. */
             }
 
           /* Device reset */

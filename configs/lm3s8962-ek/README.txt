@@ -126,12 +126,12 @@ GNU Toolchain Options
   the CodeSourcery or devkitARM, you simply need to add one of the following
   configuration options to your .config (or defconfig) file:
 
-    CONFIG_LM3S_CODESOURCERYW=y   : CodeSourcery under Windows
-    CONFIG_LM3S_CODESOURCERYL=y   : CodeSourcery under Linux
-    CONFIG_LM3S_DEVKITARM=y       : devkitARM under Windows
-    CONFIG_LM3S_BUILDROOT=y       : NuttX buildroot under Linux or Cygwin (default)
+    CONFIG_LM_CODESOURCERYW=y   : CodeSourcery under Windows
+    CONFIG_LM_CODESOURCERYL=y   : CodeSourcery under Linux
+    CONFIG_LM_DEVKITARM=y       : devkitARM under Windows
+    CONFIG_LM_BUILDROOT=y       : NuttX buildroot under Linux or Cygwin (default)
 
-  If you are not using CONFIG_LM3S_BUILDROOT, then you may also have to modify
+  If you are not using CONFIG_LM_BUILDROOT, then you may also have to modify
   the PATH in the setenv.h file if your make cannot find the tools.
 
   NOTE: the CodeSourcery (for Windows) and devkitARM are Windows native toolchains.
@@ -181,13 +181,13 @@ IDEs
   2) Start the NuttX build at least one time from the Cygwin command line
      before trying to create your project.  This is necessary to create
      certain auto-generated files and directories that will be needed.
-  3) Set up include pathes:  You will need include/, arch/arm/src/lm3s,
+  3) Set up include pathes:  You will need include/, arch/arm/src/lm,
      arch/arm/src/common, arch/arm/src/armv7-m, and sched/.
   4) All assembly files need to have the definition option -D __ASSEMBLY__
      on the command line.
 
   Startup files will probably cause you some headaches.  The NuttX startup file
-  is arch/arm/src/lm3s/lm3s_vectors.S.
+  is arch/arm/src/lm/lm_vectors.S.
 
 NuttX EABI "buildroot" Toolchain
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -341,7 +341,7 @@ Stellaris LM3S8962 Evaluation Kit Configuration Options
 
     CONFIG_ARCH_CHIP - Identifies the arch/*/chip subdirectory
 
-       CONFIG_ARCH_CHIP=lm3s
+       CONFIG_ARCH_CHIP=lm
 
     CONFIG_ARCH_CHIP_name - For use in C code to identify the exact
        chip:
@@ -371,7 +371,7 @@ Stellaris LM3S8962 Evaluation Kit Configuration Options
 
        CONFIG_DRAM_START=0x20000000
 
-    CONFIG_ARCH_IRQPRIO - The LM3S6918 supports interrupt prioritization
+    CONFIG_ARCH_IRQPRIO - The LM3S8962 supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
 
@@ -395,21 +395,21 @@ Stellaris LM3S8962 Evaluation Kit Configuration Options
        the delay actually is 100 seconds.
 
   There are configurations for disabling support for interrupts GPIO ports.
-  GPIOJ must be disabled because it does not exist on the LM3S6918.
+  GPIOJ must be disabled because it does not exist on the LM3S8962.
   Additional interrupt support can be disabled if desired to reduce memory
   footprint.
 
-    CONFIG_LM3S_DISABLE_GPIOA_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOB_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOC_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOD_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOE_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOF_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOG_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOH_IRQS=n
-    CONFIG_LM3S_DISABLE_GPIOJ_IRQS=y
+    CONFIG_LM_DISABLE_GPIOA_IRQS=n
+    CONFIG_LM_DISABLE_GPIOB_IRQS=n
+    CONFIG_LM_DISABLE_GPIOC_IRQS=n
+    CONFIG_LM_DISABLE_GPIOD_IRQS=n
+    CONFIG_LM_DISABLE_GPIOE_IRQS=n
+    CONFIG_LM_DISABLE_GPIOF_IRQS=n
+    CONFIG_LM_DISABLE_GPIOG_IRQS=n
+    CONFIG_LM_DISABLE_GPIOH_IRQS=n
+    CONFIG_LM_DISABLE_GPIOJ_IRQS=y
  
-  LM3S6818 specific device driver settings
+  LM3S8962 specific device driver settings
 
     CONFIG_UARTn_SERIAL_CONSOLE - selects the UARTn for the
        console and ttys0 (default is the UART0).
@@ -432,18 +432,18 @@ Stellaris LM3S8962 Evaluation Kit Configuration Options
       value is large, then larger values of this setting may cause
       Rx FIFO overrun errors.  Default: half of the Tx FIFO size (4).
 
-    CONFIG_LM3S_ETHERNET - This must be set (along with CONFIG_NET)
-      to build the LM3S Ethernet driver
-    CONFIG_LM3S_ETHLEDS - Enable to use Ethernet LEDs on the board.
-    CONFIG_LM3S_BOARDMAC - If the board-specific logic can provide
-      a MAC address (via lm3s_ethernetmac()), then this should be selected.
-    CONFIG_LM3S_ETHHDUPLEX - Set to force half duplex operation
-    CONFIG_LM3S_ETHNOAUTOCRC - Set to suppress auto-CRC generation
-    CONFIG_LM3S_ETHNOPAD - Set to suppress Tx padding
-    CONFIG_LM3S_MULTICAST - Set to enable multicast frames
-    CONFIG_LM3S_PROMISCUOUS - Set to enable promiscuous mode
-    CONFIG_LM3S_BADCRC - Set to enable bad CRC rejection.
-    CONFIG_LM3S_DUMPPACKET - Dump each packet received/sent to the console.
+    CONFIG_LM_ETHERNET - This must be set (along with CONFIG_NET)
+      to build the Stellaris Ethernet driver
+    CONFIG_LM_ETHLEDS - Enable to use Ethernet LEDs on the board.
+    CONFIG_LM_BOARDMAC - If the board-specific logic can provide
+      a MAC address (via lm_ethernetmac()), then this should be selected.
+    CONFIG_LM_ETHHDUPLEX - Set to force half duplex operation
+    CONFIG_LM_ETHNOAUTOCRC - Set to suppress auto-CRC generation
+    CONFIG_LM_ETHNOPAD - Set to suppress Tx padding
+    CONFIG_LM_MULTICAST - Set to enable multicast frames
+    CONFIG_LM_PROMISCUOUS - Set to enable promiscuous mode
+    CONFIG_LM_BADCRC - Set to enable bad CRC rejection.
+    CONFIG_LM_DUMPPACKET - Dump each packet received/sent to the console.
 
 Configurations
 ^^^^^^^^^^^^^^

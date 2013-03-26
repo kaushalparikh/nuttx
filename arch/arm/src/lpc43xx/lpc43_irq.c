@@ -2,7 +2,7 @@
  * arch/arm/src/lpc43/lpc43_irq.c
  * arch/arm/src/chip/lpc43_irq.c
  *
- *   Copyright (C) 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -192,6 +192,29 @@ static int lpc43_reserved(int irq, FAR void *context)
 #endif
 
 /****************************************************************************
+ * Name: lpc43_prioritize_syscall
+ *
+ * Description:
+ *   Set the priority of an exception.  This function may be needed
+ *   internally even if support for prioritized interrupts is not enabled.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_ARMV7M_USEBASEPRI
+static inline void lpc43_prioritize_syscall(int priority)
+{
+  uint32_t regval;
+
+  /* SVCALL is system handler 11 */
+
+  regval  = getreg32(NVIC_SYSH8_11_PRIORITY);
+  regval &= ~NVIC_SYSH_PRIORITY_PR11_MASK;
+  regval |= (priority << NVIC_SYSH_PRIORITY_PR11_SHIFT);
+  putreg32(regval, NVIC_SYSH8_11_PRIORITY);
+}
+#endif
+
+/****************************************************************************
  * Name: lpc43_irqinfo
  *
  * Description:
@@ -334,6 +357,9 @@ void up_irqinitialize(void)
 #ifdef CONFIG_ARCH_IRQPRIO
 /* up_prioritize_irq(LPC43_IRQ_PENDSV, NVIC_SYSH_PRIORITY_MIN); */
 #endif
+#ifdef CONFIG_ARMV7M_USEBASEPRI
+   lpc43_prioritize_syscall(NVIC_SYSH_SVCALL_PRIORITY);
+#endif
 
   /* If the MPU is enabled, then attach and enable the Memory Management
    * Fault handler.
@@ -360,9 +386,12 @@ void up_irqinitialize(void)
 
   lpc43_dumpnvic("initial", LPC43M4_IRQ_NIRQS);
 
-  /* If a debugger is connected, try to prevent it from catching hardfaults */
+  /* If a debugger is connected, try to prevent it from catching hardfaults.
+   * If CONFIG_ARMV7M_USEBASEPRI, no hardfaults are expected in normal
+   * operation.
+   */
 
-#ifdef CONFIG_DEBUG
+#if defined(CONFIG_DEBUG) && !defined(CONFIG_ARMV7M_USEBASEPRI)
   regval  = getreg32(NVIC_DEMCR);
   regval &= ~NVIC_DEMCR_VCHARDERR;
   putreg32(regval, NVIC_DEMCR);
@@ -371,8 +400,7 @@ void up_irqinitialize(void)
   /* And finally, enable interrupts */
 
 #ifndef CONFIG_SUPPRESS_INTERRUPTS
-  setbasepri(LPC43M4_SYSH_PRIORITY_MAX);
-  irqrestore(0);
+  irqenable();
 #endif
 }
 
@@ -477,16 +505,28 @@ int up_prioritize_irq(int irq, int priority)
   uint32_t regval;
   int shift;
 
+#ifdef CONFIG_ARMV7M_USEBASEPRI
   DEBUGASSERT(irq >= LPC43_IRQ_MEMFAULT && irq < NR_IRQS &&
-             (unsigned)priority <= LPC43M4_SYSH_PRIORITY_MIN);
+              priority >= NVIC_SYSH_DISABLE_PRIORITY &&
+              priority <= NVIC_SYSH_PRIORITY_MIN);
+#else
+  DEBUGASSERT(irq >= LPC43_IRQ_MEMFAULT && irq < NR_IRQS &&
+             (unsigned)priority <= NVIC_SYSH_PRIORITY_MIN);
+#endif
 
   if (irq < LPC43_IRQ_EXTINT)
     {
-      irq    -= 4;
+      /* NVIC_SYSH_PRIORITY() maps {0..15} to one of three priority
+       * registers (0-3 are invalid)
+       */
+
       regaddr = NVIC_SYSH_PRIORITY(irq);
+      irq    -= 4;
     }
   else
     {
+      /* NVIC_IRQ_PRIORITY() maps {0..} to one of many priority registers */
+
       irq    -= LPC43_IRQ_EXTINT;
       regaddr = NVIC_IRQ_PRIORITY(irq);
     }

@@ -35,12 +35,12 @@
 
 /* FLASH:
  *   The lpc2148 has 512Kb of non-volatile memory beginning at address
- *   0x00000000.  The OS entry point is via the reset vector at address
- *   0x00000000 (default MEMMAP mode assumed)
+ *   0x0000:0000.  The OS entry point is via the reset vector at address
+ *   0x0000:0000 (default MEMMAP mode assumed)
  *
  * SRAM:
  *   The lpc2148 has 32Kb of on-chip static RAM beginning at address
- *   0x40000000.  The .data section will be relocated from _eronly
+ *   0x4000:0000.  The .data section will be relocated from _eronly
  *   to _sdata at boot time.
  */
 

@@ -346,6 +346,14 @@ config ARCH_BOARD_OLIMEX_STM32P107
 		Linux or Cygwin. See the http://www.olimex.com for further information. This
 		board features the STMicro STM32F107VC MCU
 
+config ARCH_BOARD_OPEN1788
+	bool "Wave Share Open1788"
+	depends on ARCH_CHIP_LPC1788
+	---help---
+		This port uses the Wave Share Open1788 board. See the
+		http://wvshare.com/product/Open1788-Standard.htm for further
+		information. This board features the NXP LPC1788 MCU
+
 config ARCH_BOARD_P112
 	bool "P112 Z180-based platform"
 	depends on ARCH_CHIP_Z8018216FSG
@@ -619,6 +627,14 @@ config ARCH_BOARD_Z8F64200100KIT
 		development kit, Z8F6423 part, and the Zilog ZDS-II Windows command line
 		tools.  The development environment is Cygwin under WinXP.
 
+config ARCH_BOARD_ZP214XPA
+	bool "The0.net LPC2148 Development Board"
+	depends on ARCH_CHIP_LPC2148
+	---help---
+		This port is for the NXP LPC2148 as provided on the The0.net
+		ZPA213X/4XPA development board. Includes support for the
+		UG-2864AMBAG01 OLED also from The0.net
+
 config ARCH_BOARD_SIM
 	bool "User mode simulation"
 	depends on ARCH_SIM
@@ -674,6 +690,7 @@ config ARCH_BOARD
 	default "olimex-lpc2378"      if ARCH_BOARD_OLIMEXLPC2378
 	default "olimex-stm32-p107"   if ARCH_BOARD_OLIMEX_STM32P107
 	default "olimex-strp711"      if ARCH_BOARD_OLIMEX_STRP711
+	default "open1788"            if ARCH_BOARD_OPEN1788
 	default "p112"                if ARCH_BOARD_P112
 	default "pcblogic-pic32mx"    if ARCH_BOARD_PCBLOGICPIC32MX
 	default "pic32-starterkit"    if ARCH_BOARD_PIC32_STARTERKIT
@@ -700,6 +717,7 @@ config ARCH_BOARD
 	default "z80sim"              if ARCH_BOARD_Z80SIM
 	default "z8encore000zco"      if ARCH_BOARD_Z8ENCORE000ZCO
 	default "z8f64200100kit"      if ARCH_BOARD_Z8F64200100KIT
+	default "zp214xpa"            if ARCH_BOARD_ZP214XPA
 	default "sim"                 if ARCH_BOARD_SIM
 	default ""                    if ARCH_BOARD_CUSTOM
 
@@ -709,7 +727,7 @@ config ARCH_HAVE_LEDS
 	bool
 
 config ARCH_LEDS
-	bool "Board LEDs support"
+	bool "Board LED support"
 	default y
 	depends on ARCH_HAVE_LEDS
 	---help---
@@ -752,7 +770,7 @@ config NSH_MMCSDSLOTNO
 config NSH_MMCSDSPIPORTNO
 	int "MMC/SD SPI device number"
 	default 0
-	depends on NSH_LIBRARY && MMCSD && SPI
+	depends on NSH_LIBRARY && MMCSD && MMCSD_SPI
 	---help---
 		If board-specif NSH start-up logic will mount an SPI-based MMC/SD volume, then this setting may be needed to tell the board logic which SPI bus to use.  Default: 0 (meaning is board-specific).
 
@@ -860,6 +878,9 @@ endif
 if ARCH_BOARD_OLIMEX_STRP711
 source "configs/olimex-strp711/Kconfig"
 endif
+if ARCH_BOARD_OPEN1788
+source "configs/open1788/Kconfig"
+endif
 if ARCH_BOARD_PCBLOGICPIC32MX
 source "configs/pcblogic-pic32mx/Kconfig"
 endif
@@ -934,6 +955,9 @@ source "configs/z8encore000zco/Kconfig"
 endif
 if ARCH_BOARD_Z8F64200100KIT
 source "configs/z8f64200100kit/Kconfig"
+endif
+if ARCH_BOARD_ZP214XPA
+source "configs/zp214xpa/Kconfig"
 endif
 if ARCH_BOARD_SIM
 source "configs/sim/Kconfig"

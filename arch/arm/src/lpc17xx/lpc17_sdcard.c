@@ -152,23 +152,25 @@
  * - Memory burst size (F4 only)
  */
 
-/* Stream configuration register (SCR) settings. */
-
-#define SDCARD_RXDMA32_CONFIG     (DMA_SCR_PFCTRL|DMA_SCR_DIR_P2M|DMA_SCR_MINC|\
-                                   DMA_SCR_PSIZE_32BITS|DMA_SCR_MSIZE_32BITS|\
-                                   CONFIG_SDCARD_DMAPRIO|DMA_SCR_PBURST_INCR4|\
-                                   DMA_SCR_MBURST_INCR4)
-#define SDCARD_TXDMA32_CONFIG     (DMA_SCR_PFCTRL|DMA_SCR_DIR_M2P|DMA_SCR_MINC|\
-                                   DMA_SCR_PSIZE_32BITS|DMA_SCR_MSIZE_32BITS|\
-                                   CONFIG_SDCARD_DMAPRIO|DMA_SCR_PBURST_INCR4|\
-                                   DMA_SCR_MBURST_INCR4)
-
-/* SD card DMA Channel/Stream selection.  For the the case of the LPC17XX F4, there
- * are multiple DMA stream options that must be dis-ambiguated in the board.h
- * file.
+/* DMA control register settings.  All CONTROL register fields need to be
+ * specified except for the transfer size which is passed as a separate
+ * parameter and for the terminal count interrupt enable bit which is
+ * controlled by the driver.
  */
 
-#define SDCARD_DMACHAN            DMAMAP_SDCARD
+#define SDCARD_RXDMA32_CONTROL    (DMACH_CONTROL_SBSIZE_8|DMACH_CONTROL_DBSIZE_8|\
+                                   DMACH_CONTROL_SWIDTH_32BIT|DMACH_CONTROL_DWIDTH_32BIT|\
+                                   DMACH_CONTROL_DI)
+#define SDCARD_TXDMA32_CONTROL    (DMACH_CONTROL_SBSIZE_8|DMACH_CONTROL_DBSIZE_8|\
+                                   DMACH_CONTROL_SWIDTH_32BIT|DMACH_CONTROL_DWIDTH_32BIT|\
+                                   DMACH_CONTROL_SI)
+
+/* DMA configuration register settings.  Only the SRCPER, DSTPER, and
+ * XFRTTYPE fields of the CONFIG register need be specified.
+ */
+
+#define SDCARD_RXDMA32_CONFIG     (DMACH_CONFIG_SRCPER_SDCARD|DMACH_CONFIG_XFRTYPE_P2M_SC)
+#define SDCARD_TXDMA32_CONFIG     (DMACH_CONFIG_DSTPER_SDCARD|DMACH_CONFIG_XFRTYPE_M2P_DC)
 
 /* FIFO sizes */
 
@@ -336,7 +338,7 @@ static void lpc17_dumpsamples(struct lpc17_dev_s *priv);
 #endif
 
 #ifdef CONFIG_SDIO_DMA
-static void lpc17_dmacallback(DMA_HANDLE handle, uint8_t status, void *arg);
+static void lpc17_dmacallback(DMA_HANDLE handle, void *arg, int status);
 #endif
 
 /* Data Transfer Helpers ****************************************************/
@@ -622,7 +624,7 @@ static void lpc17_setpwrctrl(uint32_t pwrctrl)
   /* Set the new value of the PWRCTRL field of the PWR register.  Also, as a
    * side-effect, clear the OPENDRAIN and ROD bits as well.
    */
- 
+
   regval  = getreg32(LPC17_SDCARD_PWR);
   regval &= ~(SDCARD_PWR_CTRL_MASK | SDCARD_PWR_OPENDRAIN |  SDCARD_PWR_ROD);
   regval |= pwrctrl;
@@ -800,7 +802,7 @@ static void lpc17_dumpsamples(struct lpc17_dev_s *priv)
  ****************************************************************************/
 
 #ifdef CONFIG_SDIO_DMA
-static void lpc17_dmacallback(DMA_HANDLE handle, uint8_t status, void *arg)
+static void lpc17_dmacallback(DMA_HANDLE handle, void *arg, int status)
 {
   FAR struct lpc17_dev_s *priv = (FAR struct lpc17_dev_s *)arg;
   DEBUGASSERT(priv->dmamode);
@@ -816,9 +818,9 @@ static void lpc17_dmacallback(DMA_HANDLE handle, uint8_t status, void *arg)
 
   /* Get the result of the DMA transfer */
 
-  if ((status & DMA_STATUS_ERROR) != 0)
+  if (status < 0)
     {
-      flldbg("DMA error %02x, remaining: %d\n", status, priv->remaining);
+      flldbg("DMA error %d, remaining: %d\n", status, priv->remaining);
       result = SDIOWAIT_ERROR;
     }
   else
@@ -1567,6 +1569,7 @@ static void lpc17_clock(FAR struct sdio_dev_s *dev, enum sdio_clock_e rate)
 
       case CLOCK_MMC_TRANSFER:
         clkcr = (SDCARD_CLOCK_MMCXFR | SDCARD_CLOCK_CLKEN);
+        lpc17_setpwrctrl(SDCARD_PWR_OPENDRAIN);
         break;
 
       /* SD normal operation clocking (wide 4-bit mode) */
@@ -2463,19 +2466,21 @@ static int lpc17_dmarecvsetup(FAR struct sdio_dev_s *dev, FAR uint8_t *buffer,
 
       lpc17_configxfrints(priv, SDCARD_DMARECV_MASK);
 
-      regval = getreg32(LPC17_SDCARD_DCTRL);
+      regval  = getreg32(LPC17_SDCARD_DCTRL);
       regval |= SDCARD_DCTRL_DMAEN;
       putreg32(regval, LPC17_SDCARD_DCTRL);
 
-      lpc17_dmasetup(priv->dma, LPC17_SDCARD_FIFO, (uint32_t)buffer,
-                     (buflen + 3) >> 2, SDCARD_RXDMA32_CONFIG);
+      ret = lpc17_dmasetup(priv->dma, SDCARD_RXDMA32_CONTROL,
+                           SDCARD_RXDMA32_CONFIG, LPC17_SDCARD_FIFO,
+                           (uint32_t)buffer, (buflen + 3) >> 2);
+      if (ret == OK)
+        {
+          /* Start the DMA */
 
-      /* Start the DMA */
-
-      lpc17_sample(priv, SAMPLENDX_BEFORE_ENABLE);
-      lpc17_dmastart(priv->dma, lpc17_dmacallback, priv, false);
-      lpc17_sample(priv, SAMPLENDX_AFTER_SETUP);
-      ret = OK;
+          lpc17_sample(priv, SAMPLENDX_BEFORE_ENABLE);
+          lpc17_dmastart(priv->dma, lpc17_dmacallback, priv);
+          lpc17_sample(priv, SAMPLENDX_AFTER_SETUP);
+        }
     }
 
   return ret;
@@ -2537,25 +2542,26 @@ static int lpc17_dmasendsetup(FAR struct sdio_dev_s *dev,
 
       /* Configure the TX DMA */
 
-      lpc17_dmasetup(priv->dma, LPC17_SDCARD_FIFO, (uint32_t)buffer,
-                     (buflen + 3) >> 2, SDCARD_TXDMA32_CONFIG);
+      ret = lpc17_dmasetup(priv->dma, SDCARD_TXDMA32_CONTROL,
+                           SDCARD_TXDMA32_CONFIG, (uint32_t)buffer,
+                           LPC17_SDCARD_FIFO, (buflen + 3) >> 2);
+      if (ret == OK)
+        {
+          lpc17_sample(priv, SAMPLENDX_BEFORE_ENABLE);
 
-      lpc17_sample(priv, SAMPLENDX_BEFORE_ENABLE);
+          regval  = getreg32(LPC17_SDCARD_DCTRL);
+          regval |= SDCARD_DCTRL_DMAEN;
+          putreg32(regval, LPC17_SDCARD_DCTRL);
 
-      regval = getreg32(LPC17_SDCARD_DCTRL);
-      regval |= SDCARD_DCTRL_DMAEN;
-      putreg32(regval, LPC17_SDCARD_DCTRL);
+          /* Start the DMA */
 
-      /* Start the DMA */
+          lpc17_dmastart(priv->dma, lpc17_dmacallback, priv);
+          lpc17_sample(priv, SAMPLENDX_AFTER_SETUP);
 
-      lpc17_dmastart(priv->dma, lpc17_dmacallback, priv, false);
-      lpc17_sample(priv, SAMPLENDX_AFTER_SETUP);
+          /* Enable TX interrrupts */
 
-      /* Enable TX interrrupts */
-
-      lpc17_configxfrints(priv, SDCARD_DMASEND_MASK);
-
-      ret = OK;
+          lpc17_configxfrints(priv, SDCARD_DMASEND_MASK);
+        }
     }
 
   return ret;
@@ -2702,10 +2708,14 @@ FAR struct sdio_dev_s *sdio_initialize(int slotno)
   priv->waitwdog = wd_create();
   DEBUGASSERT(priv->waitwdog);
 
-  /* Allocate a DMA channel */
-
 #ifdef CONFIG_SDIO_DMA
-  priv->dma = lpc17_dmachannel(SDCARD_DMACHAN);
+  /* Configure the SDCARD DMA request */
+
+  lpc17_dmaconfigure(DMA_REQ_SDCARD, DMA_DMASEL_SDCARD);
+
+  /* Allocate a DMA channel for SDCARD DMA */
+
+  priv->dma = lpc17_dmachannel();
   DEBUGASSERT(priv->dma);
 #endif
 

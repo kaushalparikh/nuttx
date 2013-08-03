@@ -53,7 +53,7 @@
  *   32.768kHz connected to XOSC0/1 (pins 34/36)
  */
 
-#define SYSCON_RCC_XTAL      SYSCON_RCC_XTAL16000KHZ /* On-board crystall is 16 MHz */
+#define SYSCON_RCC_XTAL      SYSCON_RCC_XTAL16000KHZ /* On-board crystal is 16 MHz */
 #define XTAL_FREQUENCY       16000000
 
 /* Oscillator source is the main oscillator */
@@ -77,20 +77,41 @@
  * - No auto-clock gating reset
  */
 
-#define LM_RCC_VALUE (SYSCON_RCC_OSCSRC | SYSCON_RCC_XTAL | SYSCON_RCC_USESYSDIV | SYSCON_RCC_SYSDIV(LM_SYSDIV))
+#define LM_RCC_VALUE (SYSCON_RCC_OSCSRC | SYSCON_RCC_XTAL | \
+                      SYSCON_RCC_USESYSDIV | SYSCON_RCC_SYSDIV(LM_SYSDIV))
 
-/* RCC2 settings -- RCC2 not used.  Other RCC2 settings
+/* RCC2 settings
  *
  * - PLL and sys dividers not bypassed.
  * - PLL not powered down
  * - Not using RCC2
+ *
+ * When SYSCON_RCC2_DIV400 is not selected, SYSDIV2 is the divisor-1.
+ * When SYSCON_RCC2_DIV400 is selected, SYSDIV2 is the divisor-1)/2, plus
+ * the LSB:
+ *
+ * SYSDIV2 SYSDIV2LSB DIVISOR
+ *   0       N/A         2
+ *   1       0           3
+ *   "       1           4
+ *   2       0           5
+ *   "       1           6
+ *   etc.
  */
 
-#define LM_RCC2_VALUE (SYSCON_RCC2_OSCSRC | SYSCON_RCC2_SYSDIV(LM_SYSDIV) | SYSCON_RCC2_DIV400)
+#if (LM_SYSDIV & 1) == 0
+#  define LM_RCC2_VALUE (SYSCON_RCC2_OSCSRC | SYSCON_RCC2_SYSDIV2LSB | \
+                         SYSCON_RCC2_SYSDIV_DIV400(LM_SYSDIV) | \
+                         SYSCON_RCC2_DIV400 | SYSCON_RCC2_USERCC2)
+#else
+#  define LM_RCC2_VALUE (SYSCON_RCC2_OSCSRC | SYSCON_RCC2_SYSDIV_DIV400(LM_SYSDIV) | \
+                         SYSCON_RCC2_DIV400 | SYSCON_RCC2_USERCC2)
+#endif
 
 /* LED definitions ******************************************************************/
-/* The LM32F120 has a single RGB LED.  There is only one visible LED which will vary
- * in color.  But, from the standpoint of the firmware, this appears as three LEDs:
+/* The LM4F120 LaunchPad has a single RGB LED.  There is only one visible LED which
+ * will vary in color.  But, from the standpoint of the firmware, this appears as
+ * three LEDs:
  *
  *   BOARD_LED_R    -- Connected to PF1
  *   BOARD_LED_G    -- Connected to PF3
@@ -144,7 +165,7 @@
 #define LED_PANIC         4     /* ON   OFF   OFF (flashing 2Hz) */
 
 /* LED definitions ******************************************************************/
-/* The LM32F120 has a two buttons:
+/* The LM4F120 LaunchPad has a two buttons:
  *
  *   BOARD_SW1    -- Connected to PF4
  *   BOARD_SW2    -- Connected to PF0
@@ -156,6 +177,13 @@
 
 #define BUTTON_SW1_BIT    (1 << BUTTON_SW1)
 #define BUTTON_SW2_BIT    (1 << BUTTON_SW2)
+
+/* Pin Multiplexing Disambiguation **************************************************/
+
+#define GPIO_UART1_CTS    GPIO_UART1_CTS_1
+#define GPIO_UART1_RTS    GPIO_UART1_RTS_1
+#define GPIO_UART1_RX     GPIO_UART1_RX_1
+#define GPIO_UART1_TX     GPIO_UART1_TX_1
 
 /************************************************************************************
  * Public Function Prototypes

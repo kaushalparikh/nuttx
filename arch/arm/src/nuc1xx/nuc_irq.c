@@ -138,7 +138,7 @@ static int nuc_nmi(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! NMI received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -146,7 +146,7 @@ static int nuc_pendsv(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! PendSV received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -154,31 +154,10 @@ static int nuc_reserved(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Reserved interrupt\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 #endif
-
-/****************************************************************************
- * Name: nuc_prioritize_syscall
- *
- * Description:
- *   Set the priority of an exception.  This function may be needed
- *   internally even if support for prioritized interrupts is not enabled.
- *
- ****************************************************************************/
-
-static inline void nuc_prioritize_syscall(int priority)
-{
-  uint32_t regval;
-
-  /* SVCALL is system handler 11 */
-
-  regval = getreg32(ARMV6M_SYSCON_SHPR2);
-  regval &= ~SYSCON_SHPR2_PRI_11_MASK;
-  regval |= (priority << SYSCON_SHPR2_PRI_11_SHIFT);
-  putreg32(regval, ARMV6M_SYSCON_SHPR2);
-}
 
 /****************************************************************************
  * Name: nuc_clrpend
@@ -250,13 +229,6 @@ void up_irqinitialize(void)
 
   irq_attach(NUC_IRQ_SVCALL, up_svcall);
   irq_attach(NUC_IRQ_HARDFAULT, up_hardfault);
-
-  /* Set the priority of the SVCall interrupt */
-
-#ifdef CONFIG_ARCH_IRQPRIO
-/* up_prioritize_irq(NUC_IRQ_PENDSV, NVIC_SYSH_PRIORITY_MIN); */
-#endif
-   nuc_prioritize_syscall(NVIC_SYSH_SVCALL_PRIORITY);
 
   /* Attach all other processor exceptions (except reset and sys tick) */
 

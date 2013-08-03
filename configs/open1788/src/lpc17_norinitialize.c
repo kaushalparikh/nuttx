@@ -49,7 +49,7 @@
 
 #include "open1788.h"
 
-#if defined(CONFIG_LPC17_EMC) && defined(CONFIG_LPC17_EMC_NOR)
+#if defined(CONFIG_LPC17_EMC) && defined(CONFIG_ARCH_EXTNOR)
 
 /************************************************************************************
  * Definitions
@@ -64,14 +64,14 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lpc17_nor_initialize
+ * Name: open1788_nor_initialize
  *
  * Description:
  *   Initialize NOR FLASH
  *
  ************************************************************************************/
 
-void lpc17_nor_initialize(void)
+void open1788_nor_initialize(void)
 {
   uint32_t regval;
 
@@ -94,4 +94,4 @@ void lpc17_nor_initialize(void)
   up_mdelay(10);
 }
 
-#endif /* CONFIG_LPC17_EMC && CONFIG_LPC17_EMC_NOR */
+#endif /* CONFIG_LPC17_EMC && CONFIG_ARCH_EXTNOR */

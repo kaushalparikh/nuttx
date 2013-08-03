@@ -114,21 +114,32 @@
 /* PLL1 : PLL1 is used to generate clock for the USB */
 
 #undef  CONFIG_LPC17_PLL1
-//~ #define CONFIG_LPC17_PLL1         1
 #define BOARD_PLL1CFG_MSEL        4
 #define BOARD_PLL1CFG_PSEL        2
 #define BOARD_PLL1CFG_VALUE \
   (((BOARD_PLL1CFG_MSEL-1) << SYSCON_PLLCFG_MSEL_SHIFT) | \
    ((BOARD_PLL1CFG_PSEL-1) << SYSCON_PLLCFG_PSEL_SHIFT))
 
-#if defined(CONFIG_LPC17_USBHOST) || (CONFIG_LPC17_USBDEV)
+#ifdef CONFIG_LPC17_EMC
+/* EMC clock selection.
+ *
+ * The EMC clock should not be driven above 80MHz.  As a result the EMC
+ * uses the CPU clock divided by two.
+ */
 
- /* USB divider.  The output of the PLL is used as the USB clock
+#  define BOARD_EMCCLKSEL_DIVIDER  2
+#  define BOARD_EMCCLKSEL_VALUE    SYSCON_EMCCLKSEL_CCLK_DIV2
+#  define LPC17_EMCCLK             (LPC17_CCLK / BOARD_EMCCLKSEL_DIVIDER)
+#endif
+
+#if defined(CONFIG_LPC17_USBHOST) || (CONFIG_LPC17_USBDEV)
+/* USB divider.  The output of the PLL is used as the USB clock
  *
  *  USBCLK = PLL1CLK = (SYSCLK * 4)  = 48MHz
  */
 
-#define BOARD_USBCLKSEL_VALUE      (SYSCON_USBCLKSEL_USBDIV_DIV1 | \
+#  define BOARD_USBCLKSEL_DIVIDER  1
+#  define BOARD_USBCLKSEL_VALUE    (SYSCON_USBCLKSEL_USBDIV_DIV1 | \
                                     SYSCON_USBCLKSEL_USBSEL_PLL1)
 #endif
 
@@ -145,28 +156,30 @@
 
 #define ETH_MCFG_CLKSEL_DIV        ETH_MCFG_CLKSEL_DIV20
 
+#ifdef CONFIG_LPC17_SDCARD
 /* SDIO dividers.  Note that slower clocking is required when DMA is disabled
  * in order to avoid RX overrun/TX underrun errors due to delayed responses
  * to service FIFOs in interrupt driven mode.
  * SDCARD_CLOCK=PCLK/(2*(SDCARD_CLKDIV+1))
  */
 
-#define SDCARD_CLKDIV_INIT         74   /* 400Khz  */
-#define SDCARD_INIT_CLKDIV         (SDCARD_CLKDIV_INIT+1)
+#  define SDCARD_CLKDIV_INIT       74   /* 400Khz  */
+#  define SDCARD_INIT_CLKDIV       (SDCARD_CLKDIV_INIT)
 
-#define SDCARD_NORMAL_CLKDIV       1    /* DMA ON:  SDCARD_CLOCK=15MHz */
-#define SDCARD_SLOW_CLKDIV         2    /* DMA OFF: SDCARD_CLOCK=10MHz */
+#  define SDCARD_NORMAL_CLKDIV     1    /* DMA ON:  SDCARD_CLOCK=15MHz */
+#define SDCARD_SLOW_CLKDIV         14   /* DMA OFF: SDCARD_CLOCK=2MHz */
 
-#ifdef CONFIG_SDIO_DMA
-#  define SDCARD_MMCXFR_CLKDIV     (SDCARD_NORMAL_CLKDIV+1)
-#else
-#  define SDCARD_MMCXFR_CLKDIV     (SDCARD_SLOW_CLKDIV+1)
-#endif
+#  ifdef CONFIG_SDIO_DMA
+#    define SDCARD_MMCXFR_CLKDIV   (SDCARD_NORMAL_CLKDIV)
+#  else
+#    define SDCARD_MMCXFR_CLKDIV   (SDCARD_SLOW_CLKDIV)
+#  endif
 
-#ifdef CONFIG_SDIO_DMA
-#  define SDCARD_SDXFR_CLKDIV      (SDCARD_NORMAL_CLKDIV+1)
-#else
-#  define SDCARD_SDXFR_CLKDIV      (SDCARD_SLOW_CLKDIV+1)
+#  ifdef CONFIG_SDIO_DMA
+#    define SDCARD_SDXFR_CLKDIV    (SDCARD_NORMAL_CLKDIV)
+#  else
+#    define SDCARD_SDXFR_CLKDIV    (SDCARD_SLOW_CLKDIV)
+#  endif
 #endif
 
 /* Set EMC delay values:
@@ -187,7 +200,8 @@
  * Needed for NAND and SDRAM: {17,1,2,1}
  */
 
-#if defined(CONFIG_LPC17_EMC_NAND) || defined(CONFIG_LPC17_EMC_SDRAM)
+#ifdef CONFIG_LPC17_EMC
+#if defined(CONFIG_ARCH_EXTNAND) || defined(CONFIG_ARCH_EXTDRAM)
 #  define BOARD_CMDDLY             17
 #  define BOARD_FBCLKDLY           17
 #  define BOARD_CLKOUT0DLY         1
@@ -198,13 +212,14 @@
 #  define BOARD_CLKOUT0DLY         1
 #  define BOARD_CLKOUT1DLY         1
 #endif
+#endif
 
 /* LED definitions ******************************************************************/
 /* If CONFIG_ARCH_LEDS is not defined, then the user can control the LEDs in
  * any way.  The following definitions are used to access individual LEDs.
  *
  * LED1 -- Connected to P1[14]
- * LED2 -- Connected to P0[16]
+ * LED2 -- Connected to P0[16] (shared with UART1 RXD)
  * LED3 -- Connected to P1[13]
  * LED4 -- Connected to P4[27]
  *
@@ -239,11 +254,14 @@
 #define LED_SIGNAL                 4  /*  LED3 glows, on while in signal handler    */
 #define LED_ASSERTION              4  /*  LED3 glows, on while in assertion         */
 #define LED_PANIC                  4  /*  LED3 Flashes at 2Hz                       */
-#define LED_IDLE                   5  /*  LED4 glows, ON while sleeping             */
+#define LED_IDLE                   5  /*  LED4 glows: ON while active               *
+                                       *              OFF while sleeping            */
 
 /* Button definitions ***************************************************************/
-/* The Open1788 supports several buttons.  All will read "1" when open and "0"
- * when closed
+/* The Open1788 supports several buttons.  All must be pulled up by the Open1788.
+ * When closed, the pins will be pulled to ground.  So the buttons will read "1"
+ * when open and "0" when closed.  All except USER1 are capable of generating
+ * interrupts.
  *
  * USER1           -- Connected to P4[26]
  * USER2           -- Connected to P2[22]
@@ -255,11 +273,12 @@
  * JOY_B           -- Connected to P2[26]
  * JOY_C           -- Connected to P2[23]
  * JOY_D           -- Connected to P2[19]
- * JOY_CTR         -- Connected to P0[14]
+ * JOY_CTR         -- Connected to P0[14] (shared with SSP1 SSEL)
  *
- * The switches are all connected to ground and should be pulled up and sensed
- * with a value of '0' when closed.
+ * For the interrupting buttons, interrupts are generated on both edges (press and
+ * release).
  */
+
 
 #define BOARD_BUTTON_USER1         0
 #define BOARD_BUTTON_USER2         1
@@ -287,21 +306,45 @@
 
 /* UART0:
  *
- *   TX --- Connected to  P0[2]
- *   RX --- Connected to  P0[3]
+ * TX    --- Connected to P0[2]
+ * RX    --- Connected to P0[3]
  */
 
 #define GPIO_UART0_TXD             GPIO_UART0_TXD_2
 #define GPIO_UART0_RXD             GPIO_UART0_RXD_2
 
+/* UART1:
+ *
+ * All pin options are controlled by older briges on the bottom of the board.  There
+ * are the default settings on my board as it came out of the box:
+ *
+ * RTS   --- Connected to P0[22]
+ * RI    --- Connected to P0[21]
+ * DSR   --- Connected to P0[19]
+ * DCD   --- Connected to P0[18]
+ * CTS   --- Connected to P0[17]
+ * DTR   --- Connected to P0[20]
+ * TXD   --- Connected to P0[15]
+ * RXD   --- Connected to P0[16] (Shared with LED2)
+ */
+
+#define GPIO_UART1_RTS             GPIO_UART1_RTS_2
+#define GPIO_UART1_RI              GPIO_UART1_RI_1
+#define GPIO_UART1_DSR             GPIO_UART1_DSR_1
+#define GPIO_UART1_DCD             GPIO_UART1_DCD_1
+#define GPIO_UART1_CTS             GPIO_UART1_CTS_1
+#define GPIO_UART1_DTR             GPIO_UART1_DTR_1
+#define GPIO_UART1_TXD             GPIO_UART1_TXD_1
+#define GPIO_UART1_RXD             GPIO_UART1_RXD_1
+
 /* MCI-SDIO:
  *
- *   D0 --- Connected to  P1[6]
- *   D1 --- Connected to  P2[11]
- *   D2 --- Connected to  P2[12]
- *   D3 --- Connected to  P2[13]
- *   CLK--- Connected to  P1[2]
- *   CMD--- Connected to  P1[3]
+ * D0    --- Connected to P1[6]
+ * D1    --- Connected to P2[11]
+ * D2    --- Connected to P2[12]
+ * D3    --- Connected to P2[13]
+ * CLK   --- Connected to P1[2]
+ * CMD   --- Connected to P1[3]
  */
 
 #define GPIO_SD_DAT0               GPIO_SD_DAT0_2
@@ -310,6 +353,86 @@
 #define GPIO_SD_DAT3               GPIO_SD_DAT3_2
 #define GPIO_SD_CLK                GPIO_SD_CLK_2
 #define GPIO_SD_CMD                GPIO_SD_CMD_2
+
+/* LCD R:
+ *
+ * VD0   --- Connected to P0[4]
+ * VD1   --- Connected to P0[5]
+ * VD2   --- Connected to P4[28]
+ * VD3   --- Connected to P4[29]
+ * VD4   --- Connected to P2[6]
+ * VD5   --- Connected to P2[7]
+ * VD6   --- Connected to P2[8]
+ * VD7   --- Connected to P2[9]
+ */
+
+#define GPIO_LCD_VD0                GPIO_LCD_VD0_1
+#define GPIO_LCD_VD1                GPIO_LCD_VD1_1
+#define GPIO_LCD_VD2                GPIO_LCD_VD2_2
+#define GPIO_LCD_VD3                GPIO_LCD_VD3_3
+#define GPIO_LCD_VD4                GPIO_LCD_VD4_1
+#define GPIO_LCD_VD5                GPIO_LCD_VD5_1
+#define GPIO_LCD_VD6                GPIO_LCD_VD6_2
+#define GPIO_LCD_VD7                GPIO_LCD_VD7_2
+
+/* LED G:
+ *
+ * VD8    --- Connected to P0[6]
+ * VD9    --- Connected to P0[7]
+ * VD10   --- Connected to P1[20]
+ * VD11   --- Connected to P1[21]
+ * VD12   --- Connected to P1[22]
+ * VD13   --- Connected to P1[23]
+ * VD14   --- Connected to P1[24]
+ * VD15   --- Connected to P1[25]
+ */
+   
+#define GPIO_LCD_VD8                GPIO_LCD_VD8_1
+#define GPIO_LCD_VD9                GPIO_LCD_VD9_1
+#define GPIO_LCD_VD10               GPIO_LCD_VD10_1
+#define GPIO_LCD_VD11               GPIO_LCD_VD11_1
+#define GPIO_LCD_VD12               GPIO_LCD_VD12_1
+#define GPIO_LCD_VD13               GPIO_LCD_VD13_1
+#define GPIO_LCD_VD14               GPIO_LCD_VD14_1
+#define GPIO_LCD_VD15               GPIO_LCD_VD15_1
+
+/* LCD B:
+ *
+ * VD16   --- Connected to P0[8]
+ * VD17   --- Connected to P0[9]
+ * VD18   --- Connected to P2[12]
+ * VD19   --- Connected to P2[13]
+ * VD20   --- Connected to P1[26]
+ * VD21   --- Connected to P1[27]
+ * VD22   --- Connected to P1[28]
+ * VD23   --- Connected to P1[29]
+ *
+ * DCLK   --- Connected to P2[2]
+ * LP     --- Connected to P2[5]
+ * FP     --- Connected to P2[3]
+ * ENAB_M --- Connected to P2[4]
+ * PWR    --- Connected to P2[0]
+ */
+
+/* XPT2046 Touchscreen:
+ *
+/* -------------- -------------------- ------------ --------------------------------
+ * XTPT2046       Module               Module       Open1788 LED
+ *                Signal               Connector    Connector
+ * -------------- -------------------- ------------ ---------------------------------
+ * Pin 11 PENIRQ\ PENIRQ (pulled high) PORT3 Pin 1  P2.15 PENIRQ
+ * Pin 12 DOUT    MISO                 PORT3 Pin 4  P1.18 MISO1  (Also USB HOST UP LED)
+ * Pin 13 BUSY    BUSY (pulled high)   PORT3 Pin 9  P2.14 BUSY
+ * Pin 14 DIN     MOSI                 PORT3 Pin 3  P0.13 MOSI1  (Also USB Device up LED and SD CD pin)
+ * Pin 15 CS\     SSEL (pulled high)   PORT3 Pin 6  P1.8  GPIO   (Also RMII_CRS_DV)
+ * Pin 16 DCLK    SCK                  PORT3 Pin 5  P1.19 SCK1
+ * -------------- -------------------- ------------ ---------------------------------
+ */
+
+
+#define GPIO_SSP1_MISO   GPIO_SSP1_MISO_3
+#define GPIO_SSP1_MOSI   GPIO_SSP1_MOSI_2
+#define GPIO_SSP1_SCK    GPIO_SSP1_SCK_2
 
 /************************************************************************************
  * Public Types

@@ -149,46 +149,69 @@ void up_initial_state(FAR struct tcb_s *tcb);
  * Name: up_create_stack
  *
  * Description:
- *   Allocate a stack for a new thread and setup
- *   up stack-related information in the TCB.
+ *   Allocate a stack for a new thread and setup up stack-related information
+ *   in the TCB.
  *
- *   The following TCB fields must be initialized:
- *   adj_stack_size: Stack size after adjustment for hardware,
- *     processor, etc.  This value is retained only for debug
- *     purposes.
- *   stack_alloc_ptr: Pointer to allocated stack
- *   adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The
- *     initial value of the stack pointer.
+ *   The following TCB fields must be initialized by this function:
+ *
+ *   - adj_stack_size: Stack size after adjustment for hardware, processor,
+ *     etc.  This value is retained only for debug purposes.
+ *   - stack_alloc_ptr: Pointer to allocated stack
+ *   - adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The initial value of
+ *     the stack pointer.
  *
  * Inputs:
- *   tcb: The TCB of new task
- *   stack_size:  The requested stack size.  At least this much
+ *   - tcb: The TCB of new task
+ *   - stack_size:  The requested stack size.  At least this much
  *     must be allocated.
+ *   - ttype:  The thread type.  This may be one of following (defined in
+ *     include/nuttx/sched.h):
+ *
+ *       TCB_FLAG_TTYPE_TASK     Normal user task
+ *       TCB_FLAG_TTYPE_PTHREAD  User pthread
+ *       TCB_FLAG_TTYPE_KERNEL   Kernel thread
+ *
+ *     This thread type is normally available in the flags field of the TCB,
+ *     however, there are certain contexts where the TCB may not be fully
+ *     initialized when up_create_stack is called.
+ *
+ *     If CONFIG_NUTTX_KERNEL is defined, then this thread type may affect
+ *     how the stack is allocated.  For example, kernel thread stacks should
+ *     be allocated from protected kernel memory.  Stacks for user tasks and
+ *     threads must come from memory that is accessible to user code.
  *
  ****************************************************************************/
 
 #ifndef CONFIG_CUSTOM_STACK
-int up_create_stack(FAR struct tcb_s *tcb, size_t stack_size);
+int up_create_stack(FAR struct tcb_s *tcb, size_t stack_size, uint8_t ttype);
 #endif
 
 /****************************************************************************
  * Name: up_use_stack
  *
  * Description:
- *   Setup up stack-related information in the TCB
- *   using pre-allocated stack memory
+ *   Setup up stack-related information in the TCB using pre-allocated stack
+ *   memory.  This function is called only from task_init() when a task or
+ *   kernel thread is started (never for pthreads).
  *
  *   The following TCB fields must be initialized:
- *   adj_stack_size: Stack size after adjustment for hardware,
+ *
+ *   - adj_stack_size: Stack size after adjustment for hardware,
  *     processor, etc.  This value is retained only for debug
  *     purposes.
- *   stack_alloc_ptr: Pointer to allocated stack
- *   adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The
+ *   - stack_alloc_ptr: Pointer to allocated stack
+ *   - adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The
  *     initial value of the stack pointer.
  *
  * Inputs:
- *   tcb: The TCB of new task
- *   stack_size:  The allocated stack size.
+ *   - tcb:  The TCB of new task
+ *   - stack:  The new stack to be used.
+ *   - stack_size:  The allocated stack size.
+ *
+ *   NOTE:  Unlike up_stack_create() and up_stack_release, this function
+ *   does not require the task type (ttype) parameter.  The TCB flags will
+ *   always be set to provide the task type to up_use_stack() if it needs
+ *   that information.
  *
  ****************************************************************************/
 
@@ -197,16 +220,74 @@ int up_use_stack(FAR struct tcb_s *tcb, FAR void *stack, size_t stack_size);
 #endif
 
 /****************************************************************************
+ * Name: up_stack_frame
+ *
+ * Description:
+ *   Allocate a stack frame in the TCB's stack to hold thread-specific data.
+ *   This function may be called anytime after up_create_stack() or
+ *   up_use_stack() have been called but before the task has been started.
+ *
+ *   Thread data may be kept in the stack (instead of in the TCB) if it is
+ *   accessed by the user code directly.  This includes such things as
+ *   argv[].  The stack memory is guaranteed to be in the same protection
+ *   domain as the thread.
+ *
+ *   The following TCB fields will be re-initialized:
+ *
+ *   - adj_stack_size: Stack size after removal of the stack frame from
+ *     the stack
+ *   - adj_stack_ptr: Adjusted initial stack pointer after the frame has
+ *     been removed from the stack.  This will still be the initial value
+ *     of the stack pointer when the task is started.
+ *
+ * Inputs:
+ *   - tcb:  The TCB of new task
+ *   - frame_size:  The size of the stack frame to allocate.
+ *
+ *  Returned Value:
+ *   - A pointer to bottom of the allocated stack frame.  NULL will be
+ *     returned on any failures.  The alignment of the returned value is
+ *     the same as the alignment of the stack itself.
+ *
+ ****************************************************************************/
+
+#if !defined(CONFIG_CUSTOM_STACK) && defined(CONFIG_NUTTX_KERNEL)
+FAR void *up_stack_frame(FAR struct tcb_s *tcb, size_t frame_size);
+#endif
+
+/****************************************************************************
  * Name: up_release_stack
  *
  * Description:
- *   A task has been stopped. Free all stack
- *   related resources retained int the defunct TCB.
+ *   A task has been stopped. Free all stack related resources retained in
+ *   the defunct TCB.
+ *
+ * Input Parmeters
+ *   - dtcb:  The TCB containing information about the stack to be released
+ *   - ttype:  The thread type.  This may be one of following (defined in
+ *     include/nuttx/sched.h):
+ *
+ *       TCB_FLAG_TTYPE_TASK     Normal user task
+ *       TCB_FLAG_TTYPE_PTHREAD  User pthread
+ *       TCB_FLAG_TTYPE_KERNEL   Kernel thread
+ *
+ *     This thread type is normally available in the flags field of the TCB,
+ *     however, there are certain error recovery contexts where the TCB may
+ *     not be fully initialized when up_release_stack is called.
+ *
+ *     If CONFIG_NUTTX_KERNEL is defined, then this thread type may affect
+ *     how the stack is freed.  For example, kernel thread stacks may have
+ *     been allocated from protected kernel memory.  Stacks for user tasks
+ *     and threads must have come from memory that is accessible to user
+ *     code.
+ *
+ * Returned Value:
+ *   None
  *
  ****************************************************************************/
 
 #ifndef CONFIG_CUSTOM_STACK
-void up_release_stack(FAR struct tcb_s *dtcb);
+void up_release_stack(FAR struct tcb_s *dtcb, uint8_t ttype);
 #endif
 
 /****************************************************************************
@@ -319,11 +400,10 @@ void up_reprioritize_rtr(FAR struct tcb_s *tcb, uint8_t priority);
 /* Prototype is in unistd.h */
 
 /****************************************************************************
- * Name: up_assert and up_assert_code
+ * Name: up_assert
  *
  * Description:
- *   Assertions may be handled in an architecture-specific
- *   way.
+ *   Assertions may be handled in an architecture-specific way.
  *
  ****************************************************************************/
 /* Prototype is in assert.h */
@@ -373,7 +453,7 @@ void up_schedule_sigaction(FAR struct tcb_s *tcb, sig_deliver_t sigdeliver);
  *   task in user-space.  When the task is first started, a kernel-mode
  *   stub will first run to perform some housekeeping functions.  This
  *   kernel-mode stub will then be called transfer control to the user-mode
- *   task.
+ *   task by calling this function.
  *
  *   Normally the a user-mode start-up stub will also execute before the
  *   task actually starts.  See libc/sched/task_startup.c
@@ -390,8 +470,96 @@ void up_schedule_sigaction(FAR struct tcb_s *tcb, sig_deliver_t sigdeliver);
  *
  ****************************************************************************/
 
-#ifdef CONFIG_NUTTX_KERNEL
-void up_task_start(main_t taskentry, int argc, FAR char *argv[]) noreturn_function;
+#if defined(CONFIG_NUTTX_KERNEL) && defined(__KERNEL__)
+void up_task_start(main_t taskentry, int argc, FAR char *argv[])
+       noreturn_function;
+#endif
+
+/****************************************************************************
+ * Name: up_pthread_start
+ *
+ * Description:
+ *   In this kernel mode build, this function will be called to execute a
+ *   pthread in user-space.  When the pthread is first started, a kernel-mode
+ *   stub will first run to perform some housekeeping functions.  This
+ *   kernel-mode stub will then be called transfer control to the user-mode
+ *   pthread by calling this function.
+ *
+ *   Normally the a user-mode start-up stub will also execute before the
+ *   pthread actually starts.  See libc/pthread/pthread_startup.c
+ *
+ * Input Parameters:
+ *   entrypt - The user-space address of the pthread entry point
+ *   arg     - Standard argument for the pthread entry point
+ *
+ * Returned Value:
+ *   This function should not return.  It should call the user-mode start-up
+ *   stub and that stub should call pthread_exit if/when the user pthread
+ *   terminates.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(__KERNEL__) && !defined(CONFIG_DISABLE_PTHREAD)
+void up_pthread_start(pthread_startroutine_t entrypt, pthread_addr_t arg)
+       noreturn_function;
+#endif
+
+/****************************************************************************
+ * Name: up_signal_dispatch
+ *
+ * Description:
+ *   In this kernel mode build, this function will be called to execute a
+ *   a signal handler in user-space.  When the signal is delivered, a
+ *   kernel-mode stub will first run to perform some housekeeping functions.
+ *   This kernel-mode stub will then be called transfer control to the user
+ *   mode signal handler by calling this function.
+ *
+ *   Normally the a architecture, user-mode signal handling stub will also
+ *   execute before the ultimate signal handler is called.  That stub
+ *   function is the user-space, signal handler trampoline function.  It is
+ *   called from up_signal_dispatch() in user-mode.
+ *
+ * Inputs:
+ *   sighand - The address user-space signal handling function
+ *   signo, info, and ucontext - Standard arguments to be passed to the
+ *     signal handling function.
+ *
+ * Return:
+ *   None.  This function does not return in the normal sense.  It returns
+ *   via an architecture specific system call made by up_signal_handler()
+ *   (see below).  However, this will look like a normal return by the
+ *   caller of up_signal_dispatch.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NUTTX_KERNEL) && defined(__KERNEL__) && !defined(CONFIG_DISABLE_SIGNALS)
+void up_signal_dispatch(_sa_sigaction_t sighand, int signo,
+                        FAR siginfo_t *info, FAR void *ucontext);
+#endif
+
+/****************************************************************************
+ * Name: up_signal_handler
+ *
+ * Description:
+ *   This function is the user-space, signal handler trampoline function that
+ *   must be provided by architecture-specific logic.  It is called from
+ *   up_signal_dispatch() in user-mode.
+ *
+ * Inputs:
+ *   sighand - The address user-space signal handling function
+ *   signo, info, and ucontext - Standard arguments to be passed to the
+ *     signal handling function.
+ *
+ * Return:
+ *   None.  This function does not return in the normal sense.  It returns
+ *   via an architecture specific system call.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_NUTTX_KERNEL) && !defined(__KERNEL__) && !defined(CONFIG_DISABLE_SIGNALS)
+void up_signal_handler(_sa_sigaction_t sighand, int signo,
+                       FAR siginfo_t *info, FAR void *ucontext)
+       noreturn_function;
 #endif
 
 /****************************************************************************
@@ -810,9 +978,9 @@ void sched_process_timer(void);
  * Name: irq_dispatch
  *
  * Description:
- *   This function must be called from the achitecture-
- *   specific logic in order to dispatch an interrupt to
- *   the appropriate, registered handling logic.
+ *   This function must be called from the achitecture-specific logic in
+ *   order to dispatch an interrupt to the appropriate, registered handling
+ *   logic.
  *
  ***************************************************************************/
 

@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/task_delete.c
  *
- *   Copyright (C) 2007-2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,14 +39,11 @@
 
 #include <nuttx/config.h>
 
-#include <sys/types.h>
 #include <stdlib.h>
-#include <sched.h>
+
+#include <nuttx/sched.h>
 
 #include "os_internal.h"
-#ifndef CONFIG_DISABLE_SIGNALS
-# include "sig_internal.h"
-#endif
 
 /****************************************************************************
  * Definitions
@@ -82,21 +79,24 @@
  * Description:
  *   This function causes a specified task to cease to exist. Its  stack and
  *   TCB will be deallocated.  This function is the companion to task_create().
+ *   This is the version of the function exposed to the user; it is simply
+ *   a wrapper around the internal, task_terminate function.
  *
  *   The logic in this function only deletes non-running tasks.  If the 'pid'
  *   parameter refers to to the currently runing task, then processing is
- *   redirected to exit().
+ *   redirected to exit().  This can only happen if a task calls task_delete()
+ *   in order to delete itself.
  *
- *   Control will still be returned to task_delete() after the exit() logic
- *   finishes.  In fact, this function is the final function called all task
- *   termination sequences.  Here are all possible exit scenarios:
+ *   In fact, this function (and task_terminate) are the final functions
+ *   called all task termination sequences.  task_delete may be called
+ *   from:
  *
- *   - pthread_exit().  Calls exit()
- *   - exit(). Calls _exit()
- *   - _exit().  Calls task_deletecurrent() making the currently running task
- *     non-running then calls task_delete() to terminate the non-running
- *     task.
- *   - task_delete()
+ *   - task_restart(),
+ *   - pthread_cancel(),
+ *   - and directly from user code.
+ *
+ *   Other exit paths (exit(), _eixt(), and pthread_exit()) will go through
+ *   task_terminate()
  *
  * Inputs:
  *   pid - The task ID of the task to delete.  A pid of zero
@@ -113,9 +113,6 @@
 int task_delete(pid_t pid)
 {
   FAR struct tcb_s *rtcb;
-  FAR struct tcb_s *dtcb;
-  irqstate_t saved_state;
-  int ret = ERROR;
 
   /* Check if the task to delete is the calling task */
 
@@ -129,66 +126,7 @@ int task_delete(pid_t pid)
       exit(EXIT_SUCCESS);
     }
 
-  /* Make sure the task does not become ready-to-run while we are futzing with
-   * its TCB by locking ourselves as the executing task.
-   */
+  /* Then let task_terminate do the heavy lifting */
 
-  sched_lock();
-
-  /* Find for the TCB associated with matching pid */
-
-  dtcb = sched_gettcb(pid);
-  if (!dtcb)
-    {
-      /* This pid does not correspond to any known task */
-
-      sched_unlock();
-      return ERROR;
-    }
-
-  /* Verify our internal sanity */
-
-  if (dtcb->task_state == TSTATE_TASK_RUNNING ||
-      dtcb->task_state >= NUM_TASK_STATES)
-    {
-      sched_unlock();
-      PANIC(OSERR_BADDELETESTATE);
-    }
-
-  /* Perform common task termination logic (flushing streams, calling
-   * functions registered by at_exit/on_exit, etc.).  We need to do
-   * this as early as possible so that higher level clean-up logic
-   * can run in a healthy tasking environment.
-   *
-   * In the case where the task exits via exit(), task_exithook()
-   * may be called twice.
-   *
-   * I suppose EXIT_SUCCESS is an appropriate return value???
-   */
-
-  task_exithook(dtcb, EXIT_SUCCESS);
-
-  /* Remove the task from the OS's tasks lists. */
-
-  saved_state = irqsave();
-  dq_rem((FAR dq_entry_t*)dtcb, (dq_queue_t*)g_tasklisttable[dtcb->task_state].list);
-  dtcb->task_state = TSTATE_TASK_INVALID;
-  irqrestore(saved_state);
-
-  /* At this point, the TCB should no longer be accessible to the system */
-
-  sched_unlock();
-
-  /* Since all tasks pass through this function as the final step in their
-   * exit sequence, this is an appropriate place to inform any instrumentation
-   * layer that the task no longer exists.
-   */
-
-  sched_note_stop(dtcb);
-
-  /* Deallocate its TCB */
-
-  sched_releasetcb(dtcb);
-  return ret;
+  return task_terminate(pid, false);
 }
-

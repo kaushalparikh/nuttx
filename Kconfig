@@ -50,7 +50,7 @@ config WINDOWS_NATIVE
 
 config WINDOWS_CYGWIN
 	bool "Cygwin"
--	--help---
+	---help---
 		Build natively in a Cygwin environment with POSIX style paths (like /cygdrive/c/cgywin/home)
 
 config WINDOWS_MSYS
@@ -96,33 +96,33 @@ config APPS_DIR
 		the NuttX top build direcory. If you had an application
 		directory and the NuttX directory each in separate directory
 		trees like this:
+
+			build
+			|-nuttx
+			|  |
+			|  `- Makefile
+			`-application
+			|
+			`- Makefile
 		
-		build
-		|-nuttx
-		|  |
-		|  `- Makefile
-		`-application
-		|
-		`- Makefile
-		
-		Then you would set CONFIG_APPS_DIR=../application.
+		Then you would set APPS_DIR=../application.
 
 		The application direction must contain Makefile and this make
 		file must support the following targets:
 		
-		libapps$(LIBEXT) (usually libapps.a). libapps.a is a static
+		1)libapps$(LIBEXT) (usually libapps.a). libapps.a is a static
 		library ( an archive) that contains all of application object
 		files.
 		
-		clean. Do whatever is appropriate to clean the application
+		2)clean. Do whatever is appropriate to clean the application
 		directories for a fresh build.
 		
-		distclean. Clean everthing -- auto-generated files, symbolic
+		3)distclean. Clean everthing -- auto-generated files, symbolic
 		links etc. -- so that the directory contents are the same as
 		the contents in your configuration management system.
 		This is only done when you change the NuttX configuration.
 		
-		depend. Make or update the application build dependencies.
+		4)depend. Make or update the application build dependencies.
 		
 		When this application is invoked it will receive the setting TOPDIR like:
 		
@@ -142,7 +142,7 @@ config BUILD_2PASS
 		options configure the make system build a extra link object. This link object
 		is assumed to be an incremental (relative) link object, but could be a static
 		library (archive) (some modification to this Makefile would be required if
-		CONFIG_PASS1_TARGET generates an archive). Pass 1 1ncremental (relative) link
+		PASS1_TARGET generates an archive). Pass 1 1ncremental (relative) link
 		objects should be put into the processor-specific source directory (where other
 		link objects will be created).  If the pass1 obect is an archive, it could
 		go anywhere.
@@ -163,7 +163,7 @@ config PASS1_BUILDIR
 		The path, relative to the top NuttX build
 		directory to directory that contains the Makefile to build the
 		first pass object.  The Makefile must support the following targets:
-		The special target CONFIG_PASS1_TARGET (if defined)
+		The special target PASS1_TARGET (if defined)
 		and the usual depend, clean, and distclean targets.
 
 config PASS1_OBJECT
@@ -172,7 +172,7 @@ config PASS1_OBJECT
 	---help---
 		May be used to include an extra, pass1 object
 		into the final link.  This would probably be the object generated
-		from the CONFIG_PASS1_TARGET.  It may be available at link time
+		from the PASS1_TARGET.  It may be available at link time
 		in the arch/<architecture>/src directory.
 
 config NUTTX_KERNEL
@@ -238,11 +238,11 @@ config ARCH_STDBOOL_H
 		However, that header includes logic to redirect the inclusion of an
 		architecture specific header file like:
 
-		#ifdef CONFIG_ARCH_STDBOOL_H
-		#  include <arch/stdbool.h>
-		#else
-		...
-		#endif
+			#ifdef CONFIG_ARCH_STDBOOL_H
+			#  include <arch/stdbool.h>
+			#else
+			...
+			#endif
 
 		Recall that that include path, include/arch, is a symbolic link and
 		will refer to a version of stdbool.h at nuttx/arch/<architecture>/include/stdbool.h.
@@ -255,13 +255,13 @@ config ARCH_MATH_H
 		However, it resides out-of-the-way at include/nuttx/math.h because it
 		conflicts too often with the system math.h. If ARCH_MATH_H=y is
 		defined, however, the top-level makefile will copy the redirecting
- 		math.h header file from include/nuttx/math.h to include/math.h. math.h
+		math.h header file from include/nuttx/math.h to include/math.h. math.h
 		will then include the architecture-specific version of math.h that you
 		must provide at nuttx/arch/>architecture</include/math.h.
 
-		#ifdef CONFIG_ARCH_MATH_H
-		#  include <arch/math.h>
-		#endif
+			#ifdef CONFIG_ARCH_MATH_H
+			#  include <arch/math.h>
+			#endif
 
 		So for the architectures that define ARCH_MATH_H=y, include/math.h
 		will be the redirecting math.h header file; for the architectures
@@ -276,7 +276,7 @@ config ARCH_FLOAT_H
 		point implementation.  It would always be best to use your
 		toolchain's float.h header file but if none is avaiable, a default
 		float.h header file will provided if this option is selected.  However
- 		there is no assurance that the settings in this float.h are actually
+		there is no assurance that the settings in this float.h are actually
 		correct for your platform!
 
 config ARCH_STDARG_H
@@ -383,6 +383,14 @@ config DEBUG_GRAPHICS
 	---help---
 		Enable NX graphics debug SYSLOG output (disabled by default)
 
+config DEBUG_SYSCALL
+	bool "Enable SYSCALL Debug Output"
+	default n
+	depends on NUTTX_KERNEL
+	---help---
+		Enable very low level output related to system calls.  This gives
+		you basically a poor man's version of strace.
+
 comment "Driver Debug Options"
 
 config DEBUG_LCD
@@ -390,63 +398,99 @@ config DEBUG_LCD
 	default n
 	depends on LCD
 	---help---
-		Enable low level debug SYSLOG output from the LCD driver (disabled by default)
+		Enable low level debug SYSLOG output from the LCD driver (disabled
+		by default).  Support for this debug option is board-specific and
+		may not be available for some boards.
 
 config DEBUG_LEDS
 	bool "Enable Low-level LED Debug Output"
 	default n
 	depends on ARCH_HAVE_LEDS
 	---help---
-		Enable low level debug from board-specific LED logic
+		Enable low level debug from board-specific LED logic.  Support for
+		this debug option is board-specific and may not be available for
+		some boards.
 
 config DEBUG_INPUT
 	bool "Enable Input Device Debug Output"
 	default n
 	depends on INPUT
 	---help---
-		Enable low level debug SYSLOG output from the input device drivers such as
- 		mice and touchscreens (disabled by default)
+		Enable low level debug SYSLOG output from the input device drivers
+		such as mice and touchscreens (disabled by default).  Support for
+		this debug option is board-specific and may not be available for
+		some boards.
 
 config DEBUG_ANALOG
 	bool "Enable Analog Device Debug Output"
 	default n
 	---help---
-		Enable low level debug SYSLOG output from the analog device drivers such as
- 		A/D and D/A converters (disabled by default)
+		Enable low level debug SYSLOG output from the analog device drivers
+		such as A/D and D/A converters (disabled by default).  Support for
+		this debug option is architecgture-specific and may not be available
+		for some MCUs.
 
 config DEBUG_I2C
 	bool "Enable I2C Debug Output"
 	default n
 	depends on I2C
 	---help---
-		Enable I2C driver debug SYSLOG output (disabled by default)
+		Enable I2C driver debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
 
 config DEBUG_SPI
 	bool "Enable SPI Debug Output"
 	default n
 	depends on SPI
 	---help---
-		Enable I2C driver debug SYSLOG output (disabled by default)
+		Enable I2C driver debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
 
 config DEBUG_CAN
 	bool "Enable CAN Debug Output"
 	default n
 	depends on CAN
 	---help---
-		Enable CAN driver debug SYSLOG output (disabled by default)
+		Enable CAN driver debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
+
+config DEBUG_SDIO
+	bool "Enable SDIO Debug Output"
+	default n
+	depends on MMCSD_SDIO
+	---help---
+		Enable SDIO driver debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
+
+config DEBUG_GPIO
+	bool "Enable GPIO Debug Output"
+	default n
+	---help---
+		Enable GPIO-releated debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
 
 config DEBUG_DMA
 	bool "Enable DMA Debug Output"
 	default n
+	depends on ARCH_DMA
 	---help---
-		Enable DMA-releated debug SYSLOG output (disabled by default)
+		Enable DMA-releated debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
 
 config DEBUG_WATCHDOG
 	bool "Enable Watchdog Timer Debug Output"
 	default n
 	depends on WATCHDOG
 	---help---
-		Enable watchdog timer debug SYSLOG output (disabled by default)
+		Enable watchdog timer debug SYSLOG output (disabled by default).
+		Support for this debug option is architecgture-specific and may not
+		be available for some MCUs.
 
 endif
 

@@ -67,8 +67,14 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+/* Configuration ************************************************************/
+/* If this is a kernel build, how many nested system calls should we support? */
 
-/* Alternate register names */
+#ifndef CONFIG_SYS_NNEST
+#  define CONFIG_SYS_NNEST 2
+#endif
+
+/* Alternate register names *************************************************/
 
 #define REG_A1              REG_R0
 #define REG_A2              REG_R1
@@ -98,12 +104,22 @@
 /****************************************************************************
  * Public Types
  ****************************************************************************/
+#ifndef __ASSEMBLY__
+
+/* This structure represents the return state from a system call */
+
+#ifdef CONFIG_NUTTX_KERNEL
+struct xcpt_syscall_s
+{
+  uint32_t excreturn;   /* The EXC_RETURN value */
+  uint32_t sysreturn;   /* The return PC */
+};
+#endif
 
 /* The following structure is included in the TCB and defines the complete
  * state of the thread.
  */
 
-#ifndef __ASSEMBLY__
 struct xcptcontext
 {
 #ifndef CONFIG_DISABLE_SIGNALS
@@ -124,15 +140,25 @@ struct xcptcontext
   uint32_t saved_primask;
 #endif
   uint32_t saved_xpsr;
+
+# ifdef CONFIG_NUTTX_KERNEL
+  /* This is the saved address to use when returning from a user-space
+   * signal handler.
+   */
+
+  uint32_t sigreturn;
+
+# endif
 #endif
 
 #ifdef CONFIG_NUTTX_KERNEL
-  /* The following holds the return address and the exc_return value needed
-   * return from a system call.
+  /* The following array holds the return address and the exc_return value
+   * needed to return from each nested system call.
    */
 
-  uint32_t excreturn;
-  uint32_t sysreturn;
+  uint8_t nsyscalls;
+  struct xcpt_syscall_s syscall[CONFIG_SYS_NNEST];
+
 #endif
 
   /* Register save area */
@@ -267,7 +293,7 @@ static inline void irqrestore(irqstate_t flags)
   setbasepri((uint32_t)flags);
 #else
   /* If bit 0 of the primask is 0, then we need to restore
-   * interupts.
+   * interrupts.
    */
 
   __asm__ __volatile__

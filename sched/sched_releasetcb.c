@@ -83,7 +83,12 @@ static void sched_releasepid(pid_t pid)
  *   Free all resources contained in a TCB
  *
  * Parameters:
- *   None
+ *   tcb - The TCB to be released
+ *   ttype - The type of the TCB to be released
+ *
+ *   This thread type is normally available in the flags field of the TCB,
+ *   however, there are certain error recovery contexts where the TCB my
+ *   not be fully initialized when sched_releasetcb is called.
  *
  * Return Value:
  *   OK on success; ERROR on failure
@@ -93,10 +98,12 @@ static void sched_releasepid(pid_t pid)
  *
  ************************************************************************/
 
-int sched_releasetcb(FAR struct tcb_s *tcb)
+int sched_releasetcb(FAR struct tcb_s *tcb, uint8_t ttype)
 {
   int ret = OK;
+#if defined(CONFIG_CUSTOM_STACK) || !defined(CONFIG_NUTTX_KERNEL)
   int i;
+#endif
 
   if (tcb)
     {
@@ -131,7 +138,7 @@ int sched_releasetcb(FAR struct tcb_s *tcb)
 #ifndef CONFIG_CUSTOM_STACK
       if (tcb->stack_alloc_ptr)
         {
-          up_release_stack(tcb);
+          up_release_stack(tcb, ttype);
         }
 #endif
 
@@ -151,8 +158,13 @@ int sched_releasetcb(FAR struct tcb_s *tcb)
         }
 #endif
 
+#if defined(CONFIG_CUSTOM_STACK) || !defined(CONFIG_NUTTX_KERNEL)
       /* Release command line arguments that were allocated for task
        * start/re-start.
+       *
+       * NOTE: In the kernel mode build, the arguments were saved on
+       * the task's stack and will be cleaned up when the stack memory
+       * is released.  Nothing need be done here in that case.
        */
 
 #ifndef CONFIG_DISABLE_PTHREAD
@@ -165,6 +177,8 @@ int sched_releasetcb(FAR struct tcb_s *tcb)
               sched_kfree((FAR void*)ttcb->argv[i]);
             }
         }
+
+#endif /* CONFIG_CUSTOM_STACK || !CONFIG_NUTTX_KERNEL */
 
       /* Release this thread's reference to the address environment */
 

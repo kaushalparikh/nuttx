@@ -1,7 +1,7 @@
-/************************************************************
+/****************************************************************************
  * arch/z16/common/up_usestack.c
  *
- *   Copyright (C) 2008-2009 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2008-2009, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,11 +31,11 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Included Files
- ************************************************************/
+ ****************************************************************************/
 
 #include <nuttx/config.h>
 
@@ -49,65 +49,74 @@
 
 #include "up_internal.h"
 
-/************************************************************
+/****************************************************************************
  * Private Types
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Private Function Prototypes
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Global Functions
- ************************************************************/
+ ****************************************************************************/
 
-/************************************************************
+/****************************************************************************
  * Name: up_use_stack
  *
  * Description:
- *   Setup up stack-related information in the TCB
- *   using pre-allocated stack memory
+ *   Setup up stack-related information in the TCB using pre-allocated stack
+ *   memory.  This function is called only from task_init() when a task or
+ *   kernel thread is started (never for pthreads).
  *
  *   The following TCB fields must be initialized:
- *   adj_stack_size: Stack size after adjustment for hardware,
+ *
+ *   - adj_stack_size: Stack size after adjustment for hardware,
  *     processor, etc.  This value is retained only for debug
  *     purposes.
- *   stack_alloc_ptr: Pointer to allocated stack
- *   adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The
+ *   - stack_alloc_ptr: Pointer to allocated stack
+ *   - adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The
  *     initial value of the stack pointer.
  *
  * Inputs:
- *   tcb: The TCB of new task
- *   stack_size:  The allocated stack size.
+ *   - tcb: The TCB of new task
+ *   - stack_size:  The allocated stack size.
  *
- ************************************************************/
+ *   NOTE:  Unlike up_stack_create() and up_stack_release, this function
+ *   does not require the task type (ttype) parameter.  The TCB flags will
+ *   always be set to provide the task type to up_use_stack() if it needs
+ *   that information.
+ *
+ ****************************************************************************/
 
 int up_use_stack(struct tcb_s *tcb, void *stack, size_t stack_size)
 {
   size_t top_of_stack;
   size_t size_of_stack;
 
+  /* Is there already a stack allocated? */
+
   if (tcb->stack_alloc_ptr)
     {
-      sched_ufree(tcb->stack_alloc_ptr);
+      /* Yes.. Release the old stack allocation */
+
+      up_release_stack(tcb, tcb->flags & TCB_FLAG_TTYPE_MASK);
     }
 
-  /* Save the stack allocation */
+  /* Save the new stack allocation */
 
   tcb->stack_alloc_ptr = stack;
 
-  /* The Arm7Tdmi uses a push-down stack:  the stack grows
-   * toward loweraddresses in memory.  The stack pointer
-   * register, points to the lowest, valid work address
-   * (the "top" of the stack).  Items on the stack are
-   * referenced as positive word offsets from sp.
+  /* The ZNEO uses a push-down stack:  the stack grows toward lower
+   * addresses in memory.  The stack pointer register, points to the
+   * lowest, valid work address (the "top" of the stack).  Items on
+   * the stack are referenced as positive word offsets from sp.
    */
 
   top_of_stack = (uint32_t)tcb->stack_alloc_ptr + stack_size - 4;
 
-  /* The Arm7Tdmi stack must be aligned at word (4 byte)
-   * boundaries. If necessary top_of_stack must be rounded
-   * down to the next boundary
+  /* Align the stack to word (4 byte) boundaries.  This is probably
+   * a greater alignement than is required.
    */
 
   top_of_stack &= ~3;

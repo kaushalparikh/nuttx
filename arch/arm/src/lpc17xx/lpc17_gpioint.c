@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/lpc17xx/lpc17_gpioint.c
  *
- *   Copyright (C) 2010-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,6 @@
 #include "chip.h"
 #include "lpc17_gpio.h"
 
-
 #ifdef CONFIG_GPIO_IRQ
 
 /****************************************************************************
@@ -94,7 +93,7 @@ static unsigned int lpc17_getintedge(unsigned int port, unsigned int pin)
     }
   else if (port == 2)
     {
-      intedge  = &g_intedge2;
+      intedge = &g_intedge2;
     }
   else
     {
@@ -114,9 +113,15 @@ static unsigned int lpc17_getintedge(unsigned int port, unsigned int pin)
  *
  ****************************************************************************/
 
-static void lpc17_setintedge(uint32_t intbase, unsigned int pin, unsigned int edges)
+static void lpc17_setintedge(uint32_t intbase, unsigned int pin,
+                             unsigned int edges)
 {
+  irqstate_t flags;
   int regval;
+
+  /* These must be atomic */
+
+  flags = irqsave();
 
   /* Set/clear the rising edge enable bit */
 
@@ -129,9 +134,10 @@ static void lpc17_setintedge(uint32_t intbase, unsigned int pin, unsigned int ed
     {
       regval &= ~GPIOINT(pin);
     }
+
   putreg32(regval, intbase + LPC17_GPIOINT_INTENR_OFFSET);
 
-  /* Set/clear the rising edge enable bit */
+  /* Set/clear the falling edge enable bit */
 
   regval = getreg32(intbase + LPC17_GPIOINT_INTENF_OFFSET);
   if ((edges & 1) != 0)
@@ -142,7 +148,9 @@ static void lpc17_setintedge(uint32_t intbase, unsigned int pin, unsigned int ed
     {
       regval &= ~GPIOINT(pin);
     }
+
   putreg32(regval, intbase + LPC17_GPIOINT_INTENF_OFFSET);
+  irqrestore(flags);
 }
 
 /****************************************************************************
@@ -155,26 +163,62 @@ static void lpc17_setintedge(uint32_t intbase, unsigned int pin, unsigned int ed
 
 static int lpc17_irq2port(int irq)
 {
- /* Set 1: 12 interrupts p0.0-p0.11 */
+ /* Set 1:
+  *   LPC176x: 12 interrupts p0.0-p0.11
+  *   LPC178x: 16 interrupts p0.0-p0.15
+  */
 
-  if (irq >= LPC17_VALID_FIRST0L && irq < (LPC17_VALID_FIRST0L+LPC17_VALID_NIRQS0L))
+  if (irq >= LPC17_VALID_FIRST0L &&
+      irq < (LPC17_VALID_FIRST0L + LPC17_VALID_NIRQS0L))
     {
       return 0;
     }
 
-  /* Set 2: 16 interrupts p0.15-p0.30 */
+  /* Set 2:
+   *   LPC176x: 16 interrupts p0.15-p0.30
+   *   LPC178x: 16 interrupts p0.16-p0.31
+   */
 
-  else if (irq >= LPC17_VALID_FIRST0H && irq < (LPC17_VALID_FIRST0H+LPC17_VALID_NIRQS0H))
+  else if (irq >= LPC17_VALID_FIRST0H &&
+           irq < (LPC17_VALID_FIRST0H + LPC17_VALID_NIRQS0H))
     {
       return 0;
     }
 
-  /* Set 3: 14 interrupts p2.0-p2.13 */
+#if defined (LPC176x)
+  /* Set 3:
+   *   LPC17x: 14 interrupts p2.0-p2.13
+   */
 
-  else if (irq >= LPC17_VALID_FIRST2 && irq < (LPC17_VALID_FIRST2+LPC17_VALID_NIRQS2))
+  else if (irq >= LPC17_VALID_FIRST2 &&
+           irq < (LPC17_VALID_FIRST2 + LPC17_VALID_NIRQS2))
     {
       return 2;
     }
+
+#elif defined (LPC178x)
+  /* Set 3:
+   *   LPC18x: 16 interrupts p2.0-p2.15
+   */
+
+  else if (irq >= LPC17_VALID_FIRST2L &&
+           irq < (LPC17_VALID_FIRST2L + LPC17_VALID_NIRQS2L))
+    {
+      return 2;
+    }
+
+  /* Set 4:
+   *   LPC178x: 16 interrupts p2.16-p2.31
+   */
+
+  else if (irq >= LPC17_VALID_FIRST2H &&
+           irq < (LPC17_VALID_FIRST2H + LPC17_VALID_NIRQS2H))
+    {
+      return 2;
+    }
+
+#endif
+
   return -EINVAL;
 }
 
@@ -188,45 +232,92 @@ static int lpc17_irq2port(int irq)
 
 static int lpc17_irq2pin(int irq)
 {
-  /* Set 1: 12 interrupts p0.0-p0.11
-   * 
+  /* Set 1:
+   *   LPC17x: 12 interrupts p0.0-p0.11
+   *   LPC18x: 16 interrupts p0.0-p0.15
+   *
    * See arch/arm/include/lpc17xx/irq.h:
-   * LPC17_VALID_SHIFT0L   0    - Bit 0 is thre first bit in the group of 12 interrupts
-   * LPC17_VALID_FIRST0L   irq  - IRQ number associated with p0.0
-   * LPC17_VALID_NIRQS0L   12   - 12 interrupt bits in the group
+   * LPC17_VALID_SHIFT0L   0     - Bit 0 is thre first bit in the group of
+   *                               12/16 interrupts
+   * LPC17_VALID_FIRST0L   irq   - IRQ number associated with p0.0
+   * LPC17_VALID_NIRQS0L   12/16 - Number of interrupt bits in the group
    */
 
-  if (irq >= LPC17_VALID_FIRST0L && irq < (LPC17_VALID_FIRST0L+LPC17_VALID_NIRQS0L))
+  if (irq >= LPC17_VALID_FIRST0L &&
+      irq < (LPC17_VALID_FIRST0L + LPC17_VALID_NIRQS0L))
     {
       return irq - LPC17_VALID_FIRST0L + LPC17_VALID_SHIFT0L;
     }
 
-  /* Set 2: 16 interrupts p0.15-p0.30
-   * 
-   * LPC17_VALID_SHIFT0H   15   - Bit 15 is the first bit in a group of 16 interrupts
-   * LPC17_VALID_FIRST0L   irq  - IRQ number associated with p0.15
+  /* Set 2:
+   *   LPC176x: 16 interrupts p0.15-p0.30
+   *   LPC178x: 16 interrupts p0.16-p0.31
+   *
+   * LPC17_VALID_SHIFT0H   15/16 - Bit number of the first bit in a group
+   *                               of 16 interrupts
+   * LPC17_VALID_FIRST0L   irq  - IRQ number associated with p0.15/16
    * LPC17_VALID_NIRQS0L   16   - 16 interrupt bits in the group
    */
 
-  else if (irq >= LPC17_VALID_FIRST0H && irq < (LPC17_VALID_FIRST0H+LPC17_VALID_NIRQS0H))
+  else if (irq >= LPC17_VALID_FIRST0H &&
+           irq < (LPC17_VALID_FIRST0H + LPC17_VALID_NIRQS0H))
     {
       return irq - LPC17_VALID_FIRST0H + LPC17_VALID_SHIFT0H;
     }
 
-  /* Set 3: 14 interrupts p2.0-p2.13
-   * 
-   * LPC17_VALID_SHIFT2    0    - Bit 0 is the first bit in a group of 14 interrupts
+#if defined(LPC176x)
+  /* Set 3:
+   *   LPC17x: 14 interrupts p2.0-p2.13
+   *
+   * LPC17_VALID_SHIFT2    0    - Bit 0 is the first bit in a group of 14
+   *                              interrupts
    * LPC17_VALID_FIRST2    irq  - IRQ number associated with p2.0
    * LPC17_VALID_NIRQS2    14   - 14 interrupt bits in the group
    */
 
-  else if (irq >= LPC17_VALID_FIRST2 && irq < (LPC17_VALID_FIRST2+LPC17_VALID_NIRQS2))
+  else if (irq >= LPC17_VALID_FIRST2 &&
+           irq < (LPC17_VALID_FIRST2 + LPC17_VALID_NIRQS2))
     {
       return irq - LPC17_VALID_FIRST2 + LPC17_VALID_SHIFT2;
     }
+
+#elif defined(LPC178x)
+
+  /* Set 3:
+   *   LPC18x: 16 interrupts p2.0-p2.15
+   *
+   * LPC17_VALID_SHIFT2L    0    - Bit 0 is the first bit in a group of 16
+   *                               interrupts
+   * LPC17_VALID_FIRST2L    irq  - IRQ number associated with p2.0
+   * LPC17_VALID_NIRQS2L    16   - 16 interrupt bits in the group
+   */
+
+  else if (irq >= LPC17_VALID_FIRST2L &&
+           irq < (LPC17_VALID_FIRST2L + LPC17_VALID_NIRQS2L))
+    {
+      return irq - LPC17_VALID_FIRST2L + LPC17_VALID_SHIFT2L;
+    }
+
+  /* Set 3:
+   *   LPC18x: 16 interrupts p2.16-p2.31
+   *
+   * LPC17_VALID_SHIFT2L    16   - Bit 16 is the first bit in a group of 16
+   *                               interrupts
+   * LPC17_VALID_FIRST2L    irq  - IRQ number associated with p2.0
+   * LPC17_VALID_NIRQS2L    16   - 16 interrupt bits in the group
+   */
+
+  else if (irq >= LPC17_VALID_FIRST2H &&
+           irq < (LPC17_VALID_FIRST2H + LPC17_VALID_NIRQS2H))
+    {
+      return irq - LPC17_VALID_FIRST2H + LPC17_VALID_SHIFT2H;
+    }
+
+#endif
+
   return -EINVAL;
 }
-   
+
 /****************************************************************************
  * Name: lpc17_gpiodemux
  *
@@ -256,7 +347,7 @@ static void lpc17_gpiodemux(uint32_t intbase, uint32_t intmask,
 
   /* And get the OR of the enabled interrupt sources.  We do not make any
    * distinction between rising and falling edges (but the hardware does support
-   * the ability to differently if needed.
+   * the ability to handle them differently if needed).
    */
 
   intstatus = intstatr | intstatf;
@@ -292,7 +383,7 @@ static void lpc17_gpiodemux(uint32_t intbase, uint32_t intmask,
 
            irq++;
         }
- 
+
       /* Next bit */
 
       intstatus &= ~bit;
@@ -304,9 +395,10 @@ static void lpc17_gpiodemux(uint32_t intbase, uint32_t intmask,
  * Name: lpc17_gpiointerrupt
  *
  * Description:
- *  Handle the EINT3 interrupt that also indicates that a GPIO interrupt has
- *  occurred.  NOTE:  This logic will have to be extended if EINT3 is
- *  actually used for External Interrupt 3.
+ *   Handle the GPIO interrupt.  For the LPC176x family, that interrupt could
+ *   also that also indicates that an EINT3 interrupt has occurred.  NOTE: 
+ *   This logic would  have to be extended if EINT3 is actually used for
+ *   External Interrupt 3 on an LPC176x platform.
  *
  ****************************************************************************/
 
@@ -324,6 +416,7 @@ static int lpc17_gpiointerrupt(int irq, void *context)
                       LPC17_VALID_FIRST0L, context);
     }
 
+#if defined(LPC176x)
   /* Check for an interrupt on GPIO2 */
 
   if ((intstatus & GPIOINT_IOINTSTATUS_P2INT) != 0)
@@ -331,6 +424,17 @@ static int lpc17_gpiointerrupt(int irq, void *context)
       lpc17_gpiodemux(LPC17_GPIOINT2_BASE, LPC17_VALID_GPIOINT2,
                       LPC17_VALID_FIRST2, context);
     }
+
+#elif defined(LPC178x)
+  /* Check for an interrupt on GPIO2 */
+
+  if ((intstatus & GPIOINT_IOINTSTATUS_P2INT) != 0)
+    {
+      lpc17_gpiodemux(LPC17_GPIOINT2_BASE, LPC17_VALID_GPIOINT2,
+                      LPC17_VALID_FIRST2L, context);
+    }
+
+#endif
 
   return OK;
 }
@@ -357,12 +461,25 @@ void lpc17_gpioirqinitialize(void)
   putreg32(0, LPC17_GPIOINT2_INTENR);
   putreg32(0, LPC17_GPIOINT2_INTENF);
 
-  /* Attach and enable the GPIO IRQ.  Note:  GPIO0 and GPIO2 interrupts share
-   * the same position in the NVIC with External Interrupt 3
+  /* Attach and enable the GPIO IRQ. */
+
+#if defined(LPC176x)
+  /* For the LPC176x family, GPIO0 and GPIO2 interrupts share the same
+   * position in the NVIC with External Interrupt 3
    */
 
   (void)irq_attach(LPC17_IRQ_EINT3, lpc17_gpiointerrupt);
   up_enable_irq(LPC17_IRQ_EINT3);
+
+#elif defined(LPC178x)
+  /* the LPC178x family has a single, dedicated interrupt for GPIO0 and
+   * GPIO2.
+   */
+
+  (void)irq_attach(LPC17_IRQ_GPIO, lpc17_gpiointerrupt);
+  up_enable_irq(LPC17_IRQ_GPIO);
+
+#endif
 }
 
 /****************************************************************************
@@ -420,7 +537,7 @@ void lpc17_gpioirqdisable(int irq)
         {
           /* And get the pin number associated with the port */
 
-          unsigned int pin   = lpc17_irq2pin(irq);
+          unsigned int pin = lpc17_irq2pin(irq);
           lpc17_setintedge(intbase, pin, 0);
         }
     }

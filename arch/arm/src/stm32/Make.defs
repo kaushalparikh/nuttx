@@ -39,6 +39,9 @@ else
 HEAD_ASRC = stm32_vectors.S
 endif
 
+CMN_UASRCS =
+CMN_UCSRCS =
+
 CMN_ASRCS  = up_saveusercontext.S up_fullcontextrestore.S up_switchcontext.S
 CMN_ASRCS += vfork.S
 
@@ -56,8 +59,20 @@ CMN_ASRCS += up_exception.S
 CMN_CSRCS += up_vectors.c
 endif
 
+ifeq ($(CONFIG_ARCH_RAMVECTORS),y)
+CMN_CSRCS += up_ramvec_initialize.c up_ramvec_attach.c
+endif
+
 ifeq ($(CONFIG_ARCH_MEMCPY),y)
 CMN_ASRCS += up_memcpy.S
+endif
+
+ifeq ($(CONFIG_NUTTX_KERNEL),y)
+CMN_CSRCS += up_mpu.c up_task_start.c up_pthread_start.c up_stackframe.c
+ifneq ($(CONFIG_DISABLE_SIGNALS),y)
+CMN_CSRCS += up_signal_dispatch.c
+CMN_UASRCS += up_signal_handler.S
+endif
 endif
 
 ifeq ($(CONFIG_DEBUG_STACK),y)
@@ -81,6 +96,10 @@ CHIP_CSRCS += stm32_spi.c stm32_sdio.c stm32_tim.c stm32_i2c.c stm32_waste.c
 
 ifeq ($(CONFIG_ARMV7M_CMNVECTOR),y)
 CHIP_ASRCS += stm32_vectors.S
+endif
+
+ifeq ($(CONFIG_NUTTX_KERNEL),y)
+CHIP_CSRCS += stm32_userspace.c stm32_mpuinit.c
 endif
 
 ifeq ($(CONFIG_USBDEV),y)

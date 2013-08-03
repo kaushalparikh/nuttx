@@ -41,7 +41,7 @@
 -include $(TOPDIR)/Make.defs
 
 ASRCS =
-CSRCS = up_boot.c up_leds.c up_ssp.c up_buttons.c
+CSRCS = up_boot.c up_leds.c up_ssp.c up_buttons.c up_lcd.c
 
 ifeq ($(CONFIG_NSH_ARCHINIT),y)
 CSRCS += up_nsh.c
@@ -61,6 +61,10 @@ endif
 
 ifeq ($(CONFIG_CAN),y)
 CSRCS += up_can.c
+endif
+
+ifeq ($(CONFIG_LPC17_SPI),y)
+CSRCS += up_spi.c
 endif
 
 AOBJS = $(ASRCS:.S=$(OBJEXT))

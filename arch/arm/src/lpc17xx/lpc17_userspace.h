@@ -1,5 +1,5 @@
 /************************************************************************************
- * arch/arm/src/lpc17xx/lpc17_qei.h
+ * arch/arm/src/lpc17xx/lpc17_userspace.h
  *
  *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -41,7 +41,6 @@
  ************************************************************************************/
 
 #include <nuttx/config.h>
-#include "chip/lpc17_qei.h"
 
 /************************************************************************************
  * Pre-processor Definitions

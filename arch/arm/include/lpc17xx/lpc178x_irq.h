@@ -48,7 +48,7 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
- 
+
 /* IRQ numbers.  The IRQ number corresponds vector number and hence map
  * directly to bits in the NVIC.  This does, however, waste several words of
  * memory in the IRQ to handle mapping tables.
@@ -167,12 +167,11 @@
  */
 
 #ifdef CONFIG_GPIO_IRQ
-//~ #  define LPC17_VALID_GPIOINT0  (0x7fff8ffful) /* GPIO port 0 interrrupt set */
-//~ #  define LPC17_VALID_GPIOINT2  (0x00003ffful) /* GPIO port 2 interrupt set */
+#  define LPC17_VALID_GPIOINT0  (0xfffffffful) /* GPIO port 0 interrrupt set */
+#  define LPC17_VALID_GPIOINT2  (0xfffffffful) /* GPIO port 2 interrupt set */
 
    /* Set 1: 16 interrupts p0.0-p0.15 */
 
-//~ #  define LPC17_VALID_GPIOINT0L (0x00000ffful)
 #  define LPC17_VALID_SHIFT0L   (0)
 #  define LPC17_VALID_FIRST0L   (LPC17_IRQ_EXTINT+LPC17_IRQ_NEXTINT)
 
@@ -196,8 +195,7 @@
 
    /* Set 2: 16 interrupts p0.16-p0.31 */
 
-//~ #  define LPC17_VALID_GPIOINT0H (0x7fff8000ull)
-#  define LPC17_VALID_SHIFT0H   (15)
+#  define LPC17_VALID_SHIFT0H   (16)
 #  define LPC17_VALID_FIRST0H   (LPC17_VALID_FIRST0L+LPC17_VALID_NIRQS0L)
 
 #  define LPC17_IRQ_P0p16       (LPC17_VALID_FIRST0H+0)
@@ -220,7 +218,6 @@
 
    /* Set 3: 16 interrupts p2.0-p2.15 */
 
-//~ #  define LPC17_VALID_GPIOINT2  (0x00003ffful)
 #  define LPC17_VALID_SHIFT2L   (0)
 #  define LPC17_VALID_FIRST2L   (LPC17_VALID_FIRST0H+LPC17_VALID_NIRQS0H)
 
@@ -242,9 +239,9 @@
 #  define LPC17_IRQ_P2p15       (LPC17_VALID_FIRST2L+15)
 #  define LPC17_VALID_NIRQS2L   (16)
 
-   /* Set 3: 16 interrupts p2.16 - p2.31 */
+   /* Set 4: 16 interrupts p2.16 - p2.31 */
 
-#  define LPC17_VALID_SHIFT2H   (15)
+#  define LPC17_VALID_SHIFT2H   (16)
 #  define LPC17_VALID_FIRST2H   (LPC17_VALID_FIRST2L+LPC17_VALID_NIRQS2L)
 
 #  define LPC17_IRQ_P2p16       (LPC17_VALID_FIRST2H+0)
@@ -264,7 +261,7 @@
 #  define LPC17_IRQ_P2p30       (LPC17_VALID_FIRST2H+14)
 #  define LPC17_IRQ_P2p31       (LPC17_VALID_FIRST2H+15)
 #  define LPC17_VALID_NIRQS2H   (16)
-   
+
 #  define LPC17_NGPIOAIRQS      (LPC17_VALID_NIRQS0L+LPC17_VALID_NIRQS0H+LPC17_VALID_NIRQS2L+LPC17_VALID_NIRQS2H)
 #else
 #  define LPC17_NGPIOAIRQS      (0)

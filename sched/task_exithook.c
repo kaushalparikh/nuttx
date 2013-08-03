@@ -140,10 +140,10 @@ static inline void task_atexit(FAR struct tcb_s *tcb)
  * Name: task_onexit
  *
  * Description:
- *   Call any registerd on)exit function(s)
+ *   Call any registerd on_exit function(s)
  *
  ****************************************************************************/
- 
+
 #ifdef CONFIG_SCHED_ONEXIT
 static inline void task_onexit(FAR struct tcb_s *tcb, int status)
 {
@@ -298,7 +298,7 @@ static inline void task_sigchild(gid_t pgid, FAR struct tcb_s *ctcb, int status)
   DEBUGASSERT(chgrp);
 
   /* Get the parent task group.  It is possible that all of the members of
-   * the parent task group have exited.  This would not be an error.  In 
+   * the parent task group have exited.  This would not be an error.  In
    * this case, the child task group has been orphaned.
    */
 
@@ -417,15 +417,15 @@ static inline void task_sigchild(FAR struct tcb_s *ptcb,
 #endif /* CONFIG_SCHED_HAVE_PARENT */
 
 /****************************************************************************
- * Name: task_leavegroup
+ * Name: task_signalparent
  *
  * Description:
- *   Send the SIGCHILD signal to the parent thread
+ *   Send the SIGCHILD signal to the parent task group
  *
  ****************************************************************************/
 
 #ifdef CONFIG_SCHED_HAVE_PARENT
-static inline void task_leavegroup(FAR struct tcb_s *ctcb, int status)
+static inline void task_signalparent(FAR struct tcb_s *ctcb, int status)
 {
 #ifdef HAVE_GROUP_MEMBERS
   DEBUGASSERT(ctcb && ctcb->group);
@@ -446,7 +446,7 @@ static inline void task_leavegroup(FAR struct tcb_s *ctcb, int status)
   sched_lock();
 
   /* Get the TCB of the receiving, parent task.  We do this early to
-   * handle multiple calls to task_leavegroup.  ctcb->ppid is set to an
+   * handle multiple calls to task_signalparent.  ctcb->ppid is set to an
    * invalid value below and the following call will fail if we are
    * called again.
    */
@@ -471,7 +471,7 @@ static inline void task_leavegroup(FAR struct tcb_s *ctcb, int status)
 #endif
 }
 #else
-#  define task_leavegroup(ctcb,status)
+#  define task_signalparent(ctcb,status)
 #endif
 
 /****************************************************************************
@@ -508,8 +508,8 @@ static inline void task_exitwakeup(FAR struct tcb_s *tcb, int status)
            *
            * "If more than one thread is suspended in waitpid() awaiting
            *  termination of the same process, exactly one thread will
-           * return the process status at the time of the target process
-           * termination." 
+           *  return the process status at the time of the target process
+           *  termination."
            *
            *  Hmmm.. what do we return to the others?
            */
@@ -528,7 +528,7 @@ static inline void task_exitwakeup(FAR struct tcb_s *tcb, int status)
 
          group->tg_statloc = NULL;
          while (group->tg_exitsem.semcount < 0)
-            { 
+            {
               /* Wake up the thread */
 
               sem_post(&group->tg_exitsem);
@@ -541,11 +541,39 @@ static inline void task_exitwakeup(FAR struct tcb_s *tcb, int status)
 #endif
 
 /****************************************************************************
+ * Name: task_flushstreams
+ *
+ * Description:
+ *   Flush all streams when the final thread of a group exits.
+ *
+ ****************************************************************************/
+
+#if CONFIG_NFILE_STREAMS > 0
+static inline void task_flushstreams(FAR struct tcb_s *tcb)
+{
+  FAR struct task_group_s *group = tcb->group;
+
+  /* Have we already left the group?  Are we the last thread in the group? */
+
+  if (group && group->tg_nmembers == 1)
+    {
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+      (void)lib_flushall(tcb->group->tg_streamlist);
+#else
+      (void)lib_flushall(&tcb->group->tg_streamlist);
+#endif
+    }
+}
+#else
+#  define task_flushstreams(tcb)
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: task_hook
+ * Name: task_exithook
  *
  * Description:
  *   This function implements some of the internal logic of exit() and
@@ -560,14 +588,18 @@ static inline void task_exitwakeup(FAR struct tcb_s *tcb, int status)
  *   to-run list.  The following logic is safe because we will not be
  *   returning from the exit() call.
  *
- *   When called from task_delete() we are operating on a different thread;
+ *   When called from task_terminate() we are operating on a different thread;
  *   on the thread that called task_delete().  In this case, task_delete
  *   will have already removed the tcb from the ready-to-run list to prevent
  *   any further action on this task.
  *
+ *   nonblocking will be set true only when we are called from task_terminate()
+ *   via _exit().  In that case, we must be careful to do nothing that can
+ *   cause the cause the thread to block.
+ *
  ****************************************************************************/
 
-void task_exithook(FAR struct tcb_s *tcb, int status)
+void task_exithook(FAR struct tcb_s *tcb, int status, bool nonblocking)
 {
   /* Under certain conditions, task_exithook() can be called multiple times.
    * A bit in the TCB was set the first time this function was called.  If
@@ -580,15 +612,30 @@ void task_exithook(FAR struct tcb_s *tcb, int status)
     }
 
   /* If exit function(s) were registered, call them now before we do any un-
-   * initialization.  NOTE:  In the case of task_delete(), the exit function
-   * will *not* be called on the thread execution of the task being deleted!
+   * initialization.
+   *
+   * NOTES:
+   *
+   * 1. In the case of task_delete(), the exit function will *not* be called
+   *    on the thread execution of the task being deleted!  That is probably
+   *    a bug.
+   * 2. We cannot call the exit functions if nonblocking is requested:  These
+   *    functions might block.
+   * 3. This function will only be called with with non-blocking == true
+   *    only when called through _exit(). _exit() behaviors requires that
+   *    the exit functions *not* be called.
    */
 
-  task_atexit(tcb);
+#if defined(CONFIG_SCHED_ATEXIT) || defined(CONFIG_SCHED_ONEXIT)
+  if (!nonblocking)
+    {
+      task_atexit(tcb);
 
-  /* Call any registered on_exit function(s) */
+      /* Call any registered on_exit function(s) */
 
-  task_onexit(tcb, status);
+      task_onexit(tcb, status);
+    }
+#endif
 
   /* If the task was terminated by another task, it may be in an unknown
    * state.  Make some feeble effort to recover the state.
@@ -596,25 +643,29 @@ void task_exithook(FAR struct tcb_s *tcb, int status)
 
   task_recover(tcb);
 
-  /* Leave the task group */
+  /* Send the SIGCHILD signal to the parent task group */
 
-  task_leavegroup(tcb, status);
+  task_signalparent(tcb, status);
 
   /* Wakeup any tasks waiting for this task to exit */
 
   task_exitwakeup(tcb, status);
 
-  /* Flush all streams (File descriptors will be closed when
-   * the TCB is deallocated).
+  /* If this is the last thread in the group, then flush all streams (File
+   * descriptors will be closed when the TCB is deallocated).
+   *
+   * NOTES:
+   * 1. We cannot flush the buffered I/O if nonblocking is requested.
+   *    that might cause this logic to block.
+   * 2. This function will only be called with with non-blocking == true
+   *    only when called through _exit(). _exit() behavior does not
+   *    require that the streams be flushed
    */
 
-#if CONFIG_NFILE_STREAMS > 0
-#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
-  (void)lib_flushall(tcb->group->tg_streamlist);
-#else
-  (void)lib_flushall(&tcb->group->tg_streamlist);
-#endif
-#endif
+  if (!nonblocking)
+    {
+      task_flushstreams(tcb);
+    }
 
   /* Leave the task group.  Perhaps discarding any un-reaped child
    * status (no zombies here!)

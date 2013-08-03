@@ -54,7 +54,21 @@
  * Pro-processor Definitions
  ****************************************************************************/
 
+/* This is the value used as the argument to the SVC instruction.  It is not
+ * used.
+ */
+
 #define SYS_syscall 0x00
+
+/* The SYS_signal_handler_return is executed here... its value is not always
+ * available in this context and so is assumed to be 7.
+ */
+
+#ifndef SYS_signal_handler_return
+#  define SYS_signal_handler_return (7)
+#elif SYS_signal_handler_return != 7
+#  error "SYS_signal_handler_return was assumed to be 7"
+#endif
 
 /****************************************************************************
  * Public Types
@@ -142,7 +156,10 @@ static inline uintptr_t sys_call3(unsigned int nbr, uintptr_t parm1,
   return reg0;
 }
 
-/* SVC call with SYS_ call number and four parameters */
+/* SVC call with SYS_ call number and four parameters.
+ *
+ * NOTE the nonstandard parameter passing:  parm4 is in R4
+ */
 
 static inline uintptr_t sys_call4(unsigned int nbr, uintptr_t parm1,
                                   uintptr_t parm2, uintptr_t parm3,
@@ -166,7 +183,10 @@ static inline uintptr_t sys_call4(unsigned int nbr, uintptr_t parm1,
   return reg0;
 }
 
-/* SVC call with SYS_ call number and five parameters */
+/* SVC call with SYS_ call number and five parameters.
+ *
+ * NOTE the nonstandard parameter passing:  parm4 and parm5 are in R4 and R5
+ */
 
 static inline uintptr_t sys_call5(unsigned int nbr, uintptr_t parm1,
                                   uintptr_t parm2, uintptr_t parm3,
@@ -191,7 +211,10 @@ static inline uintptr_t sys_call5(unsigned int nbr, uintptr_t parm1,
   return reg0;
 }
 
-/* SVC call with SYS_ call number and six parameters */
+/* SVC call with SYS_ call number and six parameters.
+ *
+ * NOTE the nonstandard parameter passing:  parm4-parm6 are in R4-R6
+ */
 
 static inline uintptr_t sys_call6(unsigned int nbr, uintptr_t parm1,
                                   uintptr_t parm2, uintptr_t parm3,

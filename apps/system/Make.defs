@@ -46,6 +46,10 @@ ifeq ($(CONFIG_SYSTEM_INSTALL),y)
 CONFIGURED_APPS += system/install
 endif
 
+ifeq ($(CONFIG_SYSTEM_RAMTEST),y)
+CONFIGURED_APPS += system/ramtest
+endif
+
 ifeq ($(CONFIG_SYSTEM_READLINE),y)
 CONFIGURED_APPS += system/readline
 endif

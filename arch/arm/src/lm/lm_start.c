@@ -52,6 +52,7 @@
 
 #include "lm_lowputc.h"
 #include "lm_syscontrol.h"
+#include "lm_userspace.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -137,10 +138,21 @@ void __start(void)
 #endif
   showprogress('D');
 
+  /* For the case of the separate user-/kernel-space build, perform whatever
+   * platform specific initialization of the user memory is required.
+   * Normally this just means initializing the user space .data and .bss
+   * segments.
+   */
+
+#ifdef CONFIG_NUTTX_KERNEL
+  lm_userspace();
+  showprogress('E');
+#endif
+
   /* Initialize onboard resources */
 
   lm_boardinitialize();
-  showprogress('E');
+  showprogress('F');
 
   /* Then start NuttX */
 

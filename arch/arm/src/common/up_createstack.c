@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/common/up_createstack.c
  *
- *   Copyright (C) 2007-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,36 +111,54 @@ static void *memset32(void *s, uint32_t  c, size_t n)
  * Name: up_create_stack
  *
  * Description:
- *   Allocate a stack for a new thread and setup up stack-related
- *   information in the TCB.
+ *   Allocate a stack for a new thread and setup up stack-related information
+ *   in the TCB.
  *
- *   The following TCB fields must be initialized:
- *   adj_stack_size: Stack size after adjustment for hardware, processor,
+ *   The following TCB fields must be initialized by this function:
+ *
+ *   - adj_stack_size: Stack size after adjustment for hardware, processor,
  *     etc.  This value is retained only for debug purposes.
- *   stack_alloc_ptr: Pointer to allocated stack
- *   adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The initial value of
+ *   - stack_alloc_ptr: Pointer to allocated stack
+ *   - adj_stack_ptr: Adjusted stack_alloc_ptr for HW.  The initial value of
  *     the stack pointer.
  *
- * Input Parameters:
- *   tcb: The TCB of new task
- *   stack_size:  The requested stack size.  At least this how much must be
- *     allocated.
+ * Inputs:
+ *   - tcb: The TCB of new task
+ *   - stack_size:  The requested stack size.  At least this much
+ *     must be allocated.
+ *   - ttype:  The thread type.  This may be one of following (defined in
+ *     include/nuttx/sched.h):
+ *
+ *       TCB_FLAG_TTYPE_TASK     Normal user task
+ *       TCB_FLAG_TTYPE_PTHREAD  User pthread
+ *       TCB_FLAG_TTYPE_KERNEL   Kernel thread
+ *
+ *     This thread type is normally available in the flags field of the TCB,
+ *     however, there are certain contexts where the TCB may not be fully
+ *     initialized when up_create_stack is called.
+ *
+ *     If CONFIG_NUTTX_KERNEL is defined, then this thread type may affect
+ *     how the stack is allocated.  For example, kernel thread stacks should
+ *     be allocated from protected kernel memory.  Stacks for user tasks and
+ *     threads must come from memory that is accessible to user code.
  *
  ****************************************************************************/
 
-int up_create_stack(struct tcb_s *tcb, size_t stack_size)
+int up_create_stack(FAR struct tcb_s *tcb, size_t stack_size, uint8_t ttype)
 {
-  /* Is there already a stack allocated of a different size? */
+  /* Is there already a stack allocated of a different size?  Because of
+   * alignment issues, stack_size might erroneously appear to be of a
+   * different size.  Fortunately, this is not a critical operation.
+   */
 
   if (tcb->stack_alloc_ptr && tcb->adj_stack_size != stack_size)
     {
-      /* Yes.. free it */
+      /* Yes.. Release the old stack */
 
-      sched_ufree(tcb->stack_alloc_ptr);
-      tcb->stack_alloc_ptr = NULL;
+      up_release_stack(tcb, ttype);
     }
 
-  /* Do we need to allocate a stack? */
+  /* Do we need to allocate a new stack? */
  
   if (!tcb->stack_alloc_ptr)
     {
@@ -148,12 +166,32 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size)
        * then create a zeroed stack to make stack dumps easier to trace.
        */
 
+#if defined(CONFIG_NUTTX_KERNEL) && defined(CONFIG_MM_KERNEL_HEAP)
+      /* Use the kernel allocator if this is a kernel thread */
+
+      if (ttype == TCB_FLAG_TTYPE_KERNEL)
+        {
 #if defined(CONFIG_DEBUG) && !defined(CONFIG_DEBUG_STACK)
-      tcb->stack_alloc_ptr = (uint32_t *)kuzalloc(stack_size);
+          tcb->stack_alloc_ptr = (uint32_t *)kzalloc(stack_size);
 #else
-      tcb->stack_alloc_ptr = (uint32_t *)kumalloc(stack_size);
+          tcb->stack_alloc_ptr = (uint32_t *)kmalloc(stack_size);
 #endif
+        }
+      else
+#endif
+        {
+          /* Use the user-space allocator if this is a task or pthread */
+
+#if defined(CONFIG_DEBUG) && !defined(CONFIG_DEBUG_STACK)
+          tcb->stack_alloc_ptr = (uint32_t *)kuzalloc(stack_size);
+#else
+          tcb->stack_alloc_ptr = (uint32_t *)kumalloc(stack_size);
+#endif
+        }
+
 #ifdef CONFIG_DEBUG
+      /* Was the allocation successful? */
+
       if (!tcb->stack_alloc_ptr)
         {
           sdbg("ERROR: Failed to allocate stack, size %d\n", stack_size);
@@ -202,7 +240,7 @@ int up_create_stack(struct tcb_s *tcb, size_t stack_size)
        */
 
 #if defined(CONFIG_DEBUG) && defined(CONFIG_DEBUG_STACK)
-      memset32(tcb->stack_alloc_ptr, 0xDEADBEEF, tcb->adj_stack_size/4);
+      memset32(tcb->stack_alloc_ptr, 0xdeadbeef, tcb->adj_stack_size/4);
 #endif
 
       up_ledon(LED_STACKCREATED);

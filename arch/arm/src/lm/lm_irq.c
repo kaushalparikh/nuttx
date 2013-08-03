@@ -48,6 +48,7 @@
 #include <arch/irq.h>
 
 #include "nvic.h"
+#include "ram_vectors.h"
 #include "up_arch.h"
 #include "os_internal.h"
 #include "up_internal.h"
@@ -145,7 +146,7 @@ static int lm_nmi(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! NMI received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -153,7 +154,7 @@ static int lm_busfault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Bus fault recived\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -161,7 +162,7 @@ static int lm_usagefault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Usage fault received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -169,7 +170,7 @@ static int lm_pendsv(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! PendSV received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -177,7 +178,7 @@ static int lm_dbgmonitor(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Debug Monitor receieved\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -185,7 +186,7 @@ static int lm_reserved(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Reserved interrupt\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 #endif
@@ -291,6 +292,14 @@ void up_irqinitialize(void)
 
   putreg32(0, NVIC_IRQ0_31_ENABLE);
   putreg32(0, NVIC_IRQ32_63_ENABLE);
+
+  /* If CONFIG_ARCH_RAMVECTORS is defined, then we are using a RAM-based
+   * vector table that requires special initialization.
+   */
+
+#ifdef CONFIG_ARCH_RAMVECTORS
+  up_ramvec_initialize();
+#endif
 
   /* Set all interrrupts (and exceptions) to the default priority */
 

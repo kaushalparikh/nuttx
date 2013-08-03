@@ -1,7 +1,7 @@
 /****************************************************************************
  * sched/sig_deliver.c
  *
- *   Copyright (C) 2007, 2008, 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2008, 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sched.h>
+#include <string.h>
 #include <debug.h>
 #include <nuttx/arch.h>
 
@@ -127,9 +128,37 @@ void sig_deliver(FAR struct tcb_s *stcb)
       savesigprocmask = stcb->sigprocmask;
       stcb->sigprocmask = savesigprocmask | sigq->mask | SIGNO2SET(sigq->info.si_signo);
 
-      /* Deliver the signal */
+      /* Deliver the signal.  In the kernel build this has to be handled
+       * differently if we are dispatching to a signal handler in a user-
+       * space task or thread; we have to switch to user-mode before
+       * calling the task.
+       */
 
-      (*sigq->action.sighandler)(sigq->info.si_signo, &sigq->info, NULL);
+#ifdef CONFIG_NUTTX_KERNEL
+      if ((stcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL)
+        {
+          /* The sigq_t pointed to by sigq resides in kernel space.  So we
+           * cannot pass a reference to sigq->info to the user application.
+           * Instead, we will copy the siginfo_t structure onto the stack.
+           * We are currently executing on the stack of the user thread
+           * (albeit temporarily in kernel mode), so the copy of the
+           * siginfo_t structure will be accessible by the user thread.
+           */
+
+          siginfo_t info;
+          memcpy(&info, &sigq->info, sizeof(siginfo_t));
+
+          up_signal_dispatch(sigq->action.sighandler, sigq->info.si_signo,
+                             &info, NULL);
+        }
+      else
+#endif
+        {
+          /* The kernel thread signal handler is much simpler. */
+
+          (*sigq->action.sighandler)(sigq->info.si_signo, &sigq->info,
+                                     NULL);
+        }
 
       /* Restore the original sigprocmask */
 

@@ -458,7 +458,9 @@ KwikStik-K40-specific Configuration Options
     CONFIG_KINETIS_PIT      -- Support Programmable Interval Timers
     CONFIG_ARMV7M_MPU       -- Support the MPU
 
-  Kinetis interrupt priorities (Default is the mid priority)
+  Kinetis interrupt priorities (Default is the mid priority)  These should
+  not be set because they can cause unhandled, nested interrupts.  All
+  interrupts need to be at the default priority in the current design.
 
     CONFIG_KINETIS_UART0PRIO
     CONFIG_KINETIS_UART1PRIO
@@ -524,7 +526,22 @@ Where <subdir> is one of the following:
   ostest:
   ------
     This configuration directory, performs a simple OS test using
-    examples/ostest.  By default, this project assumes that you are
-    using the DFU bootloader.
+    examples/ostest.
 
-    CONFIG_KINETIS_BUILDROOT=y      : NuttX buildroot under Linux or Cygwin
+    NOTES:
+
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. Default platform/toolchain:
+
+       CONFIG_HOST_LINUX=y                 : Linux (Cygwin under Windows okay too).
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot (arm-nuttx-elf-gcc)
+       CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : The older OABI version
+       CONFIG_RAW_BINARY=y                 : Output formats: ELF and raw binary

@@ -15,6 +15,7 @@ Contents
   NuttX OABI "buildroot" Toolchain
   NXFLAT Toolchain
   LEDs
+  Serial Console
   USB Device Controller Functions
   Using OpenOCD and GDB with an FT2232 JTAG emulator
   LM4F120 LaunchPad Configuration Options
@@ -136,16 +137,33 @@ Using OpenOCD and GDB with an FT2232 JTAG emulator
 
   Building OpenOCD under Cygwin:
 
-    Refer to configs/lm4f120-launchpad/README.txt
+    Refer to configs/olimex-lpc1766stk/README.txt
 
   Installing OpenOCD in Linux:
 
-    sudo apt-get install openocd
+      sudo apt-get install openocd
+
+    As of this writing, there is no support for the lm4f120 in the package
+    above. You will have to build openocd from its source (as of this writing
+    the latest commit was b9b4bd1a6410ff1b2885d9c2abe16a4ae7cb885f):
+
+      git clone http://git.code.sf.net/p/openocd/code openocd
+      cd openocd
+
+    Then, add the patches provided by http://openocd.zylin.com/922:
+
+      git fetch http://openocd.zylin.com/openocd refs/changes/22/922/14 && git checkout FETCH_HEAD
+      ./bootstrap
+      ./configure --enable-maintainer-mode --enable-ti-icdi
+      make 
+      sudo make install
+
+    For additional help, see http://processors.wiki.ti.com/index.php/Stellaris_Launchpad_with_OpenOCD_and_Linux
 
   Helper Scripts.
 
-    I have been using the on-board FT2232 JTAG/SWD/SWO interface.  OpenOCD
-    requires a configuration file.  I keep the one I used last here:
+    I have been using the on-board In-Circuit Debug Interface (ICDI) interface.
+    OpenOCD requires a configuration file.  I keep the one I used last here:
     
       configs/lm4f120-launchpad/tools/lm4f120-launchpad.cfg
 
@@ -155,9 +173,9 @@ Using OpenOCD and GDB with an FT2232 JTAG emulator
     /usr/share/openocd/scripts.  As of this writing, the configuration
     files of interest were:
 
-      /usr/share/openocd/scripts/interface/luminary.cfg
-      /usr/share/openocd/scripts/board/ek-lm3s6965.cfg
-      /usr/share/openocd/scripts/target/stellaris.cfg
+      /usr/local/share/openocd/scripts/board/ek-lm4f120xl.cfg
+      /usr/local/share/openocd/scripts/interface/ti-icdi.cfg
+      /usr/local/share/openocd/scripts/target/stellaris_icdi.cfg
 
     There is also a script on the tools/ directory that I use to start
     the OpenOCD daemon on my system called oocd.sh.  That script will
@@ -169,9 +187,17 @@ Using OpenOCD and GDB with an FT2232 JTAG emulator
 
   Starting OpenOCD
 
-    Then you should be able to start the OpenOCD daemon like:
+    If you are in the top-level NuttX build directlory then you should
+    be able to start the OpenOCD daemon like:
 
-      configs/lm4f120-launchpad/tools/oocd.sh $PWD
+      oocd.sh $PWD
+
+    The relative path to the oocd.sh script is configs/lm4f120-launchpad/tools,
+    but that should have been added to your PATH variable when you sourced
+    the setenv.sh script.
+    
+    Note that OpenOCD needs to be run with administrator privileges in
+    some environments (sudo).
 
   Connecting GDB
 
@@ -410,7 +436,7 @@ NXFLAT Toolchain
 
 LEDs
 ^^^^
-  The LM32F120 has a single RGB LED.  If CONFIG_ARCH_LEDS is defined, then
+  The LM4F120 has a single RGB LED.  If CONFIG_ARCH_LEDS is defined, then
   support for the LaunchPad LEDs will be included in the build.  See:
 
   - configs/lm4f120-launchpad/include/board.h - Defines LED constants, types and
@@ -440,6 +466,50 @@ LEDs
   Flashing RED:
   - In the event of a fatal crash, the BLUE and GREEN components will be
     extinguished and the RED component will FLASH at a 2Hz rate.
+
+Serial Console
+^^^^^^^^^^^^^^
+
+  By default, all configurations use UART0 which connects to the USB VCOM
+  on the DEBUG port on the LM4F120 LaunchPad:
+
+    UART0 RX - PA.0
+    UART0 TX - PA.1
+
+  However, if you use an external RS232 driver, then other options are
+  available.  UART1 has option pin settings and flow control capabilities
+  that are not available with the other UARTS::
+
+    UART1 RX - PB.0 or PC.4 (Need disambiguation in board.h)
+    UART1 TX - PB.1 or PC.5 ("  " "            " "" "     ")
+
+    UART1_RTS - PF.0 or PC.4
+    UART1_CTS - PF.1 or PC.5
+
+  NOTE: board.h currently selects PB.0, PB.1, PF.0 and PF.1 for UART1, but
+  that can be changed by editting board.h
+
+  UART2-5, 7 are also available, UART2 is not recommended because it shares
+  some pin usage with USB device mode.  UART6 is not available because its
+  only RX/TX pin options are dedicated to USB support.
+
+    UART2 RX - PD.6
+    UART2 TX - PD.7 (Also used for USB VBUS detection)
+
+    UART3 RX - PC.6
+    UART3 TX - PC.7
+
+    UART4 RX - PC.4
+    UART4 TX - PC.5
+
+    UART5 RX - PE.4
+    UART5 TX - PE.5
+
+    UART6 RX - PD.4, Not available.  Dedicated for USB_DM
+    UART6 TX - PD.5, Not available.  Dedicated for USB_DP
+
+    UART7 RX - PE.0
+    UART7 TX - PE.1
 
 USB Device Controller Functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -615,9 +685,36 @@ sub-directory and can be selected as follow:
 
 Where <subdir> is one of the following:
 
+  nsh:
+  ---
+    Configures the NuttShell (nsh) located at apps/examples/nsh.  The
+    configuration enables the serial VCOM interfaces on UART0.  Support for
+    builtin applications is enabled, but in the base configuration no
+    builtin applications are selected.
+
+    NOTES:
+ 
+    1. This configuration uses the mconf-based configuration tool.  To
+       change this configuration using that tool, you should:
+
+       a. Build and install the kconfig-mconf tool.  See nuttx/README.txt
+          and misc/tools/
+
+       b. Execute 'make menuconfig' in nuttx/ in order to start the
+          reconfiguration process.
+
+    2. By default, this configuration uses the CodeSourcery toolchain
+       for Windows and builds under Cygwin (or probably MSYS).  That
+       can easily be reconfigured, of course.
+
+       CONFIG_HOST_LINUX=y                 : Linux (Cygwin under Windows okay too).
+       CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot (arm-nuttx-elf-gcc)
+       CONFIG_RAW_BINARY=y                 : Output formats: ELF and raw binary
+
   ostest:
     This configuration directory, performs a simple OS test using
-    examples/ostest.
+    examples/ostest. The configuration enables the serial VCOM interfaces
+    on UART0. 
 
     NOTES:
     1. This configuration uses the mconf-based configuration tool.  To

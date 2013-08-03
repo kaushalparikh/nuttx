@@ -543,7 +543,17 @@ struct task_tcb_s
   /* Values needed to restart a task ********************************************/
 
   uint8_t  init_priority;                /* Initial priority of the task        */
+
+#if !defined(CONFIG_CUSTOM_STACK) && defined(CONFIG_NUTTX_KERNEL)
+  /* In the kernel mode build, the arguments are saved on the task's stack      */
+
+  FAR char **argv;                       /* Name+start-up parameters            */
+#else
+  /* Otherwise, the arguments are strdup'ed and the argv[] is statically        */
+  /* defined here:                                                              */
+
   char    *argv[CONFIG_MAX_TASK_ARGS+1]; /* Name+start-up parameters            */
+#endif
 };
 
 /* struct pthread_tcb_s **********************************************************/
@@ -681,26 +691,6 @@ void task_starthook(FAR struct task_tcb_s *tcb, starthook_t starthook,
 FAR struct task_tcb_s *task_vforksetup(start_t retaddr);
 pid_t task_vforkstart(FAR struct task_tcb_s *child);
 void task_vforkabort(FAR struct task_tcb_s *child, int errcode);
-
-/****************************************************************************
- * Name: task_startup
- *
- * Description:
- *   This function is the user-space, task startup function.  It is called
- *   from up_task_start() in user-mode.
- *
- * Inputs:
- *   entrypt - The user-space address of the task entry point
- *   argc and argv - Standard arguments for the task entry point
- *
- * Return:
- *   None.  This function does not return.
- *
- ****************************************************************************/
-
-#if defined(CONFIG_NUTTX_KERNEL) && !defined(__KERNEL__)
-void task_startup(main_t entrypt, int argc, FAR char *argv[]);
-#endif
 
 #undef EXTERN
 #if defined(__cplusplus)

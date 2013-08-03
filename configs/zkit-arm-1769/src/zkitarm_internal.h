@@ -212,6 +212,9 @@
 #define ZKITARM_OLED_CS    (GPIO_OUTPUT | GPIO_VALUE_ONE  | GPIO_PORT0 | GPIO_PIN6)
 #define ZKITARM_OLED_DC    (GPIO_OUTPUT | GPIO_VALUE_ZERO | GPIO_PORT2 | GPIO_PIN7)
 #endif
+#define ZKITARM_OLED_RST   (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT1 | GPIO_PIN25)
+#define ZKITARM_OLED_CS    (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT1 | GPIO_PIN21)
+#define ZKITARM_OLED_RS    (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT1 | GPIO_PIN22)
 
 /************************************************************************************
  * Public Types
@@ -228,14 +231,14 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lpc17_sspinitialize
+ * Name: zkit_sspinitialize
  *
  * Description:
  *   Called to configure SPI chip select GPIO pins for the LPCXpresso board.
  *
  ************************************************************************************/
 
-void weak_function lpc17_sspinitialize(void);
+void weak_function zkit_sspinitialize(void);
 
 #endif /* __ASSEMBLY__ */
 #endif /* _CONFIGS_ZKITARM_LPC1768_SRC_ZKITARM_INTERNAL_H */

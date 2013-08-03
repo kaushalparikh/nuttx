@@ -312,15 +312,17 @@
 #define IOCON_FUNC_MASK             (7 << IOCON_FUNC_SHIFT)
 #define IOCON_MODE_SHIFT            (3)   /* Bits 3-4: Type D,A,W */
 #define IOCON_MODE_MASK             (3 << IOCON_MODE_SHIFT )
-#define IOCON_HYS_SHIFT             (5)   /* Bit 5: Type D,W  */
+#define IOCON_HYS_SHIFT             (5)   /* Bit 5: Type D,W */
 #define IOCON_HYS_MASK              (1 << IOCON_HYS_SHIFT)
-#define IOCON_INV_SHIFT             (6)   /* Bit 6: Typ D,A,I,W  */
+#define IOCON_INV_SHIFT             (6)   /* Bit 6: Type D,A,I,W */
 #define IOCON_INV_MASK              (1 << IOCON_INV_SHIFT)
 #define IOCON_ADMODE_SHIFT          (7)   /* Bit 7: Type A */
 #define IOCON_ADMODE_MASK           (1 << IOCON_ADMODE_SHIFT)
 #define IOCON_FILTER_SHIFT          (8)   /* Bit 8: Type A */
 #define IOCON_FILTER_MASK           (1 << IOCON_FILTER_SHIFT)
-#define IOCON_SLEW_SHIFT            (9)   /* Bit 9: Type W*/
+#define IOCON_I2CHS_SHIFT           (8)   /* Bit 8: Type I */
+#define IOCON_I2CHS_MASK            (1 << IOCON_I2CHS_SHIFT)
+#define IOCON_SLEW_SHIFT            (9)   /* Bit 9: Type W */
 #define IOCON_SLEW_MASK             (1 << IOCON_SLEW_SHIFT)
 #define IOCON_HIDRIVE_SHIFT         (9)   /* Bit 9: Type I */
 #define IOCON_HIDRIVE_MASK          (1 << IOCON_HIDRIVE_SHIFT)
@@ -331,10 +333,32 @@
 
 /* Pin modes */
 
-#define IOCON_MODE_FLOAT            (0)      /* 00: pin has neither pull-up nor pull-down */
-#define IOCON_MODE_PD               (1)      /* 00: pin has a pull-down resistor enabled */
-#define IOCON_MODE_PU               (2)      /* 00: pin has a pull-up resistor enabled */
-#define IOCON_MODE_RM               (3)      /* 00: pin has repeater mode enabled */
+#define IOCON_MODE_FLOAT            (0)   /* 00: pin has neither pull-up nor pull-down */
+#define IOCON_MODE_PD               (1)   /* 01: pin has a pull-down resistor enabled */
+#define IOCON_MODE_PU               (2)   /* 10: pin has a pull-up resistor enabled */
+#define IOCON_MODE_RM               (3)   /* 11: pin has repeater mode enabled */
+
+/* Pin types */
+
+#define IOCON_TYPE_D_MASK (0x0000067f) /* All ports except where ADC/DAC, USB, I2C is present */
+#define IOCON_TYPE_A_MASK (0x000105df) /* USB/ADC/DAC P0:12-13, P0:23-26, P1:30-31 */
+#define IOCON_TYPE_U_MASK (0x00000007) /* USB P0:29 to 31 */
+#define IOCON_TYPE_I_MASK (0x00000347) /* I2C/USB P0:27-28, P5:2-3  */
+#define IOCON_TYPE_W_MASK (0x000007ff) /* I2S P0:7-9 */
+
+/* Slew rate modes */
+
+#define IOCON_SLEWMODE_NORMAL       (0 << IOCON_SLEW_SHIFT)
+#define IOCON_SLEWMODE_FAST         (1 << IOCON_SLEW_SHIFT)
+
+/* I2C modes */
+
+#define IOCON_I2CMODE_SHIFT         (IOCON_I2CHS_SHIFT)
+#define IOCON_I2CMODE_MASK          (3 << IOCON_I2CMODE_SHIFT)
+#  define IOCON_I2CMODE_FAST        (0 << IOCON_I2CMODE_SHIFT)
+#  define IOCON_I2CMODE_FASTPLUS    (1 << IOCON_I2CMODE_SHIFT)/*   */
+#  define IOCON_I2CMODE_HIOPENDRAIN (2 << IOCON_I2CMODE_SHIFT)/*  */
+#  define IOCON_I2CMODE_OPENDRAIN   (3 << IOCON_I2CMODE_SHIFT)/*  */
 
 /************************************************************************************
  * Public Types

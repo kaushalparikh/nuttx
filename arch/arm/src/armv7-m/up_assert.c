@@ -147,12 +147,19 @@ static inline void up_registerdump(void)
             current_regs[REG_R10], current_regs[REG_R11],
             current_regs[REG_R12], current_regs[REG_R13],
             current_regs[REG_R14], current_regs[REG_R15]);
+
 #ifdef CONFIG_ARMV7M_USEBASEPRI
-      lldbg("xPSR: %08x BASEPRI: %08x\n",
-            current_regs[REG_XPSR],  current_regs[REG_BASEPRI]);
+      lldbg("xPSR: %08x BASEPRI: %08x CONTROL: %08x\n",
+            current_regs[REG_XPSR],  current_regs[REG_BASEPRI],
+            getcontrol());
 #else
-      lldbg("xPSR: %08x PRIMASK: %08x\n",
-            current_regs[REG_XPSR],  current_regs[REG_PRIMASK]);
+      lldbg("xPSR: %08x PRIMASK: %08x CONTROL: %08x\n",
+            current_regs[REG_XPSR],  current_regs[REG_PRIMASK],
+            getcontrol());
+#endif
+
+#ifdef REG_EXC_RETURN
+      lldbg("EXC_RETURN: %08x\n", current_regs[REG_EXC_RETURN]);
 #endif
     }
 }
@@ -189,9 +196,9 @@ static void up_dumpstate(void)
       ustacksize = (uint32_t)rtcb->adj_stack_size;
     }
 
+#if CONFIG_ARCH_INTERRUPTSTACK > 3
   /* Get the limits on the interrupt stack memory */
 
-#if CONFIG_ARCH_INTERRUPTSTACK > 3
   istackbase = (uint32_t)&g_intstackbase;
   istacksize = (CONFIG_ARCH_INTERRUPTSTACK & ~3) - 4;
 
@@ -236,7 +243,11 @@ static void up_dumpstate(void)
     {
       up_stackdump(sp, ustackbase);
     }
+
 #else
+
+  /* Show user stack info */
+
   lldbg("sp:         %08x\n", sp);
   lldbg("stack base: %08x\n", ustackbase);
   lldbg("stack size: %08x\n", ustacksize);
@@ -247,12 +258,13 @@ static void up_dumpstate(void)
 
   if (sp > ustackbase || sp <= ustackbase - ustacksize)
     {
-      lldbg("ERROR: Stack pointer is not within allocated stack\n");
+      lldbg("ERROR: Stack pointer is not within the allocated stack\n");
     }
   else
     {
       up_stackdump(sp, ustackbase);
     }
+
 #endif
 
   /* Then dump the registers (if available) */
@@ -274,16 +286,16 @@ static void _up_assert(int errorcode)
 
   if (current_regs || ((struct tcb_s*)g_readytorun.head)->pid == 0)
     {
-       (void)irqsave();
-        for(;;)
-          {
+      (void)irqsave();
+      for(;;)
+        {
 #ifdef CONFIG_ARCH_LEDS
-            up_ledon(LED_PANIC);
-            up_mdelay(250);
-            up_ledoff(LED_PANIC);
-            up_mdelay(250);
+          up_ledon(LED_PANIC);
+          up_mdelay(250);
+          up_ledoff(LED_PANIC);
+          up_mdelay(250);
 #endif
-          }
+        }
     }
   else
     {
@@ -306,6 +318,7 @@ void up_assert(const uint8_t *filename, int lineno)
 #endif
 
   up_ledon(LED_ASSERTION);
+
 #ifdef CONFIG_PRINT_TASKNAME
   lldbg("Assertion failed at file:%s line: %d task: %s\n",
         filename, lineno, rtcb->name);
@@ -313,28 +326,7 @@ void up_assert(const uint8_t *filename, int lineno)
   lldbg("Assertion failed at file:%s line: %d\n",
         filename, lineno);
 #endif
+
   up_dumpstate();
   _up_assert(EXIT_FAILURE);
-}
-
-/****************************************************************************
- * Name: up_assert_code
- ****************************************************************************/
-
-void up_assert_code(const uint8_t *filename, int lineno, int errorcode)
-{
-#ifdef CONFIG_PRINT_TASKNAME
-  struct tcb_s *rtcb = (struct tcb_s*)g_readytorun.head;
-#endif
-
-  up_ledon(LED_ASSERTION);
-#ifdef CONFIG_PRINT_TASKNAME
-  lldbg("Assertion failed at file:%s line: %d task: %s error code: %d\n",
-        filename, lineno, rtcb->name, errorcode);
-#else
-  lldbg("Assertion failed at file:%s line: %d error code: %d\n",
-        filename, lineno, errorcode);
-#endif
-  up_dumpstate();
-  _up_assert(errorcode);
 }

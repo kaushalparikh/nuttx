@@ -53,6 +53,7 @@
 #include "nuc_config.h"
 #include "nuc_lowputc.h"
 #include "nuc_clockconfig.h"
+#include "nuc_userspace.h"
 
 /****************************************************************************
  * Pre-processor Definitions
@@ -71,13 +72,13 @@
  */
 
 #define IDLE_STACK ((uint32_t)&_ebss+CONFIG_IDLETHREAD_STACKSIZE-4)
-#define HEAP_BASE  ((uint32_t)&_ebss+CONFIG_IDLETHREAD_STACKSIZE-4)
+#define HEAP_BASE  ((uint32_t)&_ebss+CONFIG_IDLETHREAD_STACKSIZE)
 
 /****************************************************************************
  * Public Data
  ****************************************************************************/
 
-const uint32_t g_idle_topstack = HEAP_BASE;
+const uint32_t g_idle_topstack = IDLE_STACK;
 
 /****************************************************************************
  * Private Functions
@@ -149,10 +150,21 @@ void __start(void)
 #endif
   showprogress('D');
 
+  /* For the case of the separate user-/kernel-space build, perform whatever
+   * platform specific initialization of the user memory is required.
+   * Normally this just means initializing the user space .data and .bss
+   * segments.
+   */
+
+#ifdef CONFIG_NUTTX_KERNEL
+  nuc_userspace();
+  showprogress('E');
+#endif
+
   /* Initialize onboard resources */
 
   nuc_boardinitialize();
-  showprogress('E');
+  showprogress('F');
 
   /* Then start NuttX */
 

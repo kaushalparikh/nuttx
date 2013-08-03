@@ -48,6 +48,7 @@
 #include <arch/irq.h>
 
 #include "nvic.h"
+#include "ram_vectors.h"
 #include "up_arch.h"
 #include "os_internal.h"
 #include "up_internal.h"
@@ -139,7 +140,7 @@ static int sam3u_nmi(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! NMI received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -147,7 +148,7 @@ static int sam3u_busfault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Bus fault recived\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -155,7 +156,7 @@ static int sam3u_usagefault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Usage fault received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -163,7 +164,7 @@ static int sam3u_pendsv(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! PendSV received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -171,7 +172,7 @@ static int sam3u_dbgmonitor(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Debug Monitor receieved\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -179,7 +180,7 @@ static int sam3u_reserved(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Reserved interrupt\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 #endif
@@ -280,9 +281,15 @@ void up_irqinitialize(void)
 
   putreg32(0, NVIC_IRQ0_31_ENABLE);
 
-  /* Set up the vector table address */
+  /* Set up the vector table address.
+   *
+   * If CONFIG_ARCH_RAMVECTORS is defined, then we are using a RAM-based
+   * vector table that requires special initialization.
+   */
 
-#ifdef CONFIG_SAM3U_DFU
+#if defined(CONFIG_ARCH_RAMVECTORS)
+  up_ramvec_initialize();
+#elif defined(CONFIG_STM32_DFU)
   putreg32((uint32_t)sam3u_vectors, NVIC_VECTAB);
 #endif
 

@@ -1,5 +1,5 @@
 /****************************************************************************
- * arch/arm/src/common/lpc17_mpuinit.c
+ * arch/arm/src/lpc17xx/lpc17_mpuinit.c
  *
  *   Copyright (C) 2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>

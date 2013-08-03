@@ -42,6 +42,8 @@
 
 #include <arch/irq.h>
 
+#include "exc_return.h"
+
 /************************************************************************************************
  * Preprocessor Definitions
  ************************************************************************************************/
@@ -62,13 +64,6 @@
 
 #define IDLE_STACK		(_ebss+CONFIG_IDLETHREAD_STACKSIZE)
 #define HEAP_BASE		(_ebss+CONFIG_IDLETHREAD_STACKSIZE)
-
-/* The Cortex-M3 return from interrupt is unusual.  We provide the following special
- * address to the BX instruction.  The particular value also forces a return to
- * thread mode and covers state from the main stack point, the MSP (vs. the MSP).
- */
-
-#define EXC_RETURN		0xfffffff9
 
 /************************************************************************************************
  * Global Symbols
@@ -236,7 +231,7 @@ sam3u_common:
 
 #ifdef CONFIG_NUTTX_KERNEL
 	/* The EXC_RETURN value will be 0xfffffff9 (privileged thread) or 0xfffffff1
-	 * (handler mode) if the state is on the MSP.  It can only be on the PSP if
+	 * (handler mode) if the stack is on the MSP.  It can only be on the PSP if
 	 * EXC_RETURN is 0xfffffffd (unprivileged thread)
 	 */
 
@@ -378,16 +373,25 @@ sam3u_common:
 	 *   r4-r11 = restored register values
 	 */
 2:
+
 #ifdef CONFIG_NUTTX_KERNEL
 	/* The EXC_RETURN value will be 0xfffffff9 (privileged thread) or 0xfffffff1
-	 * (handler mode) if the state is on the MSP.  It can only be on the PSP if
+	 * (handler mode) if the stack is on the MSP.  It can only be on the PSP if
 	 * EXC_RETURN is 0xfffffffd (unprivileged thread)
 	 */
 
-	adds	r0, r14, #3				/* If R14=0xfffffffd, then r0 == 0 */
-	ite		ne						/* Next two instructions are condition */
-	msrne	msp, r1					/* R1=The main stack pointer */
-	msreq	psp, r1					/* R1=The process stack pointer */
+	mrs		r2, control				/* R2=Contents of the control register */
+	tst		r14, #EXC_RETURN_PROCESS_STACK /* nonzero if context on process stack */
+	beq		3f						/* Branch if privileged */
+
+	orr		r2, r2, #1				/* Unprivileged mode */
+	msr		psp, r1					/* R1=The process stack pointer */
+	b		4f
+3:
+	bic		r2, r2, #1				/* Privileged mode */
+	msr		msp, r1					/* R1=The main stack pointer */
+4:
+	msr		control, r2				/* Save the updated control register */
 #else
 	msr		msp, r1					/* Recover the return MSP value */
 
@@ -395,7 +399,7 @@ sam3u_common:
 	 * actually occurs with interrupts still disabled).
 	 */
 
-	ldr		r14, =EXC_RETURN		/* Load the special value */
+	ldr		r14, =EXC_RETURN_PRIVTHR	/* Load the special value */
 #endif
 
     /* Restore the interrupt state */

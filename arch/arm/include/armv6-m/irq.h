@@ -57,15 +57,21 @@
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
+/* Configuration ************************************************************/
+/* If this is a kernel build, how many nested system calls should we support? */
 
-/* IRQ Stack Frame Format:
+#ifndef CONFIG_SYS_NNEST
+#  define CONFIG_SYS_NNEST 2
+#endif
+
+/* IRQ Stack Frame Format ***************************************************
  *
  * The following additional registers are stored by the interrupt handling
  * logic.
  */
 
 #define REG_R13             (0)  /* R13 = SP at time of interrupt */
-#define REG_BASEPRI         (1)  /* BASEPRI */
+#define REG_PRIMASK         (1)  /* PRIMASK */
 #define REG_R4              (2)  /* R4 */
 #define REG_R5              (3)  /* R5 */
 #define REG_R6              (4)  /* R6 */
@@ -140,11 +146,22 @@
  * Public Types
  ****************************************************************************/
 
+#ifndef __ASSEMBLY__
+
+/* This structure represents the return state from a system call */
+
+#ifdef CONFIG_NUTTX_KERNEL
+struct xcpt_syscall_s
+{
+  uint32_t excreturn;   /* The EXC_RETURN value */
+  uint32_t sysreturn;   /* The return PC */
+};
+#endif
+
 /* The following structure is included in the TCB and defines the complete
  * state of the thread.
  */
 
-#ifndef __ASSEMBLY__
 struct xcptcontext
 {
 #ifndef CONFIG_DISABLE_SIGNALS
@@ -159,14 +176,26 @@ struct xcptcontext
    */
 
   uint32_t saved_pc;
-  uint32_t saved_basepri;
+  uint32_t saved_primask;
   uint32_t saved_xpsr;
+
+# ifdef CONFIG_NUTTX_KERNEL
+  /* This is the saved address to use when returning from a user-space
+   * signal handler.
+   */
+
+  uint32_t sigreturn;
+
+# endif
 #endif
 
 #ifdef CONFIG_NUTTX_KERNEL
-  /* The following holds the return address from a system call */
+  /* The following array holds the return address and the exc_return value
+   * needed to return from each nested system call.
+   */
 
-  uint32_t sysreturn;
+  uint8_t nsyscalls;
+  struct xcpt_syscall_s syscall[CONFIG_SYS_NNEST];
 #endif
 
   /* Register save area */
@@ -208,44 +237,12 @@ static inline void setprimask(uint32_t primask)
       : "memory");
 }
 
-/* Get/set the BASEPRI register.  The BASEPRI register defines the minimum
- * priority for exception processing. When BASEPRI is set to a nonzero
- * value, it prevents the activation of all exceptions with the same or
- * lower priority level as the BASEPRI value.
- */
-
-static inline uint8_t getbasepri(void) inline_function;
-static inline uint8_t getbasepri(void)
-{
-  uint32_t basepri;
-
-  __asm__ __volatile__
-    (
-     "\tmrs  %0, basepri\n"
-     : "=r" (basepri)
-     :
-     : "memory");
-
-  return (uint8_t)basepri;
-}
-
-static inline void setbasepri(uint32_t basepri) inline_function;
-static inline void setbasepri(uint32_t basepri)
-{
-  __asm__ __volatile__
-    (
-      "\tmsr basepri, %0\n"
-      :
-      : "r" (basepri)
-      : "memory");
-}
-
 /* Disable IRQs */
 
 static inline void irqdisable(void) inline_function;
 static inline void irqdisable(void)
 {
-  setbasepri(NVIC_SYSH_DISABLE_PRIORITY);
+  __asm__ __volatile__ ("\tcpsid  i\n");
 }
 
 /* Save the current primask state & disable IRQs */
@@ -253,9 +250,21 @@ static inline void irqdisable(void)
 static inline irqstate_t irqsave(void) inline_function;
 static inline irqstate_t irqsave(void)
 {
-  uint8_t basepri = getbasepri();
-  setbasepri(NVIC_SYSH_DISABLE_PRIORITY);
-  return (irqstate_t)basepri;
+  unsigned short primask;
+
+  /* Return the current value of primask register and set
+   * bit 0 of the primask register to disable interrupts
+   */
+
+  __asm__ __volatile__
+    (
+     "\tmrs    %0, primask\n"
+     "\tcpsid  i\n"
+     : "=r" (primask)
+     :
+     : "memory");
+
+  return primask;
 }
 
 /* Enable IRQs */
@@ -263,7 +272,6 @@ static inline irqstate_t irqsave(void)
 static inline void irqenable(void) inline_function;
 static inline void irqenable(void)
 {
-  setbasepri(0);
   __asm__ __volatile__ ("\tcpsie  i\n");
 }
 
@@ -272,7 +280,16 @@ static inline void irqenable(void)
 static inline void irqrestore(irqstate_t flags) inline_function;
 static inline void irqrestore(irqstate_t flags)
 {
-  setbasepri((uint32_t)flags);
+  /* If bit 0 of the primask is 0, then we need to restore
+   * interrupts.
+   */
+
+  __asm__ __volatile__
+    (
+      "\tmsr primask, %0\n"
+      :
+      : "r" (flags)
+      : "memory");
 }
 
 /* Get/set IPSR */

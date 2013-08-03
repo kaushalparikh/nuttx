@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs/open1788/knsh/memory.ld
+ * configs/open1788/scripts/memory.ld
  *
  *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -34,15 +34,33 @@
  ****************************************************************************/
 
 /* The LPC1788 has 512Kb of FLASH beginning at address 0x0000:0000 and
- * 96Kb of total SRAM: 64Kb of SRAM in the CPU block beginning at address
- * 0x10000000 and 32Kb of Peripheral SRAM in two banks, 8Kb at addresses
- * 0x20000000 bank0 first and 8kb at 0x20002000 at bank0 second. And 16Kb
+ * 96KB of total SRAM: 64KB of SRAM in the CPU block beginning at address
+ * 0x10000000 and 32Kb of Peripheral SRAM in two banks, 8KB at addresses
+ * 0x20000000 bank0 first and 8KB at 0x20002000 at bank0 second. And 16KB
  * at 0x20004000 on bank1.
  *
- * For MPU support, the kernel-mode NuttX section is assumed to be 64Kb of
- * FLASH and 4Kb of SRAM.  That, of course, can be optimized as needed (See
- * also configs/open1788/scripts/kernel-space.ld).  A detailed memory map
- * for the CPU SRAM region is as follows:
+ * For MPU support, the kernel-mode NuttX section is assumed to be 64KB of
+ * FLASH and 4KB of SRAM.  That, of course, can be optimized as needed (See
+ * also configs/open1788/scripts/kernel-space.ld).
+ *
+ * Alignment of the user space FLASH partition is a critical factor: The
+ * user space FLASH partition will be spanned with a single region of size
+ * 2**n bytes.  The alignment of the user-space region must be the same.  As
+ * a consequence, as the user-space increases in size, the alignmment
+ * requirement also increases.
+ *
+ * This alignment requirement means that the largest user space FLASH region
+ * you can have will be 256KB at it would have to be positioned at
+ * 0x00400000.  If you change this address, don't forget to change the
+ * CONFIG_NUTTX_USERSPACE configuration setting to match and to modify
+ * the check in kernel/userspace.c.
+ *
+ * For the same reasons, the maximum size of the SRAM mapping is limited to
+ * 4KB.  Both of these alignment limitations could be reduced by using
+ * multiple regions to map the FLASH/SDRAM range or perhaps with some
+ * clever use of subregions.
+ *
+ * A detailed memory map for the 64KB CPU SRAM region is as follows:
  *
  *   0x10000 0000:  Kernel .data region.  Typical size: 0.1KB
  *   ------- ----   Kernel .bss  region.  Typical size: 1.8KB
@@ -63,12 +81,14 @@ MEMORY
     /* 256Kb FLASH */
 
     kflash (rx)      : ORIGIN = 0x00000000, LENGTH = 64K
-    uflash (rx)      : ORIGIN = 0x00010000, LENGTH = 448K
+    uflash (rx)      : ORIGIN = 0x00010000, LENGTH = 64K
+    xflash (rx)      : ORIGIN = 0x00010000, LENGTH = 384K
 
     /* 64Kb of SRAM in the CPU block */
 
     ksram (rwx)      : ORIGIN = 0x10000000, LENGTH = 4K
-    usram (rwx)      : ORIGIN = 0x10001000, LENGTH = 60K
+    usram (rwx)      : ORIGIN = 0x10001000, LENGTH = 4K
+    xsram (rwx)      : ORIGIN = 0x10001000, LENGTH = 56K
 
     /* Other peripheral memory (free, nothing is linked here) */
 

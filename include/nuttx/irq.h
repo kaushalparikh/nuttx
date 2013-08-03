@@ -1,7 +1,7 @@
 /****************************************************************************
  * include/nuttx/irq.h
  *
- *   Copyright (C) 2007-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,9 +47,12 @@
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
+/* IRQ detach is a convenience definition.  Detaching an interrupt handler
+ * is equivalent to setting a NULL interrupt handler.
+ */
 
 #ifndef __ASSEMBLY__
-# define irq_detach(isr)   irq_attach(isr, NULL)
+# define irq_detach(isr) irq_attach(isr, NULL)
 #endif
 
 /****************************************************************************
@@ -70,19 +73,29 @@ typedef int (*xcpt_t)(int irq, FAR void *context);
  * Public Variables
  ****************************************************************************/
 
-/****************************************************************************
- * Public Function Prototypes
- ****************************************************************************/
-
 #ifndef __ASSEMBLY__
 #ifdef __cplusplus
 #define EXTERN extern "C"
-extern "C" {
+extern "C"
+{
 #else
 #define EXTERN extern
 #endif
 
-EXTERN int irq_attach(int irq, xcpt_t isr);
+/****************************************************************************
+ * Public Function Prototypes
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: irq_attach
+ *
+ * Description:
+ *   Configure the IRQ subsystem so that IRQ number 'irq' is dispatched to
+ *   'isr'
+ *
+ ****************************************************************************/
+
+int irq_attach(int irq, xcpt_t isr);
 
 #undef EXTERN
 #ifdef __cplusplus

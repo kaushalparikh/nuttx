@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/lpc17xx/lpc17_spi.c
  *
- *   Copyright (C) 2010, 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010, 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,28 +63,35 @@
 /****************************************************************************
  * Definitions
  ****************************************************************************/
+/* Configuration ************************************************************/
+/* This driver does not support the SPI exchange method. */
 
-/* Enables debug output from this file (needs CONFIG_DEBUG too) */
+#ifdef CONFIG_SPI_EXCHANGE
+#  error "CONFIG_SPI_EXCHANGE must not be defined in the configuration"
+#endif
 
-#undef SPI_DEBUG     /* Define to enable debug */
-#undef SPI_VERBOSE   /* Define to enable verbose debug */
+/* Debug ********************************************************************/
+/* The following enable debug output from this file:
+ * 
+ * CONFIG_DEBUG         - Define to enable general debug features
+ * CONFIG_DEBUG_SPI     - Define to enable basic SSP debug (needs CONFIG_DEBUG)
+ * CONFIG_DEBUG_VERBOSE - Define to enable verbose SSP debug
+ */
 
-#ifdef SPI_DEBUG
+#ifdef CONFIG_DEBUG_SPI
 #  define spidbg  lldbg
-#  ifdef SPI_VERBOSE
+#  ifdef CONFIG_DEBUG_VERBOSE
 #    define spivdbg lldbg
 #  else
 #    define spivdbg(x...)
 #  endif
 #else
-#  undef SPI_VERBOSE
 #  define spidbg(x...)
 #  define spivdbg(x...)
 #endif
 
-/* SPI Clocking.
- *
- * The CPU clock by 1, 2, 4, or 8 to get the SPI peripheral clock (SPI_CLOCK).
+/* SSP Clocking *************************************************************/
+/* The CPU clock by 1, 2, 4, or 8 to get the SPI peripheral clock (SPI_CLOCK).
  * SPI_CLOCK may be further divided by 8-254 to get the SPI clock.  If we
  * want a usable range of 4KHz to 25MHz for the SPI, then:
  *
@@ -532,10 +539,10 @@ static void spi_recvblock(FAR struct spi_dev_s *dev, FAR void *buffer, size_t nw
  ****************************************************************************/
 
 /****************************************************************************
- * Name: up_spiinitialize
+ * Name: lpc17_spiinitialize
  *
  * Description:
- *   Initialize the selected SPI port
+ *   Initialize the selected SPI port.
  *
  * Input Parameter:
  *   Port number (for hardware that has mutiple SPI interfaces)
@@ -545,7 +552,7 @@ static void spi_recvblock(FAR struct spi_dev_s *dev, FAR void *buffer, size_t nw
  *
  ****************************************************************************/
 
-FAR struct spi_dev_s *up_spiinitialize(int port)
+FAR struct spi_dev_s *lpc17_spiinitialize(int port)
 {
   FAR struct lpc17_spidev_s *priv = &g_spidev;
   irqstate_t flags;

@@ -90,7 +90,8 @@ void up_task_start(main_t taskentry, int argc, FAR char *argv[])
 {
   /* Let sys_call3() do all of the work */
 
-  sys_call3(SYS_task_start, (uintptr_t)taskentry, (uintptr_t)argc, (uintptr_t)argv);
+  sys_call3(SYS_task_start, (uintptr_t)taskentry, (uintptr_t)argc,
+            (uintptr_t)argv);
 }
 
 #endif /* CONFIG_NUTTX_KERNEL */

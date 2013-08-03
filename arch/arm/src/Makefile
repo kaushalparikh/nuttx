@@ -74,7 +74,11 @@ else
 endif
 endif
 
+# The "head" object
+
 HEAD_OBJ = $(HEAD_ASRC:.S=$(OBJEXT))
+
+# Flat build or kernel-mode objects
 
 ASRCS = $(CHIP_ASRCS) $(CMN_ASRCS)
 AOBJS = $(ASRCS:.S=$(OBJEXT))
@@ -84,6 +88,21 @@ COBJS = $(CSRCS:.c=$(OBJEXT))
 
 SRCS = $(ASRCS) $(CSRCS)
 OBJS = $(AOBJS) $(COBJS)
+
+# User-mode objects
+
+UASRCS = $(CHIP_UASRCS) $(CMN_UASRCS)
+UAOBJS = $(UASRCS:.S=$(OBJEXT))
+
+UCSRCS = $(CHIP_UCSRCS) $(CMN_UCSRCS)
+UCOBJS = $(UCSRCS:.c=$(OBJEXT))
+
+USRCS = $(UASRCS) $(UCSRCS)
+UOBJS = $(UAOBJS) $(UCOBJS)
+
+KBIN = libkarch$(LIBEXT)
+UBIN = libuarch$(LIBEXT)
+BIN  = libarch$(LIBEXT)
 
 LDFLAGS += $(ARCHSCRIPT)
 
@@ -125,18 +144,21 @@ GCC_LIBDIR := ${shell dirname $(LIBGCC)}
 
 VPATH = chip:common:$(ARCH_SUBDIR)
 
-all: $(HEAD_OBJ) libarch$(LIBEXT)
+all: $(HEAD_OBJ) $(BIN)
 
 .PHONY: board/libboard$(LIBEXT)
 
-$(AOBJS) $(HEAD_OBJ): %$(OBJEXT): %.S
+$(AOBJS) $(UAOBJS) $(HEAD_OBJ): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
-$(COBJS): %$(OBJEXT): %.c
+$(COBJS) $(UCOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libarch$(LIBEXT): $(OBJS)
+$(BIN) $(KBIN): $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
+
+$(UBIN): $(UOBJS)
+	$(call ARCHIVE, $@, $(UOBJS))
 
 board/libboard$(LIBEXT):
 	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" libboard$(LIBEXT) EXTRADEFINES=$(EXTRADEFINES)
@@ -144,10 +166,10 @@ board/libboard$(LIBEXT):
 nuttx$(EXEEXT): $(HEAD_OBJ) board/libboard$(LIBEXT)
 	$(Q) echo "LD: nuttx"
 	$(Q) $(LD) --entry=__start $(LDFLAGS) $(LIBPATHS) $(EXTRA_LIBPATHS) \
-		-o $(NUTTX)$(EXEEXT) $(HEAD_OBJ) $(EXTRA_OBJS) \
+		-o $(NUTTX) $(HEAD_OBJ) $(EXTRA_OBJS) \
 		--start-group $(LDLIBS) $(EXTRA_LIBS) $(LIBGCC) --end-group
 ifneq ($(CONFIG_WINDOWS_NATIVE),y)
-	$(Q) $(NM) $(NUTTX)$(EXEEXT) | \
+	$(Q) $(NM) $(NUTTX) | \
 	grep -v '\(compiled\)\|\(\$(OBJEXT)$$\)\|\( [aUw] \)\|\(\.\.ng$$\)\|\(LASH[RL]DI\)' | \
 	sort > $(TOPDIR)/System.map
 endif
@@ -182,7 +204,9 @@ clean:
 ifeq ($(BOARDMAKE),y)
 	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" clean
 endif
-	$(call DELFILE, libarch$(LIBEXT))
+	$(call DELFILE, $(KBIN))
+	$(call DELFILE, $(UBIN))
+	$(call DELFILE, $(BIN))
 	$(call CLEAN)
 
 distclean: clean

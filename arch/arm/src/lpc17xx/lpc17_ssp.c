@@ -58,21 +58,30 @@
 #include "lpc17_gpio.h"
 #include "lpc17_ssp.h"
 
-#if defined(CONFIG_LPC17_SSP0) || defined(CONFIG_LPC17_SSP1)
+#if defined(CONFIG_LPC17_SSP0) || defined(CONFIG_LPC17_SSP1) || \
+    defined(CONFIG_LPC17_SSP2)
 
 /****************************************************************************
  * Definitions
  ****************************************************************************/
+/* Configuration ************************************************************/
+/* This driver does not support the SPI exchange method. */
 
-/* The following enable debug output from this file (needs CONFIG_DEBUG too).
+#ifdef CONFIG_SPI_EXCHANGE
+#  error "CONFIG_SPI_EXCHANGE must not be defined in the configuration"
+#endif
+
+/* Debug ********************************************************************/
+/* The following enable debug output from this file:
  * 
- * CONFIG_SPI_DEBUG - Define to enable basic SSP debug
- * CONFIG_VERBOSE   - Define to enable verbose SSP debug
+ * CONFIG_DEBUG         - Define to enable general debug features
+ * CONFIG_DEBUG_SPI     - Define to enable basic SSP debug (needs CONFIG_DEBUG)
+ * CONFIG_DEBUG_VERBOSE - Define to enable verbose SSP debug
  */
 
-#ifdef CONFIG_SPI_DEBUG
+#ifdef CONFIG_DEBUG_SPI
 #  define sspdbg  lldbg
-#  ifdef CONFIG_VERBOSE
+#  ifdef CONFIG_DEBUG_VERBOSE
 #    define spivdbg lldbg
 #  else
 #    define spivdbg(x...)
@@ -82,9 +91,10 @@
 #  define spivdbg(x...)
 #endif
 
-/* SSP Clocking.
- *
- * The CPU clock by 1, 2, 4, or 8 to get the SSP peripheral clock (SSP_CLOCK).
+/* SSP Clocking *************************************************************/
+
+#if defined(LPC176x)
+/* The CPU clock by 1, 2, 4, or 8 to get the SSP peripheral clock (SSP_CLOCK).
  * SSP_CLOCK may be further divided by 2-254 to get the SSP clock.  If we
  * want a usable range of 4KHz to 25MHz for the SSP, then:
  *
@@ -95,12 +105,21 @@
  * use the CCLK undivided to get the SSP_CLOCK.
  */
 
-#if LPC17_CCLK > 100000000
-#  error "CCLK <= 100,000,000 assumed"
-#endif
+#  if LPC17_CCLK > 100000000
+#    error "CCLK <= 100,000,000 assumed"
+#  endif
 
-#define SSP_PCLKSET_DIV    SYSCON_PCLKSEL_CCLK
-#define SSP_CLOCK          LPC17_CCLK
+#  define SSP_PCLKSET_DIV    SYSCON_PCLKSEL_CCLK
+#  define SSP_CLOCK          LPC17_CCLK
+
+#elif defined(LPC178x)
+/* All peripherals are clocked by the same peripheral clock in the LPC178x
+ * family.
+ */
+
+#  define SSP_CLOCK          BOARD_PCLK_FREQUENCY
+
+#endif
 
 /****************************************************************************
  * Private Types
@@ -153,6 +172,9 @@ static inline FAR struct lpc17_sspdev_s *lpc17_ssp0initialize(void);
 #endif
 #ifdef CONFIG_LPC17_SSP1
 static inline FAR struct lpc17_sspdev_s *lpc17_ssp1initialize(void);
+#endif
+#ifdef CONFIG_LPC17_SSP2
+static inline FAR struct lpc17_sspdev_s *lpc17_ssp2initialize(void);
 #endif
 
 /****************************************************************************
@@ -226,6 +248,40 @@ static struct lpc17_sspdev_s g_ssp1dev =
 #endif
 }; 
 #endif /* CONFIG_LPC17_SSP1 */
+
+#ifdef CONFIG_LPC17_SSP2
+static const struct spi_ops_s g_spi2ops =
+{
+#ifndef CONFIG_SPI_OWNBUS
+  .lock              = ssp_lock,
+#endif
+  .select            = lpc17_ssp2select,   /* Provided externally */
+  .setfrequency      = ssp_setfrequency,
+  .setmode           = ssp_setmode,
+  .setbits           = ssp_setbits,
+  .status            = lpc17_ssp2status,   /* Provided externally */
+#ifdef CONFIG_SPI_CMDDATA
+  .cmddata           = lpc17_ssp2cmddata,  /* Provided externally */
+#endif
+  .send              = ssp_send,
+  .sndblock          = ssp_sndblock,
+  .recvblock         = ssp_recvblock,
+#ifdef CONFIG_SPI_CALLBACK
+  .registercallback  = lpc17_ssp2register, /* Provided externally */
+#else
+  .registercallback  = 0,                  /* Not implemented */
+#endif
+};
+
+static struct lpc17_sspdev_s g_ssp2dev =
+{
+  .spidev            = { &g_spi2ops },
+  .sspbase           = LPC17_SSP2_BASE,
+#ifdef CONFIG_LPC17_SSP_INTERRUPTS
+  .sspirq            = LPC17_IRQ_SSP2,
+#endif
+}; 
+#endif /* CONFIG_LPC17_SSP2 */
 
 /****************************************************************************
  * Public Data
@@ -341,10 +397,12 @@ static int ssp_lock(FAR struct spi_dev_s *dev, bool lock)
 static uint32_t ssp_setfrequency(FAR struct spi_dev_s *dev, uint32_t frequency)
 {
   FAR struct lpc17_sspdev_s *priv = (FAR struct lpc17_sspdev_s *)dev;
-  uint32_t divisor;
+  uint32_t cpsdvsr;
+  uint32_t scr;
+  uint32_t regval;
   uint32_t actual;
 
-  /* Check if the requested frequence is the same as the frequency selection */
+  /* Check if the requested frequency is the same as the frequency selection */
 
   DEBUGASSERT(priv && frequency <= SSP_CLOCK / 2);
 #ifndef CONFIG_SPI_OWNBUS
@@ -356,30 +414,65 @@ static uint32_t ssp_setfrequency(FAR struct spi_dev_s *dev, uint32_t frequency)
     }
 #endif
 
-  /* frequency = SSP_CLOCK / divisor, or divisor = SSP_CLOCK / frequency */
+  /* The SSP bit frequency is given by:
+   *
+   *   frequency = SSP_CLOCK / (CPSDVSR * (SCR+1)).
+   *
+   * Let's try for a solution with the smallest value of SCR.  NOTES:
+   * (1) In the calculations below, the value of the variable 'scr' is
+   * (SCR+1) in the above equation. (2) On slower LPC17xx parts, SCR
+   * will probably always be zero.
+   */
 
-  divisor = SSP_CLOCK / frequency;
-
-   /* "In master mode, CPSDVSRmin = 2 or larger (even numbers only)" */
-
-  if (divisor < 2)
+  for (scr = 1; scr <= 256; scr++)
     {
-      divisor = 2;
+      /* CPSDVSR = SSP_CLOCK / (SCR + 1) / frequency */
+
+      cpsdvsr = SSP_CLOCK / (scr * frequency);
+
+      /* Break out on the first solution we find with the smallest value
+       * of SCR and with CPSDVSR within the maximum range or 254.
+       */
+
+      if (cpsdvsr < 255)
+        {
+          break;
+        }
     }
-  else if (divisor > 254)
+
+  DEBUGASSERT(scr <= 256 && cpsdvsr <= 255);
+
+  /* "In master mode, CPSDVSRmin = 2 or larger (even numbers only)" */
+
+  if (cpsdvsr < 2)
     {
-      divisor = 254;
+      /* Clip to the minimum value. */
+
+      cpsdvsr = 2;
+    }
+  else if (cpsdvsr > 254)
+    {
+      /* This should never happen */
+
+      cpsdvsr = 254;
     }
 
-  divisor = (divisor + 1) & ~1;
+  /* Force even */
 
-  /* Save the new divisor value */
+  cpsdvsr = (cpsdvsr + 1) & ~1;
+
+  /* Save the new CPSDVSR and SCR values */
   
-  ssp_putreg(priv, LPC17_SSP_CPSR_OFFSET, divisor);
+  ssp_putreg(priv, LPC17_SSP_CPSR_OFFSET, cpsdvsr);
+
+  regval  = ssp_getreg(priv, LPC17_SSP_CR0_OFFSET);
+  regval &= ~SSP_CR0_SCR_MASK;
+  regval |= ((scr - 1) << SSP_CR0_SCR_SHIFT);
+  ssp_putreg(priv, LPC17_SSP_CR0_OFFSET, regval);
 
   /* Calculate the new actual */
 
-  actual = SSP_CLOCK / divisor;
+  actual = SSP_CLOCK / (cpsdvsr * scr);
 
   /* Save the frequency setting */
 
@@ -488,7 +581,7 @@ static void ssp_setbits(FAR struct spi_dev_s *dev, int nbits)
       regval = ssp_getreg(priv, LPC17_SSP_CR0_OFFSET);
       regval &= ~SSP_CR0_DSS_MASK;
       regval |= ((nbits - 1) << SSP_CR0_DSS_SHIFT);
-      regval = ssp_getreg(priv, LPC17_SSP_CR0_OFFSET);
+      ssp_putreg(priv, LPC17_SSP_CR0_OFFSET, regval);
 
       /* Save the selection so the subsequence re-configurations will be faster */
 
@@ -734,10 +827,12 @@ static inline FAR struct lpc17_sspdev_s *lpc17_ssp0initialize(void)
 
   /* Configure clocking */
 
+#ifdef LPC176x
   regval  = getreg32(LPC17_SYSCON_PCLKSEL1);
   regval &= ~SYSCON_PCLKSEL1_SSP0_MASK;
   regval |= (SSP_PCLKSET_DIV << SYSCON_PCLKSEL1_SSP0_SHIFT);
   putreg32(regval, LPC17_SYSCON_PCLKSEL1);
+#endif
 
   /* Enable peripheral clocking to SSP0 */
 
@@ -786,10 +881,12 @@ static inline FAR struct lpc17_sspdev_s *lpc17_ssp1initialize(void)
 
   /* Configure clocking */
 
+#ifdef LPC176x
   regval  = getreg32(LPC17_SYSCON_PCLKSEL0);
   regval &= ~SYSCON_PCLKSEL0_SSP1_MASK;
   regval |= (SSP_PCLKSET_DIV << SYSCON_PCLKSEL0_SSP1_SHIFT);
   putreg32(regval, LPC17_SYSCON_PCLKSEL0);
+#endif
 
   /* Enable peripheral clocking to SSP0 and SSP1 */
 
@@ -803,14 +900,67 @@ static inline FAR struct lpc17_sspdev_s *lpc17_ssp1initialize(void)
 #endif
 
 /****************************************************************************
+ * Name: lpc17_ssp2initialize
+ *
+ * Description:
+ *   Initialize the SSP2
+ *
+ * Input Parameter:
+ *   None
+ *
+ * Returned Value:
+ *   Valid SPI device structure reference on succcess; a NULL on failure
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_LPC17_SSP2
+static inline FAR struct lpc17_sspdev_s *lpc17_ssp2initialize(void)
+{
+  irqstate_t flags;
+  uint32_t regval;
+
+  /* Configure multiplexed pins as connected on the board.  Chip select
+   * pins must be configured by board-specific logic.  All SSP2 pins have
+   * multiple, alternative pin selection. Definitions in the board.h file
+   * must be provided to resolve the board-specific pin configuration like:
+   *
+   * #define GPIO_SSP2_SCK GPIO_SSP2_SCK_1
+   */
+
+  flags = irqsave();
+  lpc17_configgpio(GPIO_SSP2_SCK);
+  lpc17_configgpio(GPIO_SSP2_MISO);
+  lpc17_configgpio(GPIO_SSP2_MOSI);
+
+  /* Configure clocking */
+
+#ifdef LPC176x
+  regval  = getreg32(LPC17_SYSCON_PCLKSEL0);
+  regval &= ~SYSCON_PCLKSEL0_SSP2_MASK;
+  regval |= (SSP_PCLKSET_DIV << SYSCON_PCLKSEL0_SSP2_SHIFT);
+  putreg32(regval, LPC17_SYSCON_PCLKSEL0);
+#endif
+
+  /* Enable peripheral clocking to SSP0 and SSP1 */
+
+  regval  = getreg32(LPC17_SYSCON_PCONP);
+  regval |= SYSCON_PCONP_PCSSP2;
+  putreg32(regval, LPC17_SYSCON_PCONP);
+  irqrestore(flags);
+
+  return &g_ssp2dev;
+}
+#endif
+
+/****************************************************************************
  * Public Functions
  ****************************************************************************/
 
 /****************************************************************************
- * Name: up_spiinitialize
+ * Name: lpc17_sspinitialize
  *
  * Description:
- *   Initialize the selected SPI port
+ *   Initialize the selected SSP port.
  *
  * Input Parameter:
  *   Port number (for hardware that has mutiple SPI interfaces)
@@ -820,7 +970,7 @@ static inline FAR struct lpc17_sspdev_s *lpc17_ssp1initialize(void)
  *
  ****************************************************************************/
 
-FAR struct spi_dev_s *up_spiinitialize(int port)
+FAR struct spi_dev_s *lpc17_sspinitialize(int port)
 {
   FAR struct lpc17_sspdev_s *priv;
   uint32_t regval;
@@ -838,6 +988,11 @@ FAR struct spi_dev_s *up_spiinitialize(int port)
 #ifdef CONFIG_LPC17_SSP1
     case 1:
       priv = lpc17_ssp1initialize();
+      break;
+#endif
+#ifdef CONFIG_LPC17_SSP2
+    case 2:
+      priv = lpc17_ssp2initialize();
       break;
 #endif
     default:

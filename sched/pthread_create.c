@@ -185,11 +185,19 @@ static void pthread_start(void)
   pjoin->started = true;
   (void)pthread_givesemaphore(&pjoin->data_sem);
 
-  /* Pass control to the thread entry point. */
+  /* Pass control to the thread entry point. In the kernel build this has to
+   * be handled differently if we are starting a user-space pthread; we have
+   * to switch to user-mode before calling into the pthread.
+   */
 
+#ifdef CONFIG_NUTTX_KERNEL
+  up_pthread_start(ptcb->cmn.entry.pthread, ptcb->arg);
+  exit_status = NULL;
+#else
   exit_status = (*ptcb->cmn.entry.pthread)(ptcb->arg);
+#endif
 
-  /* The thread has returned */
+  /* The thread has returned (should never happen in the kernel mode case) */
 
   pthread_exit(exit_status);
 }
@@ -286,7 +294,8 @@ int pthread_create(FAR pthread_t *thread, FAR pthread_attr_t *attr,
 
   /* Allocate the stack for the TCB */
 
-  ret = up_create_stack((FAR struct tcb_s *)ptcb, attr->stacksize);
+  ret = up_create_stack((FAR struct tcb_s *)ptcb, attr->stacksize,
+                        TCB_FLAG_TTYPE_PTHREAD);
   if (ret != OK)
     {
       errcode = ENOMEM;
@@ -300,9 +309,10 @@ int pthread_create(FAR pthread_t *thread, FAR pthread_attr_t *attr,
 
   if (attr->inheritsched == PTHREAD_INHERIT_SCHED)
     {
+      struct sched_param param;
+
       /* Get the priority for this thread. */
 
-      struct sched_param param;
       ret = sched_getparam(0, &param);
       if (ret == OK)
         {
@@ -440,6 +450,6 @@ errout_with_join:
   ptcb->joininfo = NULL;
 
 errout_with_tcb:
-  sched_releasetcb((FAR struct tcb_s *)ptcb);
+  sched_releasetcb((FAR struct tcb_s *)ptcb, TCB_FLAG_TTYPE_PTHREAD);
   return errcode;
 }

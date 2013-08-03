@@ -137,15 +137,13 @@ config ARCH_BOARD_EZ80F910200ZCO
 		development kit, eZ80F091 part, and the Zilog ZDS-II Windows command line
 		tools.  The development environment is Cygwin under WinXP.
 
-config ARCH_BOARD_FIRE_STM32
-	bool "M3 Wildfire STM3 board (v2 or v3)"
-	depends on ARCH_CHIP_STM32F103VET6
+config ARCH_BOARD_FREEDOM_KL25Z
+	bool "Freescale Freedom KL25Z"
+	depends on ARCH_CHIP_MKL25Z128
 	select ARCH_HAVE_LEDS
-	select ARCH_HAVE_BUTTONS
-	select ARCH_HAVE_IRQBUTTONS
 	---help---
-		A configuration for the M3 Wildfile board.  This board is based on the
-		STM32F103VET6 chip.  See http://firestm32.taobao.com
+		This is the configuration for the Freescale Freedom KL25Z board.  This
+		board has the K25Z120LE3AN chip with a built-in SDA debugger.
 
 config ARCH_BOARD_HYMINI_STM32V
 	bool "HY-Mini STM32v board"
@@ -290,12 +288,12 @@ config ARCH_BOARD_NTOSD_DM320
 		This port uses the Neuros OSD v1.0 Dev Board with a GNU arm-nuttx-elf
 		toolchain*: see
 
-			http://wiki.neurostechnology.com/index.php/OSD_1.0_Developer_Home
+		http://wiki.neurostechnology.com/index.php/OSD_1.0_Developer_Home
 
 		There are some differences between the Dev Board and the currently
 		available commercial v1.0 Boards.  See
 
-			http://wiki.neurostechnology.com/index.php/OSD_Developer_Board_v1
+		http://wiki.neurostechnology.com/index.php/OSD_Developer_Board_v1
 
 		NuttX operates on the ARM9EJS of this dual core processor.
 		STATUS: This port is code complete, verified, and included in the
@@ -537,7 +535,7 @@ config ARCH_BOARD_STM32F3_DISCOVERY
 	select ARCH_HAVE_BUTTONS
 	select ARCH_HAVE_IRQBUTTONS
 	---help---
-		STMicro STM32F3-Discovery board based on the STMicro CONFIG_ARCH_CHIP_STM32F303VCT6 MCU.
+		STMicro STM32F3-Discovery board based on the STMicro ARCH_CHIP_STM32F303VCT6 MCU.
 
 config ARCH_BOARD_STM32F4_DISCOVERY
 	bool "STMicro STM32F4-Discovery board"
@@ -635,8 +633,8 @@ config ARCH_BOARD_Z80SIM
 	select ARCH_HAVE_UART
 	---help---
 		z80 Microcontroller.  This port uses a Z80 instruction set simulator.
-		That simulator can be found in the NuttX SVN at
-		http://svn.code.sf.net/p/nuttx/code/trunk/misc/sims/z80sim.
+		That simulator can be found in the NuttX GIT at
+		http://sourceforge.net/p/nuttx/git/ci/master/tree/misc/sims/z80sim.
 		This port also uses the SDCC toolchain (http://sdcc.sourceforge.net/")
 		(verified with version 2.6.0).
 
@@ -708,6 +706,7 @@ config ARCH_BOARD
 	default "ez80f910200kitg"     if ARCH_BOARD_EZ80F910200KITG
 	default "ez80f910200zco"      if ARCH_BOARD_EZ80F910200ZCO
 	default "fire-stm32v2"        if ARCH_BOARD_FIRE_STM32
+	default "freedom-kl25z"        if ARCH_BOARD_FREEDOM_KL25Z
 	default "hymini-stm32v"       if ARCH_BOARD_HYMINI_STM32V
 	default "kwikstik-k40"        if ARCH_BOARD_KWIKSTIK_K40
 	default "lincoln60"           if ARCH_BOARD_LINCOLN60

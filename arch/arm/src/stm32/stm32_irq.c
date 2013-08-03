@@ -48,6 +48,7 @@
 #include <arch/irq.h>
 
 #include "nvic.h"
+#include "ram_vectors.h"
 #include "up_arch.h"
 #include "os_internal.h"
 #include "up_internal.h"
@@ -143,7 +144,7 @@ static int stm32_nmi(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! NMI received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -151,7 +152,7 @@ static int stm32_busfault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Bus fault recived\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -159,7 +160,7 @@ static int stm32_usagefault(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Usage fault received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -167,7 +168,7 @@ static int stm32_pendsv(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! PendSV received\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -175,7 +176,7 @@ static int stm32_dbgmonitor(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Debug Monitor receieved\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 
@@ -183,7 +184,7 @@ static int stm32_reserved(int irq, FAR void *context)
 {
   (void)irqsave();
   dbg("PANIC!!! Reserved interrupt\n");
-  PANIC(OSERR_UNEXPECTEDISR);
+  PANIC();
   return 0;
 }
 #endif
@@ -302,9 +303,14 @@ void up_irqinitialize(void)
    * at address 0x0800:0000.  If we are using the STMicro DFU bootloader, then
    * the vector table will be offset to a different location in FLASH and we
    * will need to set the NVIC vector location to this alternative location.
+   *
+   * If CONFIG_ARCH_RAMVECTORS is defined, then we are using a RAM-based
+   * vector table that requires special initialization.
    */
 
-#ifdef CONFIG_STM32_DFU
+#if defined(CONFIG_ARCH_RAMVECTORS)
+  up_ramvec_initialize();
+#elif defined(CONFIG_STM32_DFU)
   putreg32((uint32_t)stm32_vectors, NVIC_VECTAB);
 #endif
 

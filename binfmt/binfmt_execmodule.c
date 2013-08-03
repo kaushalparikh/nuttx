@@ -163,7 +163,7 @@ int exec_module(FAR const struct binary_s *binp)
       goto errout;
     }
 
-  /* Allocate the stack for the new task */
+  /* Allocate the stack for the new task (always from the user heap) */
 
 #ifndef CONFIG_CUSTOM_STACK
   stack = (FAR uint32_t*)kumalloc(binp->stacksize);
@@ -245,10 +245,10 @@ int exec_module(FAR const struct binary_s *binp)
 errout_with_stack:
 #ifndef CONFIG_CUSTOM_STACK
   tcb->cmn.stack_alloc_ptr = NULL;
-  sched_releasetcb(&tcb->cmn);
+  sched_releasetcb(&tcb->cmn, TCB_FLAG_TTYPE_TASK);
   kufree(stack);
 #else
-  sched_releasetcb(&tcb->cmn);
+  sched_releasetcb(&tcb->cmn, TCB_FLAG_TTYPE_TASK);
 #endif
   goto errout;
 

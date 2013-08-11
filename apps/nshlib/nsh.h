@@ -50,6 +50,10 @@
 #include <unistd.h>
 #include <errno.h>
 
+#ifdef CONFIG_NSH_STRERROR
+#  include <string.h>
+#endif
+
 #include <nuttx/usb/usbdev_trace.h>
 
 /****************************************************************************
@@ -682,6 +686,11 @@ void nsh_usbtrace(void);
          int cmd_mkfatfs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
 #     endif
 #   endif /* CONFIG_FS_FAT */
+#   ifdef CONFIG_FS_SMARTFS
+#     ifndef CONFIG_NSH_DISABLE_MKSMARTFS
+         int cmd_mksmartfs(FAR struct nsh_vtbl_s *vtbl, int argc, char **argv);
+#     endif
+#   endif /* CONFIG_FS_SMARTFS */
 # endif /* !CONFIG_DISABLE_MOUNTPOINT */
 # if !defined(CONFIG_DISABLE_ENVIRON)
 #   ifndef CONFIG_NSH_DISABLE_CD

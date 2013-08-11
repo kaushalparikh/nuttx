@@ -147,13 +147,13 @@ config ARCH_BOARD_FREEDOM_KL25Z
 
 config ARCH_BOARD_HYMINI_STM32V
 	bool "HY-Mini STM32v board"
-	depends on ARCH_CHIP_STM32F103VCT
+	depends on ARCH_CHIP_STM32F103VCT6
 	select ARCH_HAVE_LEDS
 	select ARCH_HAVE_BUTTONS
 	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		A configuration for the HY-Mini STM32v board.  This board is based on the
-		STM32F103VCT chip.
+		STM32F103VCT6 chip.
 
 config ARCH_BOARD_LINCOLN60
 	bool "Micromint Lincoln 60 board"
@@ -429,6 +429,13 @@ config ARCH_BOARD_PIC32_PIC32MX7MMB
 		This is the port NuttX to the Mikroelektronika PIC32MX7 Multimedia Board
 		(MMB).  See http://www.mikroe.com/ for further information.
 
+config ARCH_BOARD_PIRELLI_DPL10
+	bool "Pirelli DPL10 phone"
+	depends on ARCH_CHIP_CALYPSO
+	---help---
+		This directory contains the board support for Pirelli dpl10 phones.  The
+		additions were made by Craig Comstock (with help form Alan Carvalho de Assis).
+
 config ARCH_BOARD_PJRC_87C52
 	bool "PJRC 87C52 development system"
 	depends on ARCH_CHIP_8052
@@ -466,6 +473,24 @@ config ARCH_BOARD_SAM3UEK
 	---help---
 		The port of NuttX to the Atmel SAM3U-EK development board.
 
+config ARCH_BOARD_SAM4L_XPLAINED
+	bool "Atmel SAM4L-Xplained Pro development board"
+	depends on ARCH_CHIP_ATSAM4LC4C
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		The port of NuttX to the Atmel SAM4L-Xplained Pro development board.
+
+config ARCH_BOARD_SAM4S_XPLAINED
+	bool "Atmel SAM4S-Xplained development board"
+	depends on ARCH_CHIP_ATSAM4S16C
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		The port of NuttX to the Atmel SAM4S-Xplained development board.
+
 config ARCH_BOARD_SHENZHOU
 	bool "Shenzhou STM32F107 board"
 	depends on ARCH_CHIP_STM32F107VC
@@ -486,6 +511,15 @@ config ARCH_BOARD_SKP16C26
 		Renesas M16C processor on the Renesas SKP16C26 StarterKit.  This port
 		uses the GNU m32c toolchain.  STATUS:  The port is complete but untested
 		due to issues with compiler internal errors.
+
+config ARCH_BOARD_STM32_TINY
+	bool "STM32-Tiny board"
+	depends on ARCH_CHIP_STM32F103C8
+	select ARCH_HAVE_LEDS
+	---help---
+		A configuration for the STM32 Tiny board. This board is based on a
+		STM32F103C8T6 micro-controller chip, and is (always ?) bundled with
+		an nRF24L01+ wireless module.
 
 config ARCH_BOARD_STM3210E_EVAL
 	bool "STMicro STM3210E-EVAL development board"
@@ -535,7 +569,7 @@ config ARCH_BOARD_STM32F3_DISCOVERY
 	select ARCH_HAVE_BUTTONS
 	select ARCH_HAVE_IRQBUTTONS
 	---help---
-		STMicro STM32F3-Discovery board based on the STMicro ARCH_CHIP_STM32F303VCT6 MCU.
+		STMicro STM32F3-Discovery board based on the STMicro STM32F303VCT6 MCU.
 
 config ARCH_BOARD_STM32F4_DISCOVERY
 	bool "STMicro STM32F4-Discovery board"
@@ -545,6 +579,22 @@ config ARCH_BOARD_STM32F4_DISCOVERY
 	select ARCH_HAVE_IRQBUTTONS
 	---help---
 		STMicro STM32F4-Discovery board based on the STMicro STM32F407VGT6 MCU.
+
+config ARCH_BOARD_STM32L_DISCOVERY
+	bool "STMicro STM32L-Discovery board"
+	depends on ARCH_CHIP_STM32L152RB
+	select ARCH_HAVE_LEDS
+	select ARCH_HAVE_BUTTONS
+	select ARCH_HAVE_IRQBUTTONS
+	---help---
+		STMicro STM32L-Discovery board based on the STMicro STM32L152RB MCU.
+
+config ARCH_BOARD_MIKROE_STM32F4
+	bool "MikroElektronika Mikromedia for STM32F4 board"
+	depends on ARCH_CHIP_STM32F407VG
+	---help---
+		This is the port NuttX to the Mikroelektronika Mikromedia for STM32F4 Multimedia Board
+		(MMB).  See http://www.mikroe.com/ for further information.
 
 config ARCH_BOARD_SUREPIC32MX
 	bool "Sure PIC32MX boards"
@@ -735,18 +785,24 @@ config ARCH_BOARD
 	default "pcblogic-pic32mx"    if ARCH_BOARD_PCBLOGICPIC32MX
 	default "pic32-starterkit"    if ARCH_BOARD_PIC32_STARTERKIT
 	default "pic32mx7mmb"         if ARCH_BOARD_PIC32_PIC32MX7MMB
+	default "pirelli_dpl10"       if ARCH_BOARD_PIRELLI_DPL10
 	default "pjrc-8051"           if ARCH_BOARD_PJRC_87C52
 	default "qemu-i486"           if ARCH_BOARD_QEMU_I486
 	default "rgmp"                if ARCH_BOARD_RGMP
 	default "sam3u-ek"            if ARCH_BOARD_SAM3UEK
+	default "sam4l-xplained"      if ARCH_BOARD_SAM4L_XPLAINED
+	default "sam4s-xplained"      if ARCH_BOARD_SAM4S_XPLAINED
 	default "shenzhou"            if ARCH_BOARD_SHENZHOU
 	default "skp16c26"            if ARCH_BOARD_SKP16C26
+	default "stm32_tiny"          if ARCH_BOARD_STM32_TINY
 	default "stm3210e-eval"       if ARCH_BOARD_STM3210E_EVAL
 	default "stm3220g-eval"       if ARCH_BOARD_STM3220G_EVAL
 	default "stm3240g-eval"       if ARCH_BOARD_STM3240G_EVAL
 	default "stm32f100rc_generic" if ARCH_BOARD_STM32F100RC_GENERIC
 	default "stm32f3discovery"    if ARCH_BOARD_STM32F3_DISCOVERY
 	default "stm32f4discovery"    if ARCH_BOARD_STM32F4_DISCOVERY
+	default "stm32ldiscovery"     if ARCH_BOARD_STM32L_DISCOVERY
+	default "mikroe-stm32f4"      if ARCH_BOARD_MIKROE_STM32F4
 	default "sure-pic32mx"        if ARCH_BOARD_SUREPIC32MX
 	default "teensy"              if ARCH_BOARD_TEENSY
 	default "twr-k60n512"         if ARCH_BOARD_TWR_K60N512
@@ -896,6 +952,9 @@ endif
 if ARCH_BOARD_MICROPENDOUS3
 source "configs/micropendous3/Kconfig"
 endif
+if ARCH_BOARD_MIKROE_STM32F4
+source "configs/mikroe-stm32f4/Kconfig"
+endif
 if ARCH_BOARD_MIRTOO
 source "configs/mirtoo/Kconfig"
 endif
@@ -938,6 +997,9 @@ endif
 if ARCH_BOARD_PIC32_PIC32MX7MMB
 source "configs/pic32mx7mmb/Kconfig"
 endif
+if ARCH_BOARD_PIRELLI_DPL10
+source "configs/pirelli_dpl10/Kconfig"
+endif
 if ARCH_BOARD_PJRC_87C52
 source "configs/pjrc-8051/Kconfig"
 endif
@@ -950,11 +1012,20 @@ endif
 if ARCH_BOARD_SAM3UEK
 source "configs/sam3u-ek/Kconfig"
 endif
+if ARCH_BOARD_SAM4L_XPLAINED
+source "configs/sam4l-xplained/Kconfig"
+endif
+if ARCH_BOARD_SAM4S_XPLAINED
+source "configs/sam4s-xplained/Kconfig"
+endif
 if ARCH_BOARD_SHENZHOU
 source "configs/shenzhou/Kconfig"
 endif
 if ARCH_BOARD_SKP16C26
 source "configs/skp16c26/Kconfig"
+endif
+if ARCH_BOARD_STM32_TINY
+source "configs/stm32_tiny/Kconfig"
 endif
 if ARCH_BOARD_STM3210E_EVAL
 source "configs/stm3210e-eval/Kconfig"
@@ -970,6 +1041,9 @@ source "configs/stm32f100rc_generic/Kconfig"
 endif
 if ARCH_BOARD_STM32F4_DISCOVERY
 source "configs/stm32f4discovery/Kconfig"
+endif
+if ARCH_BOARD_STM32L_DISCOVERY
+source "configs/stm32ldiscovery/Kconfig"
 endif
 if ARCH_BOARD_SUREPIC32MX
 source "configs/sure-pic32mx/Kconfig"

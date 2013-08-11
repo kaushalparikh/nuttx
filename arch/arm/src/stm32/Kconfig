@@ -10,6 +10,159 @@ choice
 	default ARCH_CHIP_STM32F103ZET6
 	depends on ARCH_CHIP_STM32
 
+config ARCH_CHIP_STM32L151C6
+	bool "STM32L151C6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151C8
+	bool "STM32L151C8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151CB
+	bool "STM32L151CB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151R6
+	bool "STM32L151R6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151R8
+	bool "STM32L151R8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151RB
+	bool "STM32L151RB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151V6
+	bool "STM32L151V6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151V8
+	bool "STM32L151V8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L151VB
+	bool "STM32L151VB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM
+
+config ARCH_CHIP_STM32L152C6
+	bool "STM32L152C6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x16 LCD interface
+
+config ARCH_CHIP_STM32L152C8
+	bool "STM32L152C8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x16 LCD interface
+
+config ARCH_CHIP_STM32L152CB
+	bool "STM32L152CB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 48-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM with
+		4x16 LCD interface
+
+config ARCH_CHIP_STM32L152R6
+	bool "STM32L152R6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x32/8x28 LCD interface
+
+config ARCH_CHIP_STM32L152R8
+	bool "STM32L152R8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x32/8x28 LCD interface
+
+config ARCH_CHIP_STM32L152RB
+	bool "STM32L152RB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 64-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM with
+		4x32/8x28 LCD interface
+
+config ARCH_CHIP_STM32L152V6
+	bool "STM32L152V6"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 32KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x44/8x40 LCD interface
+
+config ARCH_CHIP_STM32L152V8
+	bool "STM32L152V8"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 64KB FLASH, 10KB SRAM, 4KB EEPRROM with
+		4x44/8x40 LCD interface
+
+config ARCH_CHIP_STM32L152VB
+	bool "STM32L152VB"
+	select ARCH_CORTEXM3
+	select STM32_STM32L15XX
+	select STM32_ENERGYLITE
+	---help---
+		STM32L 100-pin EnergyLite, 128KB FLASH, 16KB SRAM, 4KB EEPRROM with
+		4x44/8x40 LCD interface
+
 config ARCH_CHIP_STM32F100C8
 	bool "STM32F100C8"
 	select ARCH_CORTEXM3
@@ -88,28 +241,46 @@ config ARCH_CHIP_STM32F100VE
 	select STM32_VALUELINE
 	select STM32_HIGHDENSITY
 
+config ARCH_CHIP_STM32F103C4
+	bool "STM32F103C4"
+	select ARCH_CORTEXM3
+	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
+	select STM32_LOWDENSITY
+
+config ARCH_CHIP_STM32F103C8
+	bool "STM32F103C8"
+	select ARCH_CORTEXM3
+	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
+	select STM32_MEDIUMDENSITY
+
 config ARCH_CHIP_STM32F103RET6
 	bool "STM32F103RET6"
 	select ARCH_CORTEXM3
 	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
 	select STM32_HIGHDENSITY
 
 config ARCH_CHIP_STM32F103VCT6
 	bool "STM32F103VCT6"
 	select ARCH_CORTEXM3
 	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
 	select STM32_HIGHDENSITY
 
 config ARCH_CHIP_STM32F103VET6
 	bool "STM32F103VET6"
 	select ARCH_CORTEXM3
 	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
 	select STM32_HIGHDENSITY
 
 config ARCH_CHIP_STM32F103ZET6
 	bool "STM32F103ZET6"
 	select ARCH_CORTEXM3
 	select STM32_STM32F10XX
+	select STM32_PERFORMANCELINE
 	select STM32_HIGHDENSITY
 
 config ARCH_CHIP_STM32F105VBT7
@@ -133,147 +304,198 @@ config ARCH_CHIP_STM32F302CB
 	bool "STM32F302CB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F302CC
 	bool "STM32F302CC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F302RB
 	bool "STM32F302RB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F302RC
 	bool "STM32F302RC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F302VB
 	bool "STM32F302VB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F302VC
 	bool "STM32F302VC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303CB
 	bool "STM32F303CB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303CC
 	bool "STM32F303CC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303RB
 	bool "STM32F303RB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303RC
 	bool "STM32F303RC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303VB
 	bool "STM32F303VB"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F303VC
 	bool "STM32F303VC"
 	select ARCH_CORTEXM4
 	select STM32_STM32F30XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F405RG
 	bool "STM32F405RG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F405VG
 	bool "STM32F405VG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F405ZG
 	bool "STM32F405ZG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407VE
 	bool "STM32F407VE"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407VG
 	bool "STM32F407VG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407ZE
 	bool "STM32F407ZE"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407ZG
 	bool "STM32F407ZG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407IE
 	bool "STM32F407IE"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F407IG
 	bool "STM32F407IG"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F427V
 	bool "STM32F427V"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
 	select STM32_STM32F427
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F427Z
 	bool "STM32F427Z"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
 	select STM32_STM32F427
+	select ARCH_HAVE_FPU
 
 config ARCH_CHIP_STM32F427I
 	bool "STM32F427I"
 	select ARCH_CORTEXM4
 	select STM32_STM32F40XX
 	select STM32_STM32F427
+	select ARCH_HAVE_FPU
 
 endchoice
 
+config STM32_STM32L15XX
+	bool
+	default n
+
+config STM32_ENERGYLITE
+	bool
+	default n
+
 config STM32_STM32F10XX
 	bool
+	default n
 
 config STM32_VALUELINE
 	bool
-
-config STM32_HIGHDENSITY
-	bool
+	default n
 
 config STM32_CONNECTIVITYLINE
 	bool
+	default n
+
+config STM32_PERFORMANCELINE
+	bool
+	default n
+
+config STM32_HIGHDENSITY
+	bool
+	default n
+
+config STM32_MEDIUMDENSITY
+	bool
+	default n
+
+config STM32_LOWDENSITY
+	bool
+	default n
 
 config STM32_STM32F20XX
 	bool
+	default n
 
 config STM32_STM32F30XX
 	bool
+	default n
 
 config STM32_STM32F40XX
 	bool
+	default n
 
 # This is really 427/437, but we treat the two the same.
 config STM32_STM32F427
@@ -312,6 +534,11 @@ config STM32_ADC4
 	select STM32_ADC
 	depends on STM32_STM32F30XX
 
+config STM32_COMP
+	bool "COMP"
+	default n
+	depends on STM32_STM32L15XX
+
 config STM32_BKP
 	bool "BKP"
 	default n
@@ -327,7 +554,7 @@ config STM32_CAN1
 	default n
 	select CAN
 	select STM32_CAN
-	depends on !STM32_VALUELINE
+	depends on !STM32_VALUELINE && !STM32_STM32L15XX
 
 config STM32_CAN2
 	bool "CAN2"
@@ -405,6 +632,7 @@ config STM32_I2C1
 config STM32_I2C2
 	bool "I2C2"
 	default n
+	depends on !(STM32_STM32F10XX && STM32_LOWDENSITY)
 	select STM32_I2C
 
 config STM32_I2C3
@@ -412,11 +640,6 @@ config STM32_I2C3
 	default n
 	depends on STM32_STM32F20XX || STM32_STM32F40XX
 	select STM32_I2C
-
-config STM32_IWDG
-	bool "IWDG"
-	default n
-	select WATCHDOG
 
 config STM32_OTGFS
 	bool "OTG FS"
@@ -452,13 +675,14 @@ config STM32_SPI1
 config STM32_SPI2
 	bool "SPI2"
 	default n
+	depends on STM32_CONNECTIVITYLINE || STM32_STM32F20XX || STM32_STM32F40XX || (STM32_VALUELINE && STM32_HIGHDENSITY) || (STM32_STM32F10XX && (STM32_HIGHDENSITY || STM32_MEDIUMDENSITY))
 	select SPI
 	select STM32_SPI
 
 config STM32_SPI3
 	bool "SPI3"
 	default n
-	depends on STM32_CONNECTIVITYLINE || STM32_STM32F20XX || STM32_STM32F40XX || (STM32_VALUELINE && STM32_HIGHDENSITY)
+	depends on STM32_CONNECTIVITYLINE || STM32_STM32L15XX || STM32_STM32F20XX || STM32_STM32F40XX || (STM32_VALUELINE && STM32_HIGHDENSITY) || (STM32_STM32F10XX && STM32_HIGHDENSITY)
 	select SPI
 	select STM32_SPI
 
@@ -486,11 +710,12 @@ config STM32_SPI6
 config STM32_SYSCFG
 	bool "SYSCFG"
 	default y
-	depends on STM32_STM32F30XX || STM32_STM32F20XX || STM32_STM32F40XX
+	depends on STM32_STM32L15XX || STM32_STM32F30XX || STM32_STM32F20XX || STM32_STM32F40XX
 
 config STM32_TIM1
 	bool "TIM1"
 	default n
+	depends on !STM32_STM32L15XX
 
 config STM32_TIM2
 	bool "TIM2"
@@ -520,22 +745,22 @@ config STM32_TIM7
 config STM32_TIM8
 	bool "TIM8"
 	default n
-	depends on !STM32_VALUELINE
+	depends on !STM32_VALUELINE && !STM32_STM32L15XX
 
 config STM32_TIM9
 	bool "TIM9"
 	default n
-	depends on STM32_STM32F20XX || STM32_STM32F40XX
+	depends on STM32_STM32L15XX || STM32_STM32F20XX || STM32_STM32F40XX
 
 config STM32_TIM10
 	bool "TIM10"
 	default n
-	depends on STM32_STM32F20XX || STM32_STM32F40XX
+	depends on STM32_STM32L15XX || STM32_STM32F20XX || STM32_STM32F40XX
 
 config STM32_TIM11
 	bool "TIM11"
 	default n
-	depends on STM32_STM32F20XX || STM32_STM32F40XX
+	depends on STM32_STM32L15XX || STM32_STM32F20XX || STM32_STM32F40XX
 
 config STM32_TIM12
 	bool "TIM12"
@@ -594,14 +819,14 @@ config STM32_USART3
 config STM32_UART4
 	bool "UART4"
 	default n
-	depends on !STM32_STM32F30XX
+	depends on !STM32_STM32F30XX &&!STM32_STM32L15XX
 	select ARCH_HAVE_UART4
 	select STM32_USART
 
 config STM32_UART5
 	bool "UART5"
 	default n
-	depends on !STM32_STM32F30XX
+	depends on !STM32_STM32F30XX &&!STM32_STM32L15XX
 	select ARCH_HAVE_UART5
 	select STM32_USART
 
@@ -629,8 +854,18 @@ config STM32_UART8
 config STM32_USB
 	bool "USB Device"
 	default n
-	depends on (STM32_STM32F10XX && !STM32_VALUELINE) || STM32_STM32F30XX
+	depends on (STM32_STM32F10XX && !STM32_VALUELINE) || STM32_STM32L15XX || STM32_STM32F30XX
 	select USBDEV
+
+config STM32_LCD
+	bool "Segment LCD"
+	default n
+	depends on STM32_STM32L15XX
+
+config STM32_IWDG
+	bool "IWDG"
+	default n
+	select WATCHDOG
 
 config STM32_WWDG
 	bool "WWDG"
@@ -861,6 +1096,15 @@ config STM32_JTAG_SW_ENABLE
 
 endchoice
 
+config STM32_DISABLE_IDLE_SLEEP_DURING_DEBUG
+	bool "Disable IDLE Sleep (WFI) in debug mode"
+	default n
+	---help---
+		In debug configuration, disables the WFI instruction in the IDLE loop
+		to prevent the JTAG from disconnecting.  With some JTAG debuggers, such
+		as the ST-LINK2 with OpenOCD, if the ARM is put to sleep via the WFI
+		instruction, the debugger will disconnect, terminating the debug session.
+
 config STM32_FORCEPOWER
 	bool "Force power"
 	default n
@@ -883,6 +1127,17 @@ config STM32_CCMEXCLUDE
 		Exclude CCM SRAM from the HEAP because (1) it cannot be used for DMA
 		and (2) it appears to be impossible to execute ELF modules from CCM
 		RAM.
+
+config STM32_DMACAPABLE
+	bool "Workaround non-DMA capable memory"
+	depends on ARCH_DMA
+	default y if STM32_STM32F40XX && !STM32_CCMEXCLUDE
+	default n if !STM32_STM32F40XX || STM32_CCMEXCLUDE
+	---help---
+		This option enables the DMA interface stm32_dmacapable that can be
+		used to check if it is possible to do DMA from the selected address.
+		Drivers then may use this information to determine if they should
+		attempt the DMA or fall back to a different transfer method.
 
 config STM32_FSMC_SRAM
 	bool "External SRAM on FSMC"

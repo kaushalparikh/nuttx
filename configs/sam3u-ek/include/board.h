@@ -1,8 +1,7 @@
 /************************************************************************************
  * configs/sam3u-ek/include/board.h
- * include/arch/board/board.h
  *
- *   Copyright (C) 2009-2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,15 +33,14 @@
  *
  ************************************************************************************/
 
-#ifndef __ARCH_BOARD_BOARD_H
-#define __ARCH_BOARD_BOARD_H
+#ifndef __ARCH_SAM3U_EK_INCLUDE_BOARD_H
+#define __ARCH_SAM3U_EK_INCLUDE_BOARD_H
 
 /************************************************************************************
  * Included Files
  ************************************************************************************/
 
 #include <nuttx/config.h>
-#include "sam3u_internal.h"
 
 #ifndef __ASSEMBLY__
 #  include <stdint.h>
@@ -62,14 +60,14 @@
 
 /* Main oscillator register settings */
 
-#define BOARD_CKGR_MOR_MOSCXTST    (63 << CKGR_MOR_MOSCXTST_SHIFT) /* Start-up Time */
+#define BOARD_CKGR_MOR_MOSCXTST    (63 << PMC_CKGR_MOR_MOSCXTST_SHIFT) /* Start-up Time */
 
 /* PLLA configuration */
 
-#define BOARD_CKGR_PLLAR_MULA      (7 << CKGR_PLLAR_MULA_SHIFT)
-#define BOARD_CKGR_PLLAR_STMODE    CKGR_PLLAR_STMODE_FAST
-#define BOARD_CKGR_PLLAR_PLLACOUNT (63 << CKGR_PLLAR_PLLACOUNT_SHIFT)
-#define BOARD_CKGR_PLLAR_DIVA      CKGR_PLLAR_DIVA_BYPASS
+#define BOARD_CKGR_PLLAR_MUL       (7 << PMC_CKGR_PLLAR_MUL_SHIFT)
+#define BOARD_CKGR_PLLAR_STMODE    PMC_CKGR_PLLAR_STMODE_FAST
+#define BOARD_CKGR_PLLAR_COUNT     (63 << PMC_CKGR_PLLAR_COUNT_SHIFT)
+#define BOARD_CKGR_PLLAR_DIV       PMC_CKGR_PLLAR_DIV_BYPASS
 
 /* PMC master clock register settings */
 
@@ -78,14 +76,14 @@
 
 /* USB UTMI PLL start-up time */
 
-#define BOARD_CKGR_UCKR_UPLLCOUNT (3 << CKGR_UCKR_UPLLCOUNT_SHIFT)
+#define BOARD_CKGR_UCKR_UPLLCOUNT  (3 << PMC_CKGR_UCKR_UPLLCOUNT_SHIFT)
 
 /* Resulting frequencies */
 
-#define SAM3U_MAINOSC_FREQUENCY    (12000000)
-#define SAM3U_MCK_FREQUENCY        (48000000)
-#define SAM3U_PLLA_FREQUENCY       (96000000)
-#define SAM3U_CPU_FREQUENCY        (48000000)
+#define BOARD_MAINOSC_FREQUENCY    (12000000)
+#define BOARD_MCK_FREQUENCY        (48000000)
+#define BOARD_PLLA_FREQUENCY       (96000000)
+#define BOARD_CPU_FREQUENCY        (48000000)
 
 /* HSMCI clocking
  *
@@ -97,17 +95,21 @@
  */
 
 /* MCK = 48MHz, CLKDIV = 59, MCI_SPEED = 48MHz / 2 * (59+1) = 400 KHz */
-  
-#define HSMCI_INIT_CLKDIV      (59 << HSMCI_MR_CLKDIV_SHIFT)
+
+#define HSMCI_INIT_CLKDIV          (59 << HSMCI_MR_CLKDIV_SHIFT)
 
 /* MCK = 48MHz, CLKDIV = 1, MCI_SPEED = 48MHz / 2 * (1+1) = 12 MHz */
 
-#define HSMCI_MMCXFR_CLKDIV    (3 << HSMCI_MR_CLKDIV_SHIFT) 
+#define HSMCI_MMCXFR_CLKDIV        (3 << HSMCI_MR_CLKDIV_SHIFT)
 
 /* MCK = 48MHz, CLKDIV = 0, MCI_SPEED = 48MHz / 2 * (0+1) = 24 MHz */
 
-#define HSMCI_SDXFR_CLKDIV     (0 << HSMCI_MR_CLKDIV_SHIFT)
-#define HSMCI_SDWIDEXFR_CLKDIV HSMCI_SDXFR_CLKDIV
+#define HSMCI_SDXFR_CLKDIV         (0 << HSMCI_MR_CLKDIV_SHIFT)
+#define HSMCI_SDWIDEXFR_CLKDIV     HSMCI_SDXFR_CLKDIV
+
+/* FLASH wait states */
+
+#define BOARD_FWS                  2
 
 /* LED definitions ******************************************************************/
 
@@ -144,7 +146,7 @@ extern "C" {
  * Public Function Prototypes
  ************************************************************************************/
 /************************************************************************************
- * Name: sam3u_boardinitialize
+ * Name: sam_boardinitialize
  *
  * Description:
  *   All SAM3U architectures must provide the following entry point.  This entry point
@@ -153,7 +155,7 @@ extern "C" {
  *
  ************************************************************************************/
 
-EXTERN void sam3u_boardinitialize(void);
+void sam_boardinitialize(void);
 
 /************************************************************************************
  * Name: up_buttoninit
@@ -166,7 +168,7 @@ EXTERN void sam3u_boardinitialize(void);
  ************************************************************************************/
 
 #ifdef CONFIG_ARCH_BUTTONS
-EXTERN void up_buttoninit(void);
+void up_buttoninit(void);
 
 /************************************************************************************
  * Name: up_buttons
@@ -179,7 +181,7 @@ EXTERN void up_buttoninit(void);
  *
  ************************************************************************************/
 
-EXTERN uint8_t up_buttons(void);
+uint8_t up_buttons(void);
 
 /************************************************************************************
  * Name: up_irqbutton
@@ -193,7 +195,7 @@ EXTERN uint8_t up_buttons(void);
  ************************************************************************************/
 
 #ifdef CONFIG_GPIOA_IRQ
-EXTERN xcpt_t up_irqbutton(int id, xcpt_t irqhandler);
+xcpt_t up_irqbutton(int id, xcpt_t irqhandler);
 #endif
 #endif /* CONFIG_ARCH_BUTTONS */
 
@@ -203,4 +205,4 @@ EXTERN xcpt_t up_irqbutton(int id, xcpt_t irqhandler);
 #endif
 
 #endif /* __ASSEMBLY__ */
-#endif  /* __ARCH_BOARD_BOARD_H */
+#endif  /* __ARCH_SAM3U_EK_INCLUDE_BOARD_H */

@@ -80,10 +80,10 @@
 /* SYSCFG memory remap register */
 
 #define SYSCFG_CFGR1_MEMMODE_SHIFT     (0)       /* Bits 1:0 MEM_MODE: Memory mapping selection */
-#define SYSCFG_CFGR1_MEMMODE_MASK      (3 << SYSCFG_CFGR1_SHIFT)
-#  define SYSCFG_CFGR1_MEMMODE_FLASH   (0 << SYSCFG_CFGR1_SHIFT) /* 00: Main Flash at 0x00000000 */
-#  define SYSCFG_CFGR1_MEMMODE_SYSTEM  (1 << SYSCFG_CFGR1_SHIFT) /* 01: System Flash at 0x00000000 */
-#  define SYSCFG_CFGR1_MEMMODE_SRAM    (3 << SYSCFG_CFGR1_SHIFT) /* 11: Embedded SRAM at 0x00000000 */
+#define SYSCFG_CFGR1_MEMMODE_MASK      (3 << SYSCFG_CFGR1_MEMMODE_SHIFT)
+#  define SYSCFG_CFGR1_MEMMODE_FLASH   (0 << SYSCFG_CFGR1_MEMMODE_SHIFT) /* 00: Main Flash at 0x00000000 */
+#  define SYSCFG_CFGR1_MEMMODE_SYSTEM  (1 << SYSCFG_CFGR1_MEMMODE_SHIFT) /* 01: System Flash at 0x00000000 */
+#  define SYSCFG_CFGR1_MEMMODE_SRAM    (3 << SYSCFG_CFGR1_MEMMODE_SHIFT) /* 11: Embedded SRAM at 0x00000000 */
 #define SYSCFG_CFGR1_USB_ITRMP         (1 << 5)  /* Bit 5:  USB interrupt remap */
 #define SYSCFG_CFGR1_TIM1_ITR3RMP      (1 << 6)  /* Bit 6:  Timer 1 ITR3 selection */
 #define SYSCFG_CFGR1_DAC_TRIGRMP       (1 << 7)  /* Bit 7:  DAC trigger remap (when TSEL = 001) */

@@ -1,7 +1,7 @@
 #!/bin/bash
 # zipme.sh
 #
-#   Copyright (C) 2007-2011 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2007-2011, 2013 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,17 +35,80 @@
 #set -x
 
 WD=`pwd`
-VERSION=$1
 
 TAR="tar cvf"
 ZIP=gzip
+
+# Get command line parameters
+
+USAGE="USAGE: $0 [-d|h] [-b <build]> <major.minor>"
+ADVICE="Try '$0 -h' for more information"
+
+unset VERSION
+unset VERSIONOPT
+unset BUILD
+unset DEBUG
+
+while [ ! -z "$1" ]; do 
+    case $1 in
+    -b )
+        shift
+        BUILD="-b ${1}"
+        ;;
+    -d )
+        set -x
+        DEBUG=-d
+        ;;
+    -h )
+        echo "$0 is a tool for generation of release versions of NuttX"
+        echo ""
+        echo $USAGE
+        echo ""
+        echo "Where:"
+        echo "  -b <build>"
+        echo "     Use this build identification string.  Default: use GIT build ID"
+        echo "     NOTE: GIT build information may not be available in a snapshot"
+        echo "  -d"
+        echo "     Enable script debug"
+        echo "  -h"
+        echo "     show this help message and exit"
+        echo "  <major.minor>"
+        echo "     The NuttX version number expressed as a major and minor number separated"
+        echo "     by a period"
+        exit 0
+        ;;
+    * )
+        break;
+        ;;
+    esac
+    shift
+done
+
+# The last thing on the command line is the version number
+
+VERSION=$1
+VERSIONOPT="-v ${VERSION}"
 
 # Make sure we know what is going on
 
 if [ -z ${VERSION} ] ; then
    echo "You must supply a version like xx.yy as a parameter"
+   echo $USAGE
+   echo $ADVICE
    exit 1;
 fi
+
+if [ -z "${BUILD}" ]; then
+    GITINFO=`git log 2>/dev/null | head -1`
+    if [ -z "${GITINFO}" ]; then
+        echo "GIT version information is not available. Use the -b option"
+        echo $USAGE
+        echo $ADVICE
+        exit 1;
+    fi
+    echo "GIT: ${GITINFO}"
+fi
+
 
 # Find the directory we were executed from and were we expect to
 # see the directories to tar up
@@ -114,17 +177,37 @@ cd ${NUTTX}/Documentation || \
 cp -f ../TODO TODO.txt
 cp -f ../ChangeLog ChangeLog.txt
 
-# Write a version file into the NuttX directoy.  The syntax of file is such that it
+# Write a version file into the NuttX directory.  The syntax of file is such that it
 # may be sourced by a bash script or included by a Makefile.
 
 VERSIONSH=${NUTTX}/tools/version.sh
 if [ ! -x "${VERSIONSH}" ]; then
-	echo "No executable script was found at: ${VERSIONSH}"
-	exit 1
+    echo "No executable script was found at: ${VERSIONSH}"
+    exit 1
 fi
-${VERSIONSH} -v ${VERSION} ${NUTTX}/.version || \
-	{ echo "${VERSIONSH} failed"; cat ${NUTTX}/.version; exit 1; }
-chmod 755 ${NUTTX}/.version
+
+${VERSIONSH} ${DEBUG} ${BUILD} ${VERSIONOPT} ${NUTTX}/.version || \
+    { echo "${VERSIONSH} failed"; cat ${NUTTX}/.version; exit 1; }
+chmod 755 ${NUTTX}/.version || \
+    { echo "'chmod 755 ${NUTTX}/.version' failed"; exit 1; }
+
+# Update the configuration variable documentation
+
+MKCONFIGVARS=${NUTTX}/tools/mkconfigvars.sh
+CONFIGVARHTML=${NUTTX}/Documentation/NuttXConfigVariables.html
+
+if [ ! -x "${MKCONFIGVARS}" ]; then
+    echo "No executable script was found at: ${MKCONFIGVARS}"
+    exit 1
+fi
+
+cd ${NUTTX} || \
+   { echo "Failed to cd to ${NUTTX}" ; exit 1 ; }
+
+${MKCONFIGVARS} ${DEBUG} ${VERSIONOPT} || \
+    { echo "${MKCONFIGVARS} failed"; exit 1; }
+chmod 644 ${CONFIGVARHTML} || \
+    { echo "'chmod 644 ${CONFIGVARHTML}' failed"; exit 1; }
 
 # Perform a full clean for the distribution
 

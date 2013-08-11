@@ -48,10 +48,6 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#ifndef TASK_SPAWN_DEFAULT_STACKSIZE
-#  define TASK_SPAWN_DEFAULT_STACKSIZE 2048
-#endif
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -98,12 +94,14 @@ int posix_spawnattr_init(posix_spawnattr_t *attr)
 
   attr->policy = sched_getscheduler(0);
 
+#ifndef CONFIG_DISABLE_SIGNALS
   /* Empty signal masek */
 
   attr->sigmask = 0;
+#endif
 
   /* Default stack size */
 
-  attr->stacksize = TASK_SPAWN_DEFAULT_STACKSIZE;
+  attr->stacksize = CONFIG_TASK_SPAWN_DEFAULT_STACKSIZE;
   return OK;
 }

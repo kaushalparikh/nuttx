@@ -79,6 +79,10 @@ static ssize_t skel_bwrite(FAR struct mtd_dev_s *dev, off_t startblock, size_t n
                            FAR const uint8_t *buf);
 static ssize_t skel_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes,
                          FAR uint8_t *buffer);
+#ifdef CONFIG_MTD_BYTE_WRITE
+static ssize_t skel_write(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes,
+                          FAR const uint8_t *buffer);
+#endif
 static int skel_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg);
 
 /****************************************************************************
@@ -88,7 +92,15 @@ static int skel_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg);
 
 static struct skel_dev_s g_skeldev =
 {
-  { skel_erase, skel_rbead, skel_bwrite, skel_read, skel_ioctl },
+  { skel_erase,
+    skel_rbead,
+    skel_bwrite,
+    skel_read,
+#ifdef CONFIG_MTD_BYTE_WRITE
+    skel_write,
+#endif
+    skel_ioctl
+  },
   /* Initialization of any other implementation specific data goes here */
 };
 
@@ -109,7 +121,7 @@ static int skel_erase(FAR struct mtd_dev_s *dev, off_t startblock,
 {
   FAR struct skel_dev_s *priv = (FAR struct skel_dev_s *)dev;
 
-  /* The interface definition assumes that all erase blocks ar the same size.
+  /* The interface definition assumes that all erase blocks are the same size.
    * If that is not true for this particular device, then transform the
    * start block and nblocks as necessary.
    */
@@ -132,7 +144,7 @@ static ssize_t skel_bread(FAR struct mtd_dev_s *dev, off_t startblock, size_t nb
 {
   FAR struct skel_dev_s *priv = (FAR struct skel_dev_s *)dev;
 
-  /* The interface definition assumes that all read/write blocks ar the same size.
+  /* The interface definition assumes that all read/write blocks are the same size.
    * If that is not true for this particular device, then transform the
    * start block and nblocks as necessary.
    */
@@ -157,7 +169,7 @@ static ssize_t skel_bwrite(FAR struct mtd_dev_s *dev, off_t startblock, size_t n
 {
   FAR struct skel_dev_s *priv = (FAR struct skel_dev_s *)dev;
 
-  /* The interface definition assumes that all read/write blocks ar the same size.
+  /* The interface definition assumes that all read/write blocks are the same size.
    * If that is not true for this particular device, then transform the
    * start block and nblocks as necessary.
    */
@@ -190,7 +202,7 @@ static ssize_t skel_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes,
    * instance.
    */
 
-  /* The interface definition assumes that all read/write blocks ar the same size.
+  /* The interface definition assumes that all read/write blocks are the same size.
    * If that is not true for this particular device, then transform the
    * start block and nblocks as necessary.
    */
@@ -201,6 +213,23 @@ static ssize_t skel_read(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes,
 
   return 0;
 }
+
+/****************************************************************************
+ * Name: skel_write
+ *
+ * Description:
+ *   Some FLASH parts have the ability to write an arbitrary number of
+ *   bytes to an arbitrary offset on the device.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_MTD_BYTE_WRITE
+static ssize_t skel_write(FAR struct mtd_dev_s *dev, off_t offset, size_t nbytes,
+                          FAR const uint8_t *buffer)
+{
+  return -ENOSYS;
+}
+#endif
 
 /****************************************************************************
  * Name: skel_ioctl
@@ -218,7 +247,7 @@ static int skel_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
           FAR struct mtd_geometry_s *geo = (FAR struct mtd_geometry_s *)arg;
           if (geo)
             {
-              /* Populate the geometry structure with information need to know
+              /* Populate the geometry structure with information needed to know
                * the capacity and how to access the device.
                *
                * NOTE: that the device is treated as though it where just an array

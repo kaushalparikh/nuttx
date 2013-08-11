@@ -54,6 +54,16 @@
  * Public Data
  ************************************************************************************/
 
+#ifndef __ASSEMBLY__
+
+#undef EXTERN
+#if defined(__cplusplus)
+#define EXTERN extern "C"
+extern "C" {
+#else
+#define EXTERN extern
+#endif
+
 /************************************************************************************
  * Inline Functions
  ************************************************************************************/
@@ -62,4 +72,10 @@
  * Public Functions
  ************************************************************************************/
 
+#undef EXTERN
+#if defined(__cplusplus)
+}
+#endif
+
+#endif /* __ASSEMBLY__ */
 #endif /* __ARCH_ARM_SRC_KL_KINETIS_IRQ_H */

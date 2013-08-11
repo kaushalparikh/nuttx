@@ -1,7 +1,7 @@
 /****************************************************************************
  * fs/fs_poll.c
  *
- *   Copyright (C) 2008-2009, 2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2008-2009, 2012-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -140,6 +140,7 @@ static int poll_fdsetup(int fd, FAR struct pollfd *fds, bool setup)
 
       ret = (int)inode->u.i_ops->poll(this_file, fds, setup);
     }
+
   return ret;
 }
 #endif
@@ -168,14 +169,27 @@ static inline int poll_setup(FAR struct pollfd *fds, nfds_t nfds, sem_t *sem)
       fds[i].revents = 0;
       fds[i].priv    = NULL;
 
-      /* Set up the poll */
+      /* Check for invalid descriptors. "If the value of fd is less than 0,
+       * events shall be ignored, and revents shall be set to 0 in that entry
+       * on return from poll()."
+       *
+       * NOTE:  There is a potential problem here.  If there is only one fd
+       * and if it is negative, then poll will hang.  From my reading of the
+       * spec, that appears to be the correct behavior.
+       */
 
-      ret = poll_fdsetup(fds[i].fd, &fds[i], true);
-      if (ret < 0)
+      if (fds[i].fd >= 0)
         {
-          return ret;
+          /* Set up the poll on this valid file descriptor */
+
+          ret = poll_fdsetup(fds[i].fd, &fds[i], true);
+          if (ret < 0)
+            {
+              return ret;
+            }
         }
     }
+
   return OK;
 }
 #endif
@@ -201,12 +215,17 @@ static inline int poll_teardown(FAR struct pollfd *fds, nfds_t nfds, int *count)
   *count = 0;
   for (i = 0; i < nfds; i++)
     {
-      /* Teardown the poll */
+      /* Ignore negative descriptors */
 
-      status = poll_fdsetup(fds[i].fd, &fds[i], false);
-      if (status < 0)
+      if (fds[i].fd >= 0)
         {
-          ret = status;
+          /* Teardown the poll */
+
+          status = poll_fdsetup(fds[i].fd, &fds[i], false);
+          if (status < 0)
+            {
+              ret = status;
+            }
         }
 
       /* Check if any events were posted */

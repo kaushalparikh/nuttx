@@ -1,7 +1,7 @@
 /****************************************************************************
  * include/sys/statfs.h
  *
- *   Copyright (C) 2007-2009, 2011 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007-2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,6 +100,7 @@
 
 #define BINFS_MAGIC           0x4242
 #define NXFFS_MAGIC           0x4747
+#define SMARTFS_MAGIC         0x54524D53
 
 /****************************************************************************
  * Type Definitions

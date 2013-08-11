@@ -51,7 +51,7 @@
  */
 
 #define HD4478OU_CLEAR            (0x01)     /* Screen Clear, Set AC to 0 */
-#define HD4478OU_RETURN           (0x02)     /* DDRAM AD=0, return */
+#define HD4478OU_RETURN           (0x03)     /* DDRAM AD=0, return */
 #define HD4478OU_INPUT            (0x04)     /* Set moving direction of cursor */
 #  define HD4478OU_INPUT_SHIFT    (1 << 0)   /*   Shift */
 #  define HD4478OU_INPUT_INCR     (1 << 1)   /*   Increment mode */
@@ -65,7 +65,7 @@
 #  define HD4478OU_SHIFT_LEFT     (0x00)     /*   Shift right */
 #  define HD4478OU_SHIFT_DISPLAY  (1 << 3)   /*   Display shift */
 #  define HD4478OU_SHIFT_CURSOR   (0x00)     /*   Cursor shift */
-#define HD4478OU_FUNC             (0x20)     /* Set DL, display line, font */
+#define HD4478OU_FUNC             (0x23)     /* Set DL, display line, font */
 #  define HD4478OU_FUNC_F5x10     (1 << 2)   /*   5x10 Style */
 #  define HD4478OU_FUNC_F5x7      (0x00)     /*   5x7 Style */
 #  define HD4478OU_FUNC_N1        (1 << 3)   /*   N=2R */
@@ -77,7 +77,22 @@
 
 /* RS=0 R/W=1 : Execute internal function, read AD of CT */
 
-#define HD4478OU_BUSY(bf,ac)      ((bf) << 7 | (ac))
+#define HD4478OU_BF               (1 << 7)   /* Busy flag */
+#define HD4478OU_AC_SHIFT         (0)        /* AD of CT */
+#define HD4478OU_AC_MASK          (0x7f << HD4478OU_BUSY_AC_SHIFT)
+
+/* DDRAM Addressing.
+ *
+ * Internally, the HD44780U supports a display size of up to 2x40 addressed
+ * as follows:
+ *
+ * Column  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 ... 39
+ * Row 0  00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f ... 27
+ * Ro1 1  40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f ... 67
+ */
+
+#define HD4478OU_DDRAM_ROW0       0x00
+#define HD4478OU_DDRAM_ROW1       0x40
 
 /********************************************************************************************
  * Pre-processor Definitions
@@ -104,8 +119,11 @@ extern "C"
  * Name:  up_lcd1602_initialize
  *
  * Description:
- *   the LCD1602 is an HD4478OU-based LCD from Wave share.  This function initializes the
+ *   The LCD1602 is an HD4478OU-based LCD from Wave share.  This function initializes the
  *   LCD1602 hardware and registers the character driver as /dev/lcd1602.
+ *
+ *  NOTE:  This common interface definition is provided, however, the underlying
+ *  implemenataton is always board-specific for this LCD.
  *
  ********************************************************************************************/
 

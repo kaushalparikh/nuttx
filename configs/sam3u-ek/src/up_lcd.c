@@ -38,7 +38,7 @@
  * touch-screen, FTM280C12D, with integratd driver IC HX8346. The LCD display size
  * is 2.8 inches, with a native resolution of 240 x 320 pixels.
  *
- *   LCD Module Pin Out:                         AT91SAM3U PIO:
+ *   LCD Module Pin Out:                         SAM3U PIO:
  *  -------------------------------------------- --------------------------------------
  *   Pin Symbol Function                         LCD            PeriphA  PeriphB Extra
  *  ---- ------ -------------------------------- -------------- -------- ------- ------
@@ -126,7 +126,7 @@
 #include "up_arch.h"
 #include "sam_gpio.h"
 #include "chip/sam3u_pmc.h"
-#include "chip/sam_smc.h"
+#include "chip/sam3u_smc.h"
 #include "sam3u-ek.h"
 
 /**************************************************************************************
@@ -906,7 +906,7 @@ int up_lcdinitialize(void)
 
   /* Configure LCD Backlight Pin */
 
-  sam_configgpio(GPIO_LCD_D15);
+  sam_configgpio(GPIO_LCD_BKL);
 
   /* Enable SMC peripheral clock */
 

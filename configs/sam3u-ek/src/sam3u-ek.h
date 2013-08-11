@@ -1,5 +1,5 @@
 /************************************************************************************
- * configs/sam3uek_eval/src/sam3u-ek.h
+ * configs/sam3u-ek/src/sam3u-ek.h
  *
  *   Copyright (C) 2009-2011, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -67,7 +67,7 @@
 /* SAM3U-EK GPIO Pin Definitions ****************************************************/
 
 /* LCD:
- *   LCD Module Pin Out:                         AT91SAM3U PIO:
+ *   LCD Module Pin Out:                         SAM3U PIO:
  *  -------------------------------------------- --------------------------------------
  *   Pin Symbol Function                         LCD            PeriphA  PeriphB Extra
  *  ---- ------ -------------------------------- -------------- -------- ------- ------
@@ -143,14 +143,19 @@
  *
  * The IRQ is active low and pulled up.
  *
+ * Pen Interrupt. Open anode output, requires 10kO to 100kO pull-up resistor
+ * externally.  There is a 100KO pull-up on the SAM3U-EK board so no additional
+ * pull-up should be required.
+ *
  * BUSY is high impedance when CS is high (not selected).  When CS is
  * is low, BUSY is active high.  Since the pin is pulled up, it will appear
- * busy if CS is not selected.
+ * busy if CS is not selected (there is no pull-up onboard).
  */
 
 #define GPIO_TCS_IRQ  (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_INT_BOTHEDGES | \
                        GPIO_PORT_PIOA | GPIO_PIN24)
-#define GPIO_TCS_BUSY (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_PORT_PIOA | GPIO_PIN2)
+#define GPIO_TCS_BUSY (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_PORT_PIOA | \
+                       GPIO_PIN2)
 
 #define SAM_TCS_IRQ   SAM_IRQ_PA24
 
@@ -165,10 +170,10 @@
 
 /* BUTTONS */
 
-#define GPIO_BUTTON1  (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_CFG_DEGLITCH | GPIO_INT_BOTHEDGES | \
-                       GPIO_PORT_PIOA | GPIO_PIN18)
-#define GPIO_BUTTON2  (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_CFG_DEGLITCH | GPIO_INT_BOTHEDGES | \
-                       GPIO_PORT_PIOA | GPIO_PIN19)
+#define GPIO_BUTTON1  (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_CFG_DEGLITCH | \
+                       GPIO_INT_BOTHEDGES | GPIO_PORT_PIOA | GPIO_PIN18)
+#define GPIO_BUTTON2  (GPIO_INPUT | GPIO_CFG_PULLUP | GPIO_CFG_DEGLITCH | \
+                       GPIO_INT_BOTHEDGES | GPIO_PORT_PIOA | GPIO_PIN19)
 
 #define IRQ_BUTTON1   SAM_IRQ_PA18
 #define IRQ_BUTTON2   SAM_IRQ_PA19
@@ -190,6 +195,7 @@
 
 #define GPIO_TSC_NPCS2 (GPIO_OUTPUT | GPIO_CFG_PULLUP | GPIO_OUTPUT_SET | \
                         GPIO_PORT_PIOC | GPIO_PIN14)
+#define TSC_CSNUM      2
 
 /************************************************************************************
  * Public Types
@@ -213,7 +219,7 @@
  *
  ************************************************************************************/
 
-extern void weak_function sam_spiinitialize(void);
+void weak_function sam_spiinitialize(void);
 
 /************************************************************************************
  * Name: sam_usbinitialize
@@ -223,58 +229,57 @@ extern void weak_function sam_spiinitialize(void);
  *
  ************************************************************************************/
 
-extern void weak_function sam_usbinitialize(void);
+void weak_function sam_usbinitialize(void);
 
-/****************************************************************************
+/************************************************************************************
  * Name: sam_hsmciinit
  *
  * Description:
  *   Initialize HSMCI support
  *
- ****************************************************************************/
+ ************************************************************************************/
 
 #ifdef CONFIG_SAM34_HSMCI
-extern int weak_function sam_hsmciinit(void);
+int weak_function sam_hsmciinit(void);
 #else
 # define sam_hsmciinit()
 #endif
 
-/****************************************************************************
+/************************************************************************************
  * Name: up_ledinit
- ****************************************************************************/
+ ************************************************************************************/
 
 #ifdef CONFIG_ARCH_LEDS
 void up_ledinit(void);
 #endif
 
-/****************************************************************************
+/************************************************************************************
  * Name: sam_cardinserted
  *
  * Description:
  *   Check if a card is inserted into the selected HSMCI slot
  *
- ****************************************************************************/
+ ************************************************************************************/
 
 #ifdef CONFIG_SAM34_HSMCI
-extern bool sam_cardinserted(unsigned char slot);
+bool sam_cardinserted(unsigned char slot);
 #else
 #  define sam_cardinserted(slot) (false)
 #endif
 
-/****************************************************************************
+/************************************************************************************
  * Name: sam_writeprotected
  *
  * Description:
  *   Check if a card is inserted into the selected HSMCI slot
  *
- ****************************************************************************/
+ ************************************************************************************/
 
 #ifdef CONFIG_SAM34_HSMCI
-extern bool sam_writeprotected(unsigned char slot);
+bool sam_writeprotected(unsigned char slot);
 #else
 #  define sam_writeprotected(slot) (false)
 #endif
 
 #endif /* __ASSEMBLY__ */
 #endif /* __CONFIGS_SAM3U_EK_SRC_SAM3U_EK_H */
-

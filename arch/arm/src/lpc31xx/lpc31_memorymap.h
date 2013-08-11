@@ -81,7 +81,7 @@
                                                 /* 0x60001000-0x6fffffff: Reserved */
 #define LPC31_NAND_PSECTION          0x70000000 /* 0x70000000-0x700007ff: NANDFLASH Ctrl 2Kb */
                                                 /* 0x70000800-0xffffffff: Reserved */
-#ifdef CONFIG_ARCH_EXTNAND                      /* End of the physical address space */
+#ifdef CONFIG_LPC31_EXTNAND                     /* End of the physical address space */
 #  define LPC31_LAST_PSECTION        (LPC31_NAND_PSECTION + (1 << 20))
 #else
 #  define LPC31_LAST_PSECTION        (LPC31_INTC_PSECTION + (1 << 20))
@@ -154,7 +154,7 @@
 
 /* Sizes of sections/regions.  The boot logic in lpc31_boot.c, will select
  * 1Mb level 1 MMU mappings to span the entire physical address space.
- * The definitiions below specifiy the number of 1Mb entries that are
+ * The definitions below specify the number of 1Mb entries that are
  * required to span a particular address region.
  */
 
@@ -176,8 +176,8 @@
  * the size of the SDRAM installed.
  */
 
-#if defined(CONFIG_ARCH_EXTDRAM) && CONFIG_ARCH_EXTDRAMSIZE > 0
-#  define LPC31_EXTSDRAM0_NSECTIONS  _NSECTIONS(CONFIG_ARCH_EXTDRAMSIZE)
+#if defined(CONFIG_LPC31_EXTDRAM) && CONFIG_LPC31_EXTDRAMSIZE > 0
+#  define LPC31_EXTSDRAM0_NSECTIONS  _NSECTIONS(CONFIG_LPC31_EXTDRAMSIZE)
 #endif
 
 /* Section MMU Flags */
@@ -233,7 +233,7 @@
 #  define LPC31_INTC_VSECTION        0x60000000 /* 0x60000000-0x60000fff: Interrupt controller 4Kb */
 #  define LPC31_NAND_VSECTION        0x70000000 /* 0x70000000-0x700007ff: NANDFLASH Ctrl 2Kb */
 #
-#  ifdef CONFIG_ARCH_EXTNAND                    /* End of the virtual address space */
+#  ifdef CONFIG_LPC31_EXTNAND                   /* End of the virtual address space */
 #    define LPC31_LAST_VSECTION      (LPC31_NAND_VSECTION + (1 << 20))
 #  else
 #    define LPC31_LAST_VSECTION      (LPC31_INTC_VSECTION + (1 << 20))
@@ -247,12 +247,16 @@
 
 #if defined(CONFIG_BOOT_RUNFROMFLASH)
 #  define NUTTX_START_VADDR            LPC31_MPMC_VADDR
+#  define NUTTX_START_PADDR            LPC31_MPMC_PADDR
 #elif defined(CONFIG_BOOT_RUNFROMSDRAM)
 #  define NUTTX_START_VADDR            LPC31_EXTSDRAM0_VSECTION
+#  define NUTTX_START_PADDR            LPC31_EXTSDRAM0_PSECTION
 #elif defined(CONFIG_BOOT_RUNFROMEXTSRAM)
 #  define NUTTX_START_VADDR            LPC31_EXTSRAM0_VADDR
+#  define NUTTX_START_PADDR            LPC31_EXTSRAM0_PADDR
 #else /* CONFIG_BOOT_RUNFROMISRAM, CONFIG_PAGING */
 #  define NUTTX_START_VADDR            LPC31_INTSRAM0_VADDR
+#  define NUTTX_START_PADDR            LPC31_INTSRAM0_PADDR
 #endif
 
 /* Determine the address of the MMU page table.  We will try to place that page

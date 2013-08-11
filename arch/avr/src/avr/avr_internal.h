@@ -78,7 +78,7 @@ extern volatile uint8_t *current_regs;
 
 /* This is the beginning of heap as provided from up_head.S. This is the first
  * address in DRAM after the loaded program+bss+idle stack.  The end of the
- * heap is CONFIG_DRAM_END
+ * heap is CONFIG_RAM_END
  */
 
 extern uint16_t g_idle_topstack;
@@ -142,7 +142,7 @@ extern uint8_t *up_doirq(uint8_t irq, uint8_t *regs);
  * Description:
  *   These external functions must be provided by board-specific logic.  They are
  *   implementations of the select, status, and cmddata methods of the SPI interface
- *   defined by struct spi_ops_s (see include/nuttx/spi.h). All other methods 
+ *   defined by struct spi_ops_s (see include/nuttx/spi/spi.h). All other methods 
  *   including up_spiinitialize()) are provided by common LPC17xx logic.  To use
  *   this common SPI logic on your board:
  *

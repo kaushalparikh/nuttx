@@ -42,9 +42,9 @@
 
 #include <debug.h>
 
-#include <nuttx/spi.h>
+#include <nuttx/spi/spi.h>
 #include <nuttx/lcd/lcd.h>
-#include <nuttx/lcd/ug-2864hsweg01.h>
+#include <nuttx/lcd/ssd1306.h>
 
 #include "stm32_gpio.h"
 #include "stm32f4discovery-internal.h"
@@ -140,7 +140,7 @@ FAR struct lcd_dev_s *up_nxdrvinit(unsigned int devno)
     {
       /* Bind the SPI port to the OLED */
 
-      dev = ug2864hsweg01_initialize(spi, devno);
+      dev = ssd1306_initialize(spi, devno);
       if (!dev)
         {
           lcddbg("Failed to bind SPI port 1 to OLED %d: %d\n", devno);

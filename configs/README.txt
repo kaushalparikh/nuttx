@@ -188,9 +188,9 @@ architecture/board-specific settings).
 
   Some architectures require a description of the RAM configuration:
 
-    CONFIG_DRAM_SIZE - Describes the installed DRAM.
-    CONFIG_DRAM_START - The start address of DRAM (physical)
-    CONFIG_DRAM_VSTART - The start address of DRAM (virtual)
+    CONFIG_RAM_SIZE - Describes the installed DRAM.
+    CONFIG_RAM_START - The start address of DRAM (physical)
+    CONFIG_RAM_VSTART - The start address of DRAM (virtual)
 
   General build options:
 
@@ -630,12 +630,12 @@ architecture/board-specific settings).
       be a value supported by the processor's memory management unit.
     CONFIG_PAGING_NLOCKED - This is the number of locked pages in the
       memory map.  The locked address region will then be from
-      CONFIG_DRAM_VSTART through (CONFIG_DRAM_VSTART +
+      CONFIG_RAM_VSTART through (CONFIG_RAM_VSTART +
       CONFIG_PAGING_PAGESIZE*CONFIG_PAGING_NLOCKED)
     CONFIG_PAGING_LOCKED_PBASE and CONFIG_PAGING_LOCKED_VBASE - These
       may be defined to determine the base address of the locked page
       regions.  If neither are defined, the logic will be set the bases
-      to CONFIG_DRAM_START and CONFIG_DRAM_VSTART (i.e., it assumes
+      to CONFIG_RAM_START and CONFIG_RAM_VSTART (i.e., it assumes
       that the base address of the locked region is at the beginning
       of RAM).
       NOTE:  In some architectures, it may be necessary to take some
@@ -1702,6 +1702,10 @@ configs/amber
   on the Atmel AVR ATMega128 MCU.  There is not much there yet and what is
   there is untested due to tool-related issues.
 
+configs/arduino-due
+  This sub-directory holds board support for the Arduino DUE board featuring
+  the Atmel ATSAM3X8E MCU running at 84 MHz.
+
 configs/avr32dev1
   This is a port of NuttX to the Atmel AVR32DEV1 board.  That board is
   based on the Atmel AT32UC3B0256 MCU and uses a specially patched
@@ -1956,8 +1960,26 @@ configs/rgmp
   hybrid operating system. This makes your application able to use both RTOS
   and GPOS features.
 
-  See http://rgmp.sourceforge.net/wiki/index.php/Main_Page for further information
-  about RGMP.
+  See http://rgmp.sourceforge.net/wiki/index.php/Main_Page for further
+  information about RGMP.
+
+configs/sama5d3x-ek
+  This is the  port of NuttX to the Atmel SAMA5D3x-EK development boards
+  (where x=1,3,4, or 5).  These boards feature the Atmel SAMA5D3
+  microprocessors.  Four different SAMA5D3x-EK kits are available
+
+    - SAMA5D31-EK with the ATSAMA5D1 (http://www.atmel.com/devices/sama5d31.aspx)
+    - SAMA5D33-EK with the ATSAMA5D3 (http://www.atmel.com/devices/sama5d33.aspx)
+    - SAMA5D34-EK with the ATSAMA5D4 (http://www.atmel.com/devices/sama5d34.aspx)
+    - SAMA5D35-EK with the ATSAMA5D5 (http://www.atmel.com/devices/sama5d35.aspx)
+
+  The each consist of an identical base board with different plug-in modules
+  for each CPU.  An option 7 inch LCD is also available.  All four boards
+  are supported by NuttX with a simple reconfiguration of the processor
+  type.
+
+  There is also the SAMA5D3FAE-EK bundle includes everything:  The base
+  board, all four CPU modules, and the LCD.
 
 configs/sam3u-ek
   The port of NuttX to the Atmel SAM3U-EK development board.

@@ -2,7 +2,8 @@ README
 ^^^^^^
 
 This README discusses issues unique to NuttX configurations for the Atmel
-SAM3U-EK development board featuring the ATAM3U
+SAM3U-EK development board featuring the ATAM3U.  This board features the
+ATSAM3U4E MCU running at 96MHz.
 
 Contents
 ^^^^^^^^
@@ -15,6 +16,7 @@ Contents
   - NXFLAT Toolchain
   - AtmelStudio6.1
   - LEDs
+  - Serial Console
   - SAM3U-EK-specific Configuration Options
   - Configurations
 
@@ -36,8 +38,7 @@ GNU Toolchain Options
   2. The devkitARM GNU toolchain, ok
   4. The NuttX buildroot Toolchain (see below).
 
-  All testing has been conducted using the NuttX buildroot toolchain.  However,
-  the make system is setup to default to use the devkitARM toolchain.  To use
+  All testing has been conducted using the NuttX buildroot toolchain.  To use
   the CodeSourcery, devkitARM, Atollic, or AtmelStudio GNU toolchain, you simply
   need to add one of the following configuration options to your .config (or
   defconfig) file:
@@ -202,7 +203,7 @@ NXFLAT Toolchain
   1. You must have already configured Nuttx in <some-dir>/nuttx.
 
      cd tools
-     ./configure.sh lpcxpresso-lpc1768/<sub-dir>
+     ./configure.sh sam3u-ek/<sub-dir>
 
   2. Download the latest buildroot package into <some-dir>
 
@@ -266,8 +267,27 @@ LEDs
     on a small proportion of the time.
 *** LED2 may also flicker normally if signals are processed.
 
+Serial Console
+^^^^^^^^^^^^^^
+
+  By default, all of these configurations use UART0 for the NuttX serial
+  console.  UART0 corresponds to the DB-9 connector labelled "UART".  This
+  is a male connector and will require a female-to-female, NUL modem cable
+  to connect to a PC.
+
+  An alternate is USART1 which connects to the other DB-9 connector labeled
+  "USART".  USART1 is not enabled by default unless specifically noted
+  otherwise in the configuration description.  A NUL modem cable must be
+  used with the port as well.
+
+  NOTE:  One of the USART1 pins is shared with the audio CODEC.  The audio
+  CODEC cannot be used of USART1 is enabled.
+
+  By default serial console is configured for 115000, 8-bit, 1 stop bit, and
+  no parity.
+
 SAM3U-EK-specific Configuration Options
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     CONFIG_ARCH - Identifies the arch/ subdirectory.  This should
        be set to:
@@ -291,7 +311,7 @@ SAM3U-EK-specific Configuration Options
 
        CONFIG_ARCH_CHIP_SAM34
        CONFIG_ARCH_CHIP_SAM3U
-       CONFIG_ARCH_CHIP_AT91SAM3U4
+       CONFIG_ARCH_CHIP_ATSAM3U4
 
     CONFIG_ARCH_BOARD - Identifies the configs subdirectory and
        hence, the board that supports the particular chip or SoC.
@@ -308,15 +328,15 @@ SAM3U-EK-specific Configuration Options
     CONFIG_ENDIAN_BIG - define if big endian (default is little
        endian)
 
-    CONFIG_DRAM_SIZE - Describes the installed DRAM (SRAM in this case):
+    CONFIG_RAM_SIZE - Describes the installed DRAM (SRAM in this case):
 
-       CONFIG_DRAM_SIZE=0x0000c000 (48Kb)
+       CONFIG_RAM_SIZE=0x0000c000 (48Kb)
 
-    CONFIG_DRAM_START - The start address of installed DRAM
+    CONFIG_RAM_START - The start address of installed DRAM
 
-       CONFIG_DRAM_START=0x20000000
+       CONFIG_RAM_START=0x20000000
 
-    CONFIG_ARCH_IRQPRIO - The SAM3UF103Z supports interrupt prioritization
+    CONFIG_ARCH_IRQPRIO - The SAM3U supports interrupt prioritization
 
        CONFIG_ARCH_IRQPRIO=y
 
@@ -353,7 +373,7 @@ SAM3U-EK-specific Configuration Options
     CONFIG_SAM34_HSMCI         - High Speed Multimedia Card Interface
     CONFIG_SAM34_TWI0          - Two-Wire Interface 0
     CONFIG_SAM34_TWI1          - Two-Wire Interface 1
-    CONFIG_SAM34_SPI           - Serial Peripheral Interface
+    CONFIG_SAM34_SPI0           - Serial Peripheral Interface
     CONFIG_SAM34_SSC           - Synchronous Serial Controller
     CONFIG_SAM34_TC0           - Timer Counter 0
     CONFIG_SAM34_TC1           - Timer Counter 1
@@ -376,7 +396,7 @@ SAM3U-EK-specific Configuration Options
     CONFIG_USART3_ISUART
     CONFIG_SAM34_NAND          - NAND memory
 
-  AT91SAM3U specific device driver settings
+  SAM3U specific device driver settings
 
     CONFIG_U[S]ARTn_SERIAL_CONSOLE - selects the USARTn (n=0,1,2,3) or UART
            m (m=4,5) for the console and ttys0 (default is the USART1).
@@ -399,6 +419,8 @@ SAM3U-EK-specific Configuration Options
 Configurations
 ^^^^^^^^^^^^^^
 
+  Information Common to All Configurations
+  ----------------------------------------
   Each SAM3U-EK configuration is maintained in a sub-directory and
   can be selected as follow:
 
@@ -439,15 +461,20 @@ Configurations
      Build Setup:
        CONFIG_HOST_LINUX=y   : Linux or other POSIX environment
 
-  4. These configurations use the older, OABI, buildroot toolchain.  But
-     that is easily reconfigured:
+  4. All of these configurations use the older, OABI, buildroot toolchain
+     (unless stated otherwise in the description of the configuration).  That
+     toolchain selection can easily be reconfigured using 'make menuconfig'.
+     Here are the relevant current settings:
 
+     Build Setup:
+       CONFIG_HOST_LINUX=y                 : Linux or other pure POSIX invironment
+                                           : (including Cygwin)
      System Type -> Toolchain:
        CONFIG_ARMV7M_TOOLCHAIN_BUILDROOT=y : Buildroot toolchain
        CONFIG_ARMV7M_OABI_TOOLCHAIN=y      : Older, OABI toolchain
 
-     If you want to use the Atmel GCC toolchain, here are the steps to
-     do so:
+     If you want to use the Atmel GCC toolchain, for example, here are the
+     steps to do so:
 
      Build Setup:
        CONFIG_HOST_WINDOWS=y   : Windows
@@ -455,6 +482,9 @@ Configurations
 
      System Type -> Toolchain:
        CONFIG_ARMV7M_TOOLCHAIN_GNU_EABIW=y : General GCC EABI toolchain under windows
+
+     Library Routines ->
+       CONFIG_CXX_NEWLONG=n                : size_t is an unsigned int, not long
 
      This re-configuration should be done before making NuttX or else the
      subsequent 'make' will fail.  If you have already attempted building
@@ -472,8 +502,8 @@ Configurations
      See also the "NOTE about Windows native toolchains" in the section call
      "GNU Toolchain Options" above.
 
-Configuration sub-directories
------------------------------
+  Configuration sub-directories
+  -----------------------------
 
   knsh:
     This is identical to the nsh configuration below except that NuttX
@@ -572,20 +602,26 @@ Configuration sub-directories
        application.  You can enable the touchscreen and test by modifying the
        default configuration in the following ways:
 
-          Drivers:
-            CONFIG_INPUT=y                    : Enable support for input devices
-            CONFIG_INPUT_ADS7843E=y           : Enable support for the XPT2048
-            CONFIG_ADS7843E_SPIDEV=0          : Use SPI for communication
-            CONFIG_ADS7843E_SPIMODE=0         : Use SPI mode 0
-            CONFIG_ADS7843E_THRESHX=39        : These will probably need to be tuned
-            CONFIG_ADS7843E_THRESHY=51
+          Device Drivers
             CONFIG_SPI=y                      : Enable SPI support
-            CONFIG_SPI_EXCHANGE=n             : exchange() method is not supported
+            CONFIG_SPI_EXCHANGE=y             : The exchange() method is supported
+            CONFIG_SPI_OWNBUS=y               : Smaller code if this is the only SPI device
+
+            CONFIG_INPUT=y                    : Enable support for input devices
+            CONFIG_INPUT_ADS7843E=y           : Enable support for the XPT2046
+            CONFIG_ADS7843E_SPIDEV=2          : Use SPI CS 2 for communication
+            CONFIG_ADS7843E_SPIMODE=0         : Use SPI mode 0
+            CONFIG_ADS7843E_FREQUENCY=1000000 : SPI BAUD 1MHz
+            CONFIG_ADS7843E_SWAPXY=y          : If landscpe orientation
+            CONFIG_ADS7843E_THRESHX=51        : These will probably need to be tuned
+            CONFIG_ADS7843E_THRESHY=39
+
+          System Type -> Peripherals:
+            CONFIG_SAM34_SPI0=y                : Enable support for SPI
 
           System Type:
             CONFIG_GPIO_IRQ=y                 : GPIO interrupt support
             CONFIG_GPIOA_IRQ=y                : Enable GPIO interrupts from port A
-            CONFIG_SAM34_SPI=y                : Enable support for SPI
 
           RTOS Features:
             CONFIG_DISABLE_SIGNALS=n          : Signals are required
@@ -605,29 +641,105 @@ Configuration sub-directories
             CONFIG_DEBUG_INPUT=y              : Enable debug output from input devices
 
           STATUS:
-            2013-6-14: The touchscreen is not functional.  BUSY is initially
-            '0' when asserted says '1'.  The pend down GPIO inputis always
-            '1' and there seems to be many spurious interrupts (but not so
-            many as to lock up the system).
-
-            So there are GIO issues, but on the positive side, the driver
-            does appear to produce good touch data when touched but a lot
-            of clean-up is needed.
+            2013-6-28: The touchscreen is functional.
+            2013-6-29: Hmmm... but there appear to be conditions when the
+              touchscreen driver locks up.  Looks like some issue with
+              managing the interrupts.
+            2013-6-30:  Those lock-ups appear to be due to poorly placed
+              debug output statements.  If you do not enable debug output,
+              the touchscreen is rock-solid.
 
   nx:
     Configures to use examples/nx using the HX834x LCD hardware on
     the SAM3U-EK development board.
 
+  nxwm:
+    This is a special configuration setup for the NxWM window manager
+    UnitTest.  It includes support for both the HX834x LCD and the
+    ADS7843E touchscreen controller on board the SAM3U-EK board.
+
+    The NxWM window manager is a tiny window manager tailor for use
+    with smaller LCDs.  It supports a toolchain, a start window, and
+    multiple application windows.  However, to make the best use of
+    the visible LCD space, only one application window is visiable at
+    at time.
+ 
+    The NxWM window manager can be found here:
+
+      nuttx-git/NxWidgets/nxwm
+
+    The NxWM unit test can be found at:
+
+      nuttx-git/NxWidgets/UnitTests/nxwm
+
+    Documentation for installing the NxWM unit test can be found here:
+
+      nuttx-git/NxWidgets/UnitTests/README.txt
+
+    Here is the quick summary of the build steps.  These steps assume that
+    you have the entire NuttX GIT in some directory ~/nuttx-git.  You may
+    have these components installed elsewhere.  In that case, you will need
+    to adjust all of the paths in the following accordingly:
+
+    1. Intall the nxwm configuration
+
+       $ cd ~/nuttx-git/nuttx/tools
+       $ ./configure.sh sam3u-ek/nxwm
+
+    2. Make the build context (only)
+
+       $ cd ..
+       $ . ./setenv.sh
+       $ make context
+       ...
+
+       NOTE: the use of the setenv.sh file is optional.  All that it will
+       do is to adjust your PATH variable so that the build system can find
+       your tools.  If you use it, you will most likely need to modify the
+       script so that it has the correct path to your tool binaries
+       directory.
+
+    3. Install the nxwm unit test
+
+       $ cd ~/nuttx-git/NxWidgets
+       $ tools/install.sh ~/nuttx-git/apps nxwm
+       Creating symbolic link
+        - To ~/nuttx-git/NxWidgets/UnitTests/nxwm
+        - At ~/nuttx-git/apps/external
+
+    4. Build the NxWidgets library
+
+       $ cd ~/nuttx-git/NxWidgets/libnxwidgets
+       $ make TOPDIR=~/nuttx-git/nuttx
+       ...
+
+    5. Build the NxWM library
+
+       $ cd ~/nuttx-git/NxWidgets/nxwm
+       $ make TOPDIR=~/nuttx-git/nuttx
+       ...
+
+    6. Built NuttX with the installed unit test as the application
+
+       $ cd ~/nuttx-git/nuttx
+       $ make
+
     STATUS:
-      This configuration used to work well in an older NuttX version
-      on an older SAM3U-EK board (my old board was bricked and I got
-      another after a lapse of a couple of years).  But now it no
-      longer works!  There appears to be some bug, perhaps a memory
-      clobbering bug, that causes a variety of symptons:  Hangs on
-      UART0 or hard faults.  The LCD functionality is basically intact,
-      but not usable because of these problems.
+
+    1. 2013-6-28:  Created the configuration but have not yet done
+       anything with it.
+
+    2. 2013-6-29:  Various changes to get a clean build of this
+       configuration. Still untested.
+
+    3. 20113-6-30:  I cannot load this program using AtmelStudio6.1.
+       The total size with DEBUG on is 138.9 KB.  I have verified
+       that the first 128KB may have been written correctly, but then
+       the code above 128KB wraps and overwrites the code at the
+       beginning of FLASH, trashing the FLASH images.
+
+       Bottom line:  Still untested.
 
   ostest:
     This configuration directory, performs a simple OS test using
-    examples/ostest.  By default, this project assumes that you are
-    using the DFU bootloader.
+    examples/ostest.

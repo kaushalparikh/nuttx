@@ -29,7 +29,6 @@ config ARCH_CHIP_DM320
 	bool "TMS320 DM320"
 	select ARCH_ARM926EJS
 	select ARCH_HAVE_LOWVECTORS
-	select ARCH_HAVE_MMU
 	---help---
 		TI DMS320 DM320 (ARM926EJS)
 
@@ -38,7 +37,6 @@ config ARCH_CHIP_IMX
 	select ARCH_ARM920T
 	select ARCH_HAVE_HEAP2
 	select ARCH_HAVE_LOWVECTORS
-	select ARCH_HAVE_MMU
 	---help---
 		Freescale iMX architectures (ARM920T)
 
@@ -91,7 +89,6 @@ config ARCH_CHIP_LPC31XX
 	bool "NXP LPC31XX"
 	select ARCH_ARM926EJS
 	select ARCH_HAVE_LOWVECTORS
-	select ARCH_HAVE_MMU
 	---help---
 		NPX LPC31XX architectures (ARM926EJS).
 
@@ -111,6 +108,14 @@ config ARCH_CHIP_NUC1XX
 	select ARCH_HAVE_CMNVECTOR
 	---help---
 		NPX LPC43XX architectures (ARM Cortex-M4).
+
+config ARCH_CHIP_SAMA5
+	bool "Atmel AT91SAMA5"
+	select ARCH_CORTEXA5
+	select ARCH_HAVE_FPU
+	select ARCH_HAVE_LOWVECTORS
+	---help---
+		Atmel AT91SAMA5 (ARM Cortex-A5)
 
 config ARCH_CHIP_SAM34
 	bool "Atmel AT91SAM3/SAM4"
@@ -138,31 +143,46 @@ endchoice
 
 config ARCH_ARM7TDMI
 	bool
+	default n
 
 config ARCH_ARM926EJS
 	bool
+	default n
+	select ARCH_HAVE_MMU
 
 config ARCH_ARM920T
 	bool
+	default n
+	select ARCH_HAVE_MMU
 
 config ARCH_CORTEXM0
 	bool
+	default n
 	select ARCH_IRQPRIO
 
 config ARCH_CORTEXM3
 	bool
+	default n
 	select ARCH_IRQPRIO
 	select ARCH_HAVE_RAMVECTORS
 
 config ARCH_CORTEXM4
 	bool
+	default n
 	select ARCH_IRQPRIO
 	select ARCH_HAVE_RAMVECTORS
+
+config ARCH_CORTEXA5
+	bool
+	default n
+	select ARCH_IRQPRIO
+	select ARCH_HAVE_MMU
 
 config ARCH_FAMILY
 	string
 	default "arm"		if ARCH_ARM7TDMI || ARCH_ARM926EJS || ARCH_ARM920T
 	default "armv6-m"	if ARCH_CORTEXM0
+	default "armv7-a"	if ARCH_CORTEXA5
 	default "armv7-m"	if ARCH_CORTEXM3 || ARCH_CORTEXM4
 
 config ARCH_CHIP
@@ -180,6 +200,7 @@ config ARCH_CHIP
 	default "lpc31xx"	if ARCH_CHIP_LPC31XX
 	default "lpc43xx"	if ARCH_CHIP_LPC43XX
 	default "nuc1xx"	if ARCH_CHIP_NUC1XX
+	default "sama5"		if ARCH_CHIP_SAMA5
 	default "sam34"		if ARCH_CHIP_SAM34
 	default "stm32"		if ARCH_CHIP_STM32
 	default "str71x"	if ARCH_CHIP_STR71X
@@ -249,11 +270,9 @@ config ARCH_LOWVECTORS
 	---help---
 		Support ARM vectors in low memory.
 
-config ARCH_HAVE_MMU
-	bool
-
 config PGTABLE_VADDR
 	hex "Page table virtual address"
+	default 0x0
 	depends on ARCH_HAVE_MMU
 	---help---
 		Page table virtual address (might be defined in the board.h file).  Not
@@ -285,6 +304,9 @@ config DEBUG_HARDFAULT
 
 if ARCH_CORTEXM0
 source arch/arm/src/armv6-m/Kconfig
+endif
+if ARCH_CORTEXA5
+source arch/arm/src/armv7-a/Kconfig
 endif
 if ARCH_CORTEXM3 || ARCH_CORTEXM4
 source arch/arm/src/armv7-m/Kconfig
@@ -330,6 +352,9 @@ source arch/arm/src/lpc43xx/Kconfig
 endif
 if ARCH_CHIP_NUC1XX
 source arch/arm/src/nuc1xx/Kconfig
+endif
+if ARCH_CHIP_SAMA5
+source arch/arm/src/sama5/Kconfig
 endif
 if ARCH_CHIP_SAM34
 source arch/arm/src/sam34/Kconfig

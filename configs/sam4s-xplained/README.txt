@@ -21,7 +21,7 @@ README
 Contents
 ^^^^^^^^
 
-  - PIO Muxing
+  - PIO Muliplexing
   - Development Environment
   - GNU Toolchain Options
   - IDEs
@@ -33,8 +33,8 @@ Contents
   - SAM4S Xplained-specific Configuration Options
   - Configurations
 
-PIO Muxing
-^^^^^^^^^^
+PIO Muliplexing
+^^^^^^^^^^^^^^^
 
   PA0   SMC_A17                  PB0   J2.3 default   PC0   SMC_D0
   PA1   SMC_A18                  PB1   J2.4           PC1   SMC_D1
@@ -72,23 +72,25 @@ PIO Muxing
 Development Environment
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-  Either Linux or Cygwin on Windows can be used for the development environment.
+  Several possibile development enviorments may be use:
+
+  - Linux or OSX native
+  - Cygwin unders Windows
+  - MinGW + MSYS under Windows
+  - Windows native (with GNUMake from GNUWin32).
+
+  All testing has been performed using Cygwin under Windows.
+
   The source has been built only using the GNU toolchain (see below).  Other
-  toolchains will likely cause problems. Testing was performed using the Cygwin
-  environment.
+  toolchains will likely cause problems.
 
 GNU Toolchain Options
 ^^^^^^^^^^^^^^^^^^^^^
 
-  The NuttX make system has been modified to support the following different
+  The NuttX make system has been modified to support the several different
   toolchain options.
 
-  1. The CodeSourcery GNU toolchain,
-  2. The devkitARM GNU toolchain, ok
-  4. The NuttX buildroot Toolchain (see below).
-
-  All testing has been conducted using the NuttX buildroot toolchain.  However,
-  the make system is setup to default to use the devkitARM toolchain.  To use
+  All testing has been conducted using the NuttX buildroot toolchain.  To use
   the CodeSourcery, devkitARM or Raisonance GNU toolchain, you simply need to
   add one of the following configuration options to your .config (or defconfig)
   file:
@@ -137,9 +139,9 @@ GNU Toolchain Options
 
        MKDEP                = $(TOPDIR)/tools/mknulldeps.sh
 
-  NOTE 1: The CodeSourcery toolchain (2009q1) does not work with default optimization
-  level of -Os (See Make.defs).  It will work with -O0, -O1, or -O2, but not with
-  -Os.
+  NOTE 1: Older CodeSourcery toolchains (2009q1) do not work with default
+  optimization level of -Os (See Make.defs).  It will work with -O0, -O1, or
+  -O2, but not with -Os.
 
   NOTE 2: The devkitARM toolchain includes a version of MSYS make.  Make sure that
   the paths to Cygwin's /bin and /usr/bin directories appear BEFORE the devkitARM
@@ -254,7 +256,7 @@ NXFLAT Toolchain
   1. You must have already configured Nuttx in <some-dir>/nuttx.
 
      cd tools
-     ./configure.sh lpcxpresso-lpc1768/<sub-dir>
+     ./configure.sh sam4s-xplained/<sub-dir>
 
   2. Download the latest buildroot package into <some-dir>
 
@@ -299,7 +301,7 @@ Buttons and LEDs
 
   These LEDs are not used by the board port unless CONFIG_ARCH_LEDS is
   defined.  In that case, the usage by the board port is defined in
-  include/board.h and src/up_leds.c. The LEDs are used to encode OS-related
+  include/board.h and src/sam_leds.c. The LEDs are used to encode OS-related
   events as follows:
 
     SYMBOL                Meaning                     LED state
@@ -322,9 +324,8 @@ Buttons and LEDs
 Serial Consoles
 ^^^^^^^^^^^^^^^
 
-  USART0
-  ------
-
+  UART1
+  -----
   If you have a TTL to RS-232 convertor then this is the most convenient
   serial console to use.  UART1 is the default in all of these
   configurations.
@@ -334,6 +335,8 @@ Serial Consoles
     GND              J1 pin 9   J4 pin 9
     Vdd              J1 pin 10  J4 pin 10
 
+  USART1
+  ------
   USART1 is another option:
 
     USART1 RXD PA21  J2 pin 6
@@ -341,12 +344,11 @@ Serial Consoles
     GND              J2 pin 9
     Vdd              J2 pin 10
 
+  Virtual COM Port
+  ----------------
   Yet another option is to use UART0 and the virtual COM port.  This
   option may be more convenient for long term development, but was
   painful to use during board bring-up.
-
-  Virtual COM Port
-  ----------------
 
   The SAM4S Xplained contains an Embedded Debugger (EDBG) that can be
   used to program and debug the ATSAM4S16C using Serial Wire Debug (SWD).
@@ -400,15 +402,15 @@ SAM4S Xplained-specific Configuration Options
   CONFIG_ENDIAN_BIG - define if big endian (default is little
   endian)
 
-  CONFIG_DRAM_SIZE - Describes the installed DRAM (SRAM in this case):
+  CONFIG_RAM_SIZE - Describes the installed DRAM (SRAM in this case):
 
-    CONFIG_DRAM_SIZE=0x00008000 (32Kb)
+    CONFIG_RAM_SIZE=0x00008000 (32Kb)
 
-  CONFIG_DRAM_START - The start address of installed DRAM
+  CONFIG_RAM_START - The start address of installed DRAM
 
-    CONFIG_DRAM_START=0x20000000
+    CONFIG_RAM_START=0x20000000
 
-  CONFIG_ARCH_IRQPRIO - The SAM3UF103Z supports interrupt prioritization
+  CONFIG_ARCH_IRQPRIO - The SAM4S supports interrupt prioritization
 
     CONFIG_ARCH_IRQPRIO=y
 
@@ -444,7 +446,7 @@ SAM4S Xplained-specific Configuration Options
     CONFIG_SAM34_HSMCI       - High Speed Multimedia Card Interface
     CONFIG_SAM34_TWI0        - Two-Wire Interface 0
     CONFIG_SAM34_TWI1        - Two-Wire Interface 1
-    CONFIG_SAM34_SPI         - Serial Peripheral Interface
+    CONFIG_SAM34_SPI0        - Serial Peripheral Interface
     CONFIG_SAM34_SSC         - Synchronous Serial Controller
     CONFIG_SAM34_TC0         - Timer Counter 0
     CONFIG_SAM34_TC1         - Timer Counter 1
@@ -587,5 +589,56 @@ Configuration sub-directories
   nsh:
     This configuration directory will built the NuttShell.  See NOTES above.
 
-  nsh:
-    This configuration directory will built the NuttShell. See NOTES above.
+    NOTES:
+    1. The configuration configuration can be modified to include support
+       for the on-board SRAM (1MB).
+
+       System Type -> External Memory Configuration       
+         CONFIG_SAM34_EXTSRAM0=y              : Select SRAM on CS0
+         CONFIG_SAM34_EXTSRAM0SIZE=1048576    : Size=1MB
+
+       Now what are you going to do with the SRAM.  There are two choices:
+
+       a)  To enable the NuttX RAM test that may be used to verify the
+           external SRAM:
+
+           System Type -> External Memory Configuration       
+             CONFIG_SAM34_EXTSRAM0HEAP=n      : Don't add to heap
+
+           Application Configuration -> System NSH Add-Ons
+             CONFIG_SYSTEM_RAMTEST=y         : Enable the RAM test built-in
+
+         In this configuration, the SDRAM is not added to heap and so is
+         not excessible to the applications.  So the RAM test can be
+         freely executed against the SRAM memory beginning at address
+         0x6000:0000 (CS0).
+
+         nsh> ramtest -h
+         Usage: <noname> [-w|h|b] <hex-address> <decimal-size>
+
+         Where:
+           <hex-address> starting address of the test.
+           <decimal-size> number of memory locations (in bytes).
+           -w Sets the width of a memory location to 32-bits.
+           -h Sets the width of a memory location to 16-bits (default).
+           -b Sets the width of a memory location to 8-bits.
+
+         To test the entire external SRAM:
+
+         nsh> ramtest 60000000 1048576
+         RAMTest: Marching ones: 60000000 1048576
+         RAMTest: Marching zeroes: 60000000 1048576
+         RAMTest: Pattern test: 60000000 1048576 55555555 aaaaaaaa
+         RAMTest: Pattern test: 60000000 1048576 66666666 99999999
+         RAMTest: Pattern test: 60000000 1048576 33333333 cccccccc
+         RAMTest: Address-in-address test: 60000000 1048576
+
+        b) To add this RAM to the NuttX heap, you would need to change the
+           configuration as follows:
+
+           System Type -> External Memory Configuration       
+             CONFIG_SAM34_EXTSRAM0HEAP=y     : Add external RAM to heap
+
+           Memory Management
+             -CONFIG_MM_REGIONS=1           : Only the internal SRAM
+             +CONFIG_MM_REGIONS=2           : Also include external SRAM

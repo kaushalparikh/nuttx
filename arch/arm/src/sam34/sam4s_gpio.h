@@ -34,8 +34,8 @@
  *
  ************************************************************************************/
 
-#ifndef __ARCH_ARM_SRC_SAM34_SAM3U_GPIO_H
-#define __ARCH_ARM_SRC_SAM34_SAM3U_GPIO_H
+#ifndef __ARCH_ARM_SRC_SAM34_SAM4S_GPIO_H
+#define __ARCH_ARM_SRC_SAM34_SAM4S_GPIO_H
 
 /************************************************************************************
  * Included Files
@@ -64,7 +64,7 @@
  *   MMM. .... .... .... ....
  */
 
-#define GPIO_MODE_SHIFT            (17)        /* Bits 17-23: GPIO mode */
+#define GPIO_MODE_SHIFT            (17)        /* Bits 17-19: GPIO mode */
 #define GPIO_MODE_MASK             (7 << GPIO_MODE_SHIFT)
 #  define GPIO_INPUT               (0 << GPIO_MODE_SHIFT) /* Input */
 #  define GPIO_OUTPUT              (1 << GPIO_MODE_SHIFT) /* Output */
@@ -203,4 +203,4 @@ extern "C"
 #endif
 
 #endif /* __ASSEMBLY__ */
-#endif /* __ARCH_ARM_SRC_SAM34_SAM3U_GPIO_H */
+#endif /* __ARCH_ARM_SRC_SAM34_SAM4S_GPIO_H */

@@ -54,7 +54,8 @@
 #include "chip.h"
 #include "sam_gpio.h"
 
-#if defined(CONFIG_ARCH_CHIP_SAM3U)
+#if defined(CONFIG_ARCH_CHIP_SAM3U) || defined(CONFIG_ARCH_CHIP_SAM3X) || \
+    defined(CONFIG_ARCH_CHIP_SAM3A)
 #  include "chip/sam3u_pio.h"
 #elif defined(CONFIG_ARCH_CHIP_SAM4S)
 #  include "chip/sam4s_pio.h"
@@ -251,7 +252,7 @@ static inline int sam_configoutput(uintptr_t base, uint32_t pin,
       putreg32(pin, base + SAM_PIO_CODR_OFFSET);
     }
 
-  /* Configure the pin as an input and enable the GPIO function */
+  /* Configure the pin as an output and enable the GPIO function */
 
   putreg32(pin, base + SAM_PIO_OER_OFFSET);
   putreg32(pin, base + SAM_PIO_PER_OFFSET);
@@ -374,7 +375,18 @@ int sam_configgpio(gpio_pinset_t cfgset)
 {
   uintptr_t base = sam_gpiobase(cfgset);
   uint32_t  pin  = sam_gpiopin(cfgset);
+  irqstate_t flags;
   int       ret;
+
+  /* Disable interrupts to prohibit re-entrance. */
+
+  flags = irqsave();
+
+  /* Enable writing to GPIO registers */
+
+  putreg32(PIO_WPMR_WPKEY, base + SAM_PIO_WPMR_OFFSET);
+
+  /* Handle the pin configuration according to pin type */
 
   switch (cfgset & GPIO_MODE_MASK)
     {
@@ -388,6 +400,10 @@ int sam_configgpio(gpio_pinset_t cfgset)
 
       case GPIO_PERIPHA:
       case GPIO_PERIPHB:
+#ifdef GPIO_HAVE_PERIPHCD
+      case GPIO_PERIPHC:
+      case GPIO_PERIPHD:
+#endif
         ret = sam_configperiph(base, pin, cfgset);
         break;
 
@@ -395,6 +411,12 @@ int sam_configgpio(gpio_pinset_t cfgset)
         ret = -EINVAL;
         break;
     }
+
+  /* Disable writing to GPIO registers */
+
+  putreg32(PIO_WPMR_WPEN | PIO_WPMR_WPKEY, base + SAM_PIO_WPMR_OFFSET);
+  irqrestore(flags);
+
   return ret;
 }
 

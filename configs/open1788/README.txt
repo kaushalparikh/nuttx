@@ -120,7 +120,7 @@ FPU
   If you are using a toolchain other than the Atollic toolchain, then to use the FPU
   you will also have to modify the CFLAGS to enable compiler support for the ARMv7-M
   FPU.  As of this writing, there are not many GCC toolchains that will support the
-  ARMv7-M FPU.  
+  ARMv7-M FPU.
 
   As a minimum you will need to add CFLAG options to (1) enable hardware floating point
   code generation, and to (2) select the FPU implementation.  You might try the same
@@ -211,7 +211,7 @@ Using OpenOCD with the Olimex ARM-USB-OCD
 
     I have been using the Olimex ARM-USB-OCD debugger.  OpenOCD
     requires a configuration file.  I keep the one I used last here:
-    
+
       configs/open1788/tools/open1788.cfg
 
     However, the "correct" configuration script to use with OpenOCD may
@@ -240,7 +240,7 @@ Using OpenOCD with the Olimex ARM-USB-OCD
     NOTE:  These files could also be located under /usr/share in some
     installations.  They could be most anywhwere if you are using a
     windows version of OpenOCD.
- 
+
       configs/open1788/tools/open1788.cfg
         This is simply openocd-usb.cfg, lpc1788.cfg, and lpc17xx.cfg
         concatenated into one file for convenience.  Don't use it
@@ -249,7 +249,7 @@ Using OpenOCD with the Olimex ARM-USB-OCD
     There is also a script on the tools/ directory that I use to start
     the OpenOCD daemon on my system called oocd.sh.  That script will
     probably require some modifications to work in another environment:
-  
+
     - Possibly the value of OPENOCD_PATH and TARGET_PATH
     - It assumes that the correct script to use is the one at
       configs/open1788/tools/open1788.cfg
@@ -283,7 +283,7 @@ Using OpenOCD with the Olimex ARM-USB-OCD
     use the 'monitor' (or simply 'mon') command to invoke these sub-
     commands. These GDB commands will send comments to the OpenOCD monitor.
     Here are a couple that you will need to use:
-  
+
      (gdb) monitor reset
      (gdb) monitor halt
 
@@ -309,17 +309,17 @@ Using OpenOCD with the Olimex ARM-USB-OCD
 
     3. I find that there are often undetected write failures when using
        the Olimex ARM-USB-OCD debugber and that if you start the program
-       with a bad FLASH failure, it will lock up OpenOCD.  I usually 
+       with a bad FLASH failure, it will lock up OpenOCD.  I usually
        oad nuttx twice, restarting OpenOCD in between in order to assure
        good FLASH contents:
- 
+
       (gdb) mon halt
       (gdb) load nuttx
       (gdb) mon reset
 
       Exit GDB, kill the OpenOCD server, recycle power on the board,
       restart the OpenOCD server and GDB, then:
- 
+
       (gdb) mon halt
       (gdb) load nuttx
       (gdb) mon reset
@@ -340,12 +340,12 @@ CONFIGURATION
 =============
 
   ostest
-  ------ 
+  ------
     This configuration directory, performs a simple OS test using
     apps/examples/ostest.
 
     NOTES:
- 
+
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 
@@ -377,7 +377,7 @@ CONFIGURATION
     binaries (pass2)
 
     NOTES:
- 
+
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 
@@ -475,7 +475,7 @@ CONFIGURATION
     Configuration enables only the serial NSH interface.
 
     NOTES:
- 
+
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 
@@ -518,50 +518,69 @@ CONFIGURATION
        0xa000:0000 (CS0).
 
     6. This configuration has been used for verifying the touchscreen on
-       on the 4.3" LCD module by modifying the configuration in the
-       following ways:
+       on the 4.3" LCD module.
 
-       Drivers:
-         CONFIG_INPUT=y                    : Enable support for input devices
-         CONFIG_INPUT_ADS7843E=y           : Enable support for the XPT2048
-         CONFIG_ADS7843E_SPIDEV=1          : Use SSP1 for communication
-         CONFIG_SPI=y                      : Enable SPI support
-         CONFIG_SPI_EXCHANGE=n             : exchange() method is not supported
+       a) As of this writing, this touchscreen is still not functional.
+          Rommel Marcelo has tracked this problem down to noise on the
+          PENIRQ interrupt.  There are so many false interrupts that
+          the NuttX interrupt-driven touchscreen driver cannot be used.
+          Other compatible LCDs, however, may not have this issue.
 
-       System Type:
-         CONFIG_GPIO_IRQ=y                 : GPIO interrupt support
-         CONFIG_LPC17_SSP1=y               : Enable support for SSP1
- 
-       Applicaton Configuration:
-         CONFIG_EXAMPLES_TOUCHSCREEN=y     : Enable the touchscreen built-int test
-         CONFIG_EXAMPLES_TOUCHSCREEN_BUILTIN=y
+       b) You can enable the touchscreen by modifying the configuration
+          in the following ways:
 
-       Defaults should be okay for related touchscreen settings.
+          Drivers:
+            CONFIG_INPUT=y                    : Enable support for input devices
+            CONFIG_INPUT_ADS7843E=y           : Enable support for the XPT2048
+            CONFIG_ADS7843E_SPIDEV=1          : Use SSP1 for communication
+            CONFIG_SPI=y                      : Enable SPI support
+            CONFIG_SPI_EXCHANGE=n             : exchange() method is not supported
 
-       You will also have to disable SD card support to use this test.  The
-       SD card detect (CD) signal is on P0[13].  This signal is shared.  It
-       is also used for MOSI1 and USB_UP_LED.  The CD pin may be disconnected.
-       There is a jumper on board that enables the CD pin.  OR, you can simply
-       remove the SD module so that it does not drive the CD pin.
+          System Type:
+            CONFIG_GPIO_IRQ=y                 : GPIO interrupt support
+            CONFIG_LPC17_SSP1=y               : Enable support for SSP1
 
-       Drivers:
-         CONFIG_MMCSD=n                    : No MMC/SD driver support
+          RTOS Features:
+            CONFIG_DISABLE_SIGNALS=n          : Signals are required
 
-       System Type:
-         CONFIG_LPC17_GPDMA=n              : No DMA
-         CONFIG_LPC17_SDCARD=n             : No SD card driver
-         CONFIG_SDIO_DMA=n                 : No SD card DMA
-         CONFIG_ARCH_DMA=n
+          Library Support:
+            CONFIG_SCHED_WORKQUEUE=y          : Work queue support required
 
-       File Systems:
-         CONFIG_FS_FAT=n                   : No FAT file system support
+          Applicaton Configuration:
+            CONFIG_EXAMPLES_TOUCHSCREEN=y     : Enable the touchscreen built-int test
 
-       For touchscreen debug output:
+          Defaults should be okay for related touchscreen settings.  Touchscreen
+          debug output can be enabled with:
 
-       Build Setup:
-         CONFIG_DEBUG=y
-         CONFIG_DEBUG_VERBOSE=y
-         CONFIG_DEBUG_INPUT=y
+          Build Setup:
+            CONFIG_DEBUG=y                    : Enable debug features
+            CONFIG_DEBUG_VERBOSE=y            : Enable verbose debug output
+            CONFIG_DEBUG_INPUT=y              : Enable debug output from input devices
+
+       c) You will also have to disable SD card support to use this test.  The
+          SD card detect (CD) signal is on P0[13].  This signal is shared.  It
+          is also used for MOSI1 and USB_UP_LED.  The CD pin may be disconnected.
+          There is a jumper on board that enables the CD pin.  OR, you can simply
+          remove the SD module so that it does not drive the CD pin.
+
+          Drivers:
+            CONFIG_MMCSD=n                    : No MMC/SD driver support
+
+          System Type:
+            CONFIG_LPC17_GPDMA=n              : No DMA
+            CONFIG_LPC17_SDCARD=n             : No SD card driver
+            CONFIG_SDIO_DMA=n                 : No SD card DMA
+            CONFIG_ARCH_DMA=n
+
+          File Systems:
+            CONFIG_FS_FAT=n                   : No FAT file system support
+
+          For touchscreen debug output:
+
+          Build Setup:
+            CONFIG_DEBUG=y
+            CONFIG_DEBUG_VERBOSE=y
+            CONFIG_DEBUG_INPUT=y
 
     7. The button test (apps/examples/buttons) can be built-in by adding
        the following options.  See apps/examples/README.txt for further
@@ -588,7 +607,7 @@ CONFIGURATION
         CONFIG_EXAMPLES_BUTTONS_NAME5="JOYSTICK_C"
         CONFIG_EXAMPLES_BUTTONS_NAME6="JOYSTICK_D"
         CONFIG_EXAMPLES_BUTTONS_NAME7="JOYSTICK_CTR"
-       
+
   nxlines
   -------
     Configures the graphics example located at examples/nsh.  This
@@ -597,7 +616,7 @@ CONFIGURATION
     panel.
 
     NOTES:
- 
+
     1. This configuration uses the mconf-based configuration tool.  To
        change this configuration using that tool, you should:
 

@@ -3,6 +3,8 @@
 # see misc/tools/kconfig-language.txt.
 #
 
+comment "Common LCD Settings"
+
 config LCD_NOGETRUN
 	bool "Write-only LCD"
 	default n
@@ -21,20 +23,27 @@ config LCD_MAXCONTRAST
 	int "LCD maximum contrast"
 	default 63 if NOKIA6100_S1D15G10
 	default 127 if NOKIA6100_PCF8833
-	default 255 if LCD_P14201
+	default 255 if LCD_P14201 || LCD_LCD1602
 	default 63
+	range 1 255
 	---help---
 		must be 63 with the Epson controller and 127 with
 		the Phillips controller.
 
 config LCD_MAXPOWER
 	int "LCD maximum power"
+	default 255 if LCD_LCD1602
 	default 1
+	range 1 255
 	---help---
-		Maximum value of backlight setting.  The backlight
-		control is managed outside of the 6100 driver so this value has no
-		meaning to the driver.  Board-specific logic may place restrictions on
-		this value.
+		Maximum value of LCD power setting.  This normally equates to brightness:
+		The brighter the screen, the hight the power usage.
+
+		On LCDs that have a backlight, this value corresponds directly to that
+		backlight setting.  Board-specific logic may place restrictions on this
+		value.
+
+comment "Graphic LCD Devices"
 
 config LCD_P14201
 	bool "Rit P1402 series display"
@@ -83,13 +92,15 @@ config P14201_FRAMEBUFFER
 endif
 
 config LCD_NOKIA6100
-	bool "Nokia 6100 display support" 
+	bool "Nokia 6100 display support"
 	default n
 	---help---
 		nokia6100.c.  Supports the Nokia 6100 display with either the Philips
 		PCF883 or the Epson S1D15G10 display controller.  This LCD is used
 		with the Olimex LPC1766-STK (but has not been fully integrated).
+
 if LCD_NOKIA6100
+
 config NOKIA6100_NINTERFACES
 	int "Number of physical NOKIA6100 devices"
 	default 1
@@ -101,6 +112,7 @@ config NOKIA6100_NINTERFACES
 choice NOKIA6100_CONTROLLER
 	prompt "Controller Setup"
 	default NOKIA6100_S1D15G10
+
 config NOKIA6100_S1D15G10
 	bool "S1D15G10 controller"
 	---help---
@@ -110,6 +122,7 @@ config NOKIA6100_PCF8833
 	bool "PCF8833 controller"
 	---help---
 		Selects the Phillips PCF8833 display controller
+
 endchoice
 
 config NOKIA6100_SPIMODE
@@ -181,6 +194,13 @@ config NOKIA6100_RGBORD
 		Display RGB order, 0 or 1, Default: 0
 		Required LCD driver settings:
 endif
+
+config LCD_MIO283QT2
+	bool "MIO283QT-2 TFT LCD Display Module"
+	default n
+	---help---
+		OLED Display Module, MIO283QT-2, Multi-Inno Technology, Co.
+		based on the Himax HX8347-D LCD controller.
 
 config LCD_UG9664HSWAG01
 	bool "UG-9664HSWAG01 OLED Display Module"
@@ -288,7 +308,7 @@ config LCD_UG2864AMBAG01
 	bool "UG-2864AMBAG01 OLED Display Module"
 	default n
 	---help---
-		OLED Display Module, UG-2864AMBAG01, Univision Technology Inc. 
+		OLED Display Module, UG-2864AMBAG01, Univision Technology Inc.
 
 		Required LCD driver settings:
 		LCD_MAXCONTRAST should be 255, but any value >0 and <=255 will be accepted.
@@ -385,3 +405,16 @@ config LCD_RLANDSCAPE
 		tall (LCD_LANDSCAPE is the other).
 
 endchoice
+
+comment "Alphanumeric/Segment LCD Devices"
+
+config LCD_LCD1602
+	bool "LCD 1602"
+	default n
+	---help---
+		Enable support for LCD1602 devices.  LCD1602 is based on the Hitachi
+		HD44780U LCD controller.  See also include/nuttx/lcd/hd4478ou.h.
+
+		NOTE:  There is no common implementation of the LCD1602 driver.
+		Rather, there are board-by-board implementations.  See, for example,
+		configs/pcblogic-pic32mx/src/up_lcd1602.c.

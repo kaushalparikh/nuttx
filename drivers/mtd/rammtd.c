@@ -1,7 +1,7 @@
 /****************************************************************************
  * drivers/mtd/rammtd.c
  *
- *   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -75,10 +75,10 @@
 #  error "Must have CONFIG_RAMMTD_BLOCKSIZE <= CONFIG_RAMMTD_ERASESIZE"
 #endif
 
-#undef  CONFIG_RAMMTD_BLKPER
-#define CONFIG_RAMMTD_BLKPER (CONFIG_RAMMTD_ERASESIZE/CONFIG_RAMMTD_BLOCKSIZE)
+#undef  RAMMTD_BLKPER
+#define RAMMTD_BLKPER (CONFIG_RAMMTD_ERASESIZE/CONFIG_RAMMTD_BLOCKSIZE)
 
-#if CONFIG_RAMMTD_BLKPER*CONFIG_RAMMTD_BLOCKSIZE != CONFIG_RAMMTD_ERASESIZE
+#if RAMMTD_BLKPER*CONFIG_RAMMTD_BLOCKSIZE != CONFIG_RAMMTD_ERASESIZE
 #  error "CONFIG_RAMMTD_ERASESIZE must be an even multiple of CONFIG_RAMMTD_BLOCKSIZE"
 #endif
 
@@ -121,6 +121,12 @@ static ssize_t ram_bread(FAR struct mtd_dev_s *dev, off_t startblock, size_t nbl
                           FAR uint8_t *buf);
 static ssize_t ram_bwrite(FAR struct mtd_dev_s *dev, off_t startblock, size_t nblocks,
                            FAR const uint8_t *buf);
+static ssize_t ram_byteread(FAR struct mtd_dev_s *dev, off_t offset,
+                            size_t nbytes, FAR uint8_t *buf);
+#ifdef CONFIG_MTD_BYTE_WRITE
+static ssize_t ram_bytewrite(FAR struct mtd_dev_s *dev, off_t offset,
+                             size_t nbytes, FAR const uint8_t *buf);
+#endif
 static int ram_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg);
 
 /****************************************************************************
@@ -160,7 +166,7 @@ static void *ram_write(FAR void *dest, FAR const void *src, size_t len)
 #endif
 
       /* Report any attempt to change the value of bits that are not in the
-       *  erased state.
+       * erased state.
        */
 
 #ifdef CONFIG_DEBUG
@@ -208,8 +214,8 @@ static int ram_erase(FAR struct mtd_dev_s *dev, off_t startblock, size_t nblocks
    * in logical block numbers
    */
 
-  startblock *= CONFIG_RAMMTD_BLKPER;
-  nblocks    *= CONFIG_RAMMTD_BLKPER;
+  startblock *= RAMMTD_BLKPER;
+  nblocks    *= RAMMTD_BLKPER;
 
   /* Get the offset corresponding to the first block and the size
    * corresponding to the number of blocks.
@@ -240,7 +246,7 @@ static ssize_t ram_bread(FAR struct mtd_dev_s *dev, off_t startblock, size_t nbl
 
   /* Don't let the read exceed the size of the ram buffer */
 
-  maxblock = priv->nblocks * CONFIG_RAMMTD_BLKPER;
+  maxblock = priv->nblocks * RAMMTD_BLKPER;
   if (startblock >= maxblock)
     {
       return 0;
@@ -280,7 +286,7 @@ static ssize_t ram_bwrite(FAR struct mtd_dev_s *dev, off_t startblock,
 
   /* Don't let the write exceed the size of the ram buffer */
 
-  maxblock = priv->nblocks * CONFIG_RAMMTD_BLKPER;
+  maxblock = priv->nblocks * RAMMTD_BLKPER;
   if (startblock >= maxblock)
     {
       return 0;
@@ -303,6 +309,56 @@ static ssize_t ram_bwrite(FAR struct mtd_dev_s *dev, off_t startblock,
   ram_write(&priv->start[offset], buf, nbytes);
   return nblocks;
 }
+
+/****************************************************************************
+ * Name: ram_byteread
+ ****************************************************************************/
+
+static ssize_t ram_byteread(FAR struct mtd_dev_s *dev, off_t offset,
+                            size_t nbytes, FAR uint8_t *buf)
+{
+  FAR struct ram_dev_s *priv = (FAR struct ram_dev_s *)dev;
+
+  DEBUGASSERT(dev && buf);
+
+  /* Don't let read read past end of buffer */
+
+  if (offset + nbytes > priv->nblocks * CONFIG_RAMMTD_ERASESIZE)
+   {
+     return 0;
+   }
+
+  ram_read(buf, &priv->start[offset], nbytes);
+  return nbytes;
+}
+
+/****************************************************************************
+ * Name: ram_bytewrite
+ ****************************************************************************/
+
+#ifdef CONFIG_MTD_BYTE_WRITE
+static ssize_t ram_bytewrite(FAR struct mtd_dev_s *dev, off_t offset,
+                             size_t nbytes, FAR const uint8_t *buf)
+{
+  FAR struct ram_dev_s *priv = (FAR struct ram_dev_s *)dev;
+  off_t maxaddr;
+
+  DEBUGASSERT(dev && buf);
+
+  /* Don't let the write exceed the size of the ram buffer */
+
+  maxaddr = priv->nblocks * CONFIG_RAMMTD_ERASESIZE;
+  if (offset + nbytes > maxaddr)
+    {
+      return 0;
+    }
+
+  /* Then write the data to RAM */
+
+  ram_write(&priv->start[offset], buf, nbytes);
+  return nbytes;
+}
+#endif
 
 /****************************************************************************
  * Name: ram_ioctl
@@ -349,13 +405,13 @@ static int ram_ioctl(FAR struct mtd_dev_s *dev, int cmd, unsigned long arg)
         {
             size_t size = priv->nblocks * CONFIG_RAMMTD_ERASESIZE;
 
-	        /* Erase the entire device */
+            /* Erase the entire device */
 
             memset(priv->start, CONFIG_RAMMTD_ERASESTATE, size);
-	        ret = OK;
+            ret = OK;
         }
         break;
- 
+
       default:
         ret = -ENOTTY; /* Bad command */
         break;
@@ -387,7 +443,7 @@ FAR struct mtd_dev_s *rammtd_initialize(FAR uint8_t *start, size_t size)
 
   /* Create an instance of the RAM MTD device state structure */
 
-  priv = (FAR struct ram_dev_s *)kmalloc(sizeof(struct ram_dev_s));
+  priv = (FAR struct ram_dev_s *)kzalloc(sizeof(struct ram_dev_s));
   if (!priv)
     {
       fdbg("Failed to allocate the RAM MTD state structure\n");
@@ -402,14 +458,19 @@ FAR struct mtd_dev_s *rammtd_initialize(FAR uint8_t *start, size_t size)
       fdbg("Need to provide at least one full erase block\n");
       return NULL;
     }
-  
-  /* Perform initialization as necessary */
+
+  /* Perform initialization as necessary. (unsupported methods were
+   * nullified by kzalloc).
+   */
 
   priv->mtd.erase  = ram_erase;
   priv->mtd.bread  = ram_bread;
   priv->mtd.bwrite = ram_bwrite;
+  priv->mtd.read   = ram_byteread;
+#ifdef CONFIG_MTD_BYTE_WRITE
+  priv->mtd.write  = ram_bytewrite;
+#endif
   priv->mtd.ioctl  = ram_ioctl;
-  priv->mtd.erase  = ram_erase;
 
   priv->start      = start;
   priv->nblocks    = nblocks;

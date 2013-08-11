@@ -1,8 +1,7 @@
 /****************************************************************************
  * config/sam3u-ek/src/up_nsh.c
- * arch/arm/src/board/up_nsh.c
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,10 +47,8 @@
 #include <nuttx/sdio.h>
 #include <nuttx/mmcsd.h>
 
-#include "sam3u_internal.h"
-#include "sam3uek_internal.h"
-
-#ifdef CONFIG_SAM3U_HSMCI
+#include "sam_hsmci.h"
+#include "sam3u-ek.h"
 
 /****************************************************************************
  * Pre-Processor Definitions
@@ -64,31 +61,39 @@
 #define NSH_HAVE_USBDEV 1
 #define NSH_HAVE_MMCSD  1
 
-#if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
-#  error "Only one MMC/SD slot"
-#  undef CONFIG_NSH_MMCSDSLOTNO
-#endif
+/* Can't support MMC/SD if the card interface is not enable */
 
-#ifndef CONFIG_NSH_MMCSDSLOTNO
-#  define CONFIG_NSH_MMCSDSLOTNO 0
-#endif
-
-/* Can't support USB features if USB is not enabled */
-
-#ifndef CONFIG_USBDEV
-#  undef NSH_HAVE_USBDEV
+#ifndef CONFIG_SAM34_HSMCI
+#  undef NSH_HAVE_MMCSD
 #endif
 
 /* Can't support MMC/SD features if mountpoints are disabled or if SDIO support
  * is not enabled.
  */
 
-#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_SAM3U_HSMCI)
+#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_SAM34_HSMCI)
 #  undef NSH_HAVE_MMCSD
 #endif
 
-#ifndef CONFIG_NSH_MMCSDMINOR
-#  define CONFIG_NSH_MMCSDMINOR 0
+#ifdef NSH_HAVE_MMCSD
+#  if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
+#    error "Only one MMC/SD slot"
+#    undef CONFIG_NSH_MMCSDSLOTNO
+#  endif
+
+#  ifndef CONFIG_NSH_MMCSDMINOR
+#    define CONFIG_NSH_MMCSDMINOR 0
+#  endif
+
+#  ifndef CONFIG_NSH_MMCSDSLOTNO
+#    define CONFIG_NSH_MMCSDSLOTNO 0
+#  endif
+#endif
+
+/* Can't support USB features if USB is not enabled */
+
+#ifndef CONFIG_USBDEV
+#  undef NSH_HAVE_USBDEV
 #endif
 
 /* Debug ********************************************************************/
@@ -149,11 +154,10 @@ int nsh_archinitialize(void)
       return ret;
     }
   message("nsh_archinitialize: Successfully bound SDIO to the MMC/SD driver\n");
-  
+
   /* Then inform the HSMCI driver if there is or is not a card in the slot. */
 
-   sdio_mediachange(sdio, sam3u_cardinserted(0));
+   sdio_mediachange(sdio, sam_cardinserted(0));
 #endif
   return OK;
 }
-#endif

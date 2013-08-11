@@ -359,17 +359,13 @@ static int cdcacm_sndpacket(FAR struct cdcacm_dev_s *priv)
 
   /* Get the maximum number of bytes that will fit into one bulk IN request */
 
-#ifdef CONFIG_CDCACM_BULKREQLEN
-  reqlen = MAX(CONFIG_CDCACM_BULKREQLEN, ep->maxpacket);
-#else
-  reqlen = ep->maxpacket;
-#endif
+  reqlen = MAX(CONFIG_CDCACM_BULKIN_REQLEN, ep->maxpacket);
 
   while (!sq_empty(&priv->reqlist))
     {
       /* Peek at the request in the container at the head of the list */
 
-      reqcontainer = (struct cdcacm_req_s *)sq_peek(&priv->reqlist);
+      reqcontainer = (FAR struct cdcacm_req_s *)sq_peek(&priv->reqlist);
       req          = reqcontainer->req;
 
       /* Fill the request with serial TX data */
@@ -841,12 +837,7 @@ static void cdcacm_rdcomplete(FAR struct usbdev_ep_s *ep,
 
   /* Requeue the read request */
 
-#ifdef CONFIG_CDCACM_BULKREQLEN
-  req->len = MAX(CONFIG_CDCACM_BULKREQLEN, ep->maxpacket);
-#else
   req->len = ep->maxpacket;
-#endif
-
   ret      = EP_SUBMIT(ep, req);
   if (ret != OK)
     {
@@ -901,16 +892,22 @@ static void cdcacm_wrcomplete(FAR struct usbdev_ep_s *ep,
   switch (req->result)
     {
     case OK: /* Normal completion */
-      usbtrace(TRACE_CLASSWRCOMPLETE, priv->nwrq);
-      cdcacm_sndpacket(priv);
+      {
+        usbtrace(TRACE_CLASSWRCOMPLETE, priv->nwrq);
+        cdcacm_sndpacket(priv);
+      }
       break;
 
     case -ESHUTDOWN: /* Disconnection */
-      usbtrace(TRACE_CLSERROR(USBSER_TRACEERR_WRSHUTDOWN), priv->nwrq);
+      {
+        usbtrace(TRACE_CLSERROR(USBSER_TRACEERR_WRSHUTDOWN), priv->nwrq);
+      }
       break;
 
     default: /* Some other error occurred */
-      usbtrace(TRACE_CLSERROR(USBSER_TRACEERR_WRUNEXPECTED), (uint16_t)-req->result);
+      {
+        usbtrace(TRACE_CLSERROR(USBSER_TRACEERR_WRUNEXPECTED), (uint16_t)-req->result);
+      }
       break;
     }
 }
@@ -1007,11 +1004,7 @@ static int cdcacm_bind(FAR struct usbdevclass_driver_s *driver,
 
   /* Pre-allocate read requests */
 
-#ifdef CONFIG_CDCACM_BULKREQLEN
-  reqlen = MAX(CONFIG_CDCACM_BULKREQLEN, priv->epbulkout->maxpacket);
-#else
   reqlen = priv->epbulkout->maxpacket;
-#endif
 
   for (i = 0; i < CONFIG_CDCACM_NRDREQS; i++)
     {
@@ -1023,17 +1016,14 @@ static int cdcacm_bind(FAR struct usbdevclass_driver_s *driver,
           ret = -ENOMEM;
           goto errout;
         }
+
       reqcontainer->req->priv     = reqcontainer;
       reqcontainer->req->callback = cdcacm_rdcomplete;
     }
 
   /* Pre-allocate write request containers and put in a free list */
 
-#ifdef CONFIG_CDCACM_BULKREQLEN
-  reqlen = MAX(CONFIG_CDCACM_BULKREQLEN, priv->epbulkin->maxpacket);
-#else
-  reqlen = priv->epbulkin->maxpacket;
-#endif
+  reqlen = MAX(CONFIG_CDCACM_BULKIN_REQLEN, priv->epbulkin->maxpacket);
 
   for (i = 0; i < CONFIG_CDCACM_NWRREQS; i++)
     {
@@ -1045,6 +1035,7 @@ static int cdcacm_bind(FAR struct usbdevclass_driver_s *driver,
           ret = -ENOMEM;
           goto errout;
         }
+
       reqcontainer->req->priv     = reqcontainer;
       reqcontainer->req->callback = cdcacm_wrcomplete;
 

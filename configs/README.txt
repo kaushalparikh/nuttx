@@ -1816,6 +1816,10 @@ configs/mbed
   that features the NXP LPC1768 microcontroller. This OS is also built
   with the arm-nuttx-elf toolchain*.  STATUS:  Contributed.
 
+configs/mikroe-stm32f4
+  This is the port of NuttX to the MikroElektronika Mikromedia for STM32F4
+  development board.  Contributed by Ken Petit.
+
 configs/mcu123-lpc214x
   This port is for the NXP LPC2148 as provided on the mcu123.com
   lpc214x development board. This OS is also built with the arm-nuttx-elf
@@ -1932,6 +1936,11 @@ configs/pic32mx7mmb
   Mikroelektronika PIC32MX7 Multimedia Board (MMB).  See
   http://www.mikroe.com/ for further information.
 
+configs/pirelli_dpl10
+  This directory contains the board support for Pirelli "Discus" DP-L10 phones.
+  It is a variant of the compal_e88 config with the small changes for the
+  differences in the board.
+
 configs/pjrc-8051
   8051 Microcontroller.  This port uses the PJRC 87C52 development system
   and the SDCC toolchain.   This port is not quite ready for prime time.
@@ -1952,6 +1961,9 @@ configs/rgmp
 
 configs/sam3u-ek
   The port of NuttX to the Atmel SAM3U-EK development board.
+
+configs/sam4l-xplained
+  The port of NuttX to the Atmel SAM4L-Xplained development board.
 
 configs/sim
   A user-mode port of NuttX to the x86 Linux platform is available.

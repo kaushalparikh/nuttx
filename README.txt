@@ -1021,6 +1021,8 @@ nuttx
  |   |   `- README.txt
  |   |-  fire-stm32v2/
  |   |   `- README.txt
+ |   |-  freedom-kl25z/
+ |   |   `- README.txt
  |   |-  hymini-stm32v/
  |   |   |- include/README.txt
  |   |   |- src/README.txt
@@ -1055,6 +1057,8 @@ nuttx
  |   |   |- src/README.txt
  |   |   `- README.txt
  |   |- micropendous3/
+ |   |   `- README.txt
+ |   |- mikroe-stm32f/
  |   |   `- README.txt
  |   |- mirtoo/
  |   |   `- README.txt
@@ -1092,6 +1096,8 @@ nuttx
  |   |   `- README.txt
  |   |- pic32mx7mmb/
  |   |   `- README.txt
+ |   |- pirelli_dpl10/
+ |   |   `- README.txt
  |   |- pjrc-8051/
  |   |   |- include/README.txt
  |   |   |- src/README.txt
@@ -1105,6 +1111,10 @@ nuttx
  |   |   |- src/README.txt
  |   |   `- README.txt
  |   |- sam3u-ek/
+ |   |   `- README.txt
+ |   |- sam4l-xplained/
+ |   |   `- README.txt
+ |   |- sam4s-xplained/
  |   |   `- README.txt
  |   |- sim/
  |   |   |- include/README.txt
@@ -1125,11 +1135,15 @@ nuttx
  |   |   `- README.txt
  |   |- stm3240g-eval/
  |   |   `- README.txt
+ |   |- stm32_tiny/
+ |   |   `- README.txt
  |   |- stm32f100rc_generic/
  |   |   `- README.txt
  |   |- stm32f3discovery/
  |   |   `- README.txt
  |   |- stm32f4discovery/
+ |   |   `- README.txt
+ |   |- stm32ldiscovery/
  |   |   `- README.txt
  |   |- sure-pic32mx/
  |   |   `- README.txt

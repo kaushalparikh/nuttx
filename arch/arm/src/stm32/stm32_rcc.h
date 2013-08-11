@@ -1,7 +1,7 @@
 /************************************************************************************
  * arch/arm/src/stm32/stm32_rcc.h
  *
- *   Copyright (C) 2009, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2009, 2011-2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.orgr>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,9 @@
 #include "up_arch.h"
 #include "chip.h"
 
-#if defined(CONFIG_STM32_STM32F10XX)
+#if defined(CONFIG_STM32_STM32L15XX)
+#  include "chip/stm32l15xxx_rcc.h"
+#elif defined(CONFIG_STM32_STM32F10XX)
 #  include "chip/stm32f10xxx_rcc.h"
 #elif defined(CONFIG_STM32_STM32F20XX)
 #  include "chip/stm32f20xxx_rcc.h"
@@ -64,7 +66,8 @@
 #undef EXTERN
 #if defined(__cplusplus)
 #define EXTERN extern "C"
-extern "C" {
+extern "C"
+{
 #else
 #define EXTERN extern
 #endif
@@ -208,7 +211,20 @@ static inline void stm32_mco2config(uint32_t source, uint32_t div)
  *
  ************************************************************************************/
 
-EXTERN void stm32_clockconfig(void);
+void stm32_clockconfig(void);
+
+/************************************************************************************
+ * Name: stm32_board_clockconfig
+ *
+ * Description:
+ *   Any STM32 board may replace the "standard" board clock configuration logic with
+ *   its own, custom clock cofiguration logic.
+ *
+ ************************************************************************************/
+
+#ifdef CONFIG_ARCH_BOARD_STM32_CUSTOM_CLOCKCONFIG
+void stm32_board_clockconfig(void);
+#endif
 
 /************************************************************************************
  * Name: stm32_clockenable
@@ -236,7 +252,7 @@ EXTERN void stm32_clockconfig(void);
  ************************************************************************************/
 
 #ifdef CONFIG_PM
-EXTERN void stm32_clockenable(void);
+void stm32_clockenable(void);
 #endif
 
 /************************************************************************************
@@ -246,6 +262,9 @@ EXTERN void stm32_clockenable(void);
  *   Enable the External Low-Speed (LSE) Oscillator and, if the RTC is
  *   configured, setup the LSE as the RTC clock source, and enable the RTC.
  *
+ *   For the STM32L15X family, this will also select the LSE as the clock source of
+ *   the LCD.
+ *
  * Input Parameters:
  *   None
  *
@@ -254,7 +273,7 @@ EXTERN void stm32_clockenable(void);
  *
  ************************************************************************************/
 
-EXTERN void stm32_rcc_enablelse(void);
+void stm32_rcc_enablelse(void);
 
 /****************************************************************************
  * Name: stm32_rcc_enablelsi
@@ -264,7 +283,7 @@ EXTERN void stm32_rcc_enablelse(void);
  *
  ****************************************************************************/
 
-EXTERN void stm32_rcc_enablelsi(void);
+void stm32_rcc_enablelsi(void);
 
 #undef EXTERN
 #if defined(__cplusplus)

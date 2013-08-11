@@ -33,67 +33,31 @@
 #
 ############################################################################
 
--include $(TOPDIR)/.config	# Current configuration
+-include $(TOPDIR)/.config # Current configuration
 
 # Sub-directories
 
-SUBDIRS  = adc buttons can cdcacm composite cxxtest dhcpd discover elf ftpc
-SUBDIRS += ftpd hello helloxx hidkbd igmp json keypadtest lcdrw mm modbus mount
-SUBDIRS += nettest nsh null nx nxconsole nxffs nxflat nxhello nximage
-SUBDIRS += nxlines nxtext ostest  pashello pipe poll pwm posix_spawn qencoder
-SUBDIRS += relays rgmp romfs serloop telnetd thttpd tiff touchscreen udp uip
-SUBDIRS += usbserial sendmail usbstorage usbterm watchdog wget wgetjson
+SUBDIRS  = adc buttons can cdcacm composite cxxtest dhcpd discover elf
+SUBDIRS += flash_test ftpc ftpd hello helloxx hidkbd igmp json keypadtest
+SUBDIRS += lcdrw mm modbus mount mtdpart nettest nrf24l01_term nsh null
+SUBDIRS += nx nxconsole nxffs nxflat nxhello nximage nxlines nxtext ostest 
+SUBDIRS += pashello pipe poll posix_spawn pwm qencoder relays rgmp romfs
+SUBDIRS += sendmail serloop slcd smart smart_test tcpecho telnetd thttpd tiff
+SUBDIRS += touchscreen udp uip usbserial usbstorage usbterm watchdog
+SUBDIRS += wget wgetjson xmlrpc
 
 # Sub-directories that might need context setup.  Directories may need
 # context setup for a variety of reasons, but the most common is because
 # the example may be built as an NSH built-in function.
-#
-# Directories that may be built as NSH built-in functions may have their
-# own configuration setting (like CONFIG_EXAMPLES_HELLOXX_BUILTIN), but
-# many only depend on the generic CONFIG_NSH_BUILTIN_APPS setting.  And
-# there a few which an ONLY be built as NSH built-in applications; these
-# are included in the list unconditionally.
 
 CNTXTDIRS = pwm
 
 ifeq ($(CONFIG_NSH_BUILTIN_APPS),y)
-CNTXTDIRS += adc can cdcacm composite cxxtest dhcpd discover ftpd hello json
-CNTXTDIRS += keypadtestmodbus nettest nxlines relays qencoder telnetd watchdog
-CNTXTDIRS += wgetjson
-endif
-
-ifeq ($(CONFIG_EXAMPLES_HELLOXX_BUILTIN),y)
-CNTXTDIRS += helloxx
-endif
-ifeq ($(CONFIG_EXAMPLES_LCDRW_BUILTIN),y)
-CNTXTDIRS += lcdrw
-endif
-ifeq ($(CONFIG_EXAMPLES_NX_BUILTIN),y)
-CNTXTDIRS += nx
-endif
-ifeq ($(CONFIG_EXAMPLES_NXHELLO_BUILTIN),y)
-CNTXTDIRS += nxhello
-endif
-ifeq ($(CONFIG_EXAMPLES_NXIMAGE_BUILTIN),y)
-CNTXTDIRS += nximage
-endif
-ifeq ($(CONFIG_EXAMPLES_NXTEXT_BUILTIN),y)
-CNTXTDIRS += nxtext
-endif
-ifeq ($(CONFIG_EXAMPLES_OSTEST_BUILTIN),y)
-CNTXTDIRS += ostest
-endif
-ifeq ($(CONFIG_EXAMPLES_TIFF_BUILTIN),y)
-CNTXTDIRS += tiff
-endif
-ifeq ($(CONFIG_EXAMPLES_TOUCHSCREEN_BUILTIN),y)
-CNTXTDIRS += touchscreen
-endif
-ifeq ($(CONFIG_EXAMPLES_USBMSC_BUILTIN),y)
-CNTXTDIRS += usbstorage
-endif
-ifeq ($(CONFIG_EXAMPLES_USBTERM_BUILTIN),y)
-CNTXTDIRS += usbterm
+CNTXTDIRS += adc can cdcacm composite cxxtest dhcpd discover flash_test ftpd
+CNTXTDIRS += hello helloxx json keypadtestmodbus lcdrw mtdpart nettest nx
+CNTXTDIRS += nxhello nximage nxlines nxtext nrf24l01_term ostest relays
+CNTXTDIRS += qencoder slcd smart_test tcpecho telnetd tiff touchscreen
+CNTXTDIRS += usbstorage usbterm watchdog wgetjson
 endif
 
 all: nothing

@@ -1,8 +1,10 @@
-NuttX TODO List (Last updated April 10, 2013)
+NuttX TODO List (Last updated May 29, 2013)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file summarizes known NuttX bugs, limitations, inconsistencies with 
-standards, things that could be improved, and ideas for enhancements.
+standards, things that could be improved, and ideas for enhancements.  See
+also individual README.txt files in the configs/ sub-directories for each
+board port.
 
 nuttx/
 
@@ -16,7 +18,7 @@ nuttx/
  (16)  Network (net/, drivers/net)
   (4)  USB (drivers/usbdev, drivers/usbhost)
  (11)  Libraries (libc/, )
-  (9)  File system/Generic drivers (fs/, drivers/)
+ (10)  File system/Generic drivers (fs/, drivers/)
   (5)  Graphics subystem (graphics/)
   (1)  Pascal add-on (pcode/)
   (1)  Documentation (Documentation/)
@@ -32,7 +34,7 @@ nuttx/
   (0)  ARM/LPC43x (arch/arm/src/lpc43xx/)
   (3)  ARM/STR71x (arch/arm/src/str71x/)
   (3)  ARM/LM3S6918 (arch/arm/src/lm/)
-  (6)  ARM/STM32 (arch/arm/src/stm32/)
+  (5)  ARM/STM32 (arch/arm/src/stm32/)
   (3)  AVR (arch/avr)
   (0)  Intel x86 (arch/x86)
   (5)  8051 / MCS51 (arch/8051/)
@@ -422,6 +424,20 @@ o Kernel Build
                unless incrementing the count unblocks a task; similarly, down
                decrements the count and does not call into the the kernel unless
                the count becomes negative the caller must be blocked.
+
+               Update:
+               "I am thinking that there should be a "magic" global, user-accessible 
+                variable that holds the PID of the currently executing thread;
+                basically the PID of the task at the head of the ready-to-run list.
+                This variable would have to be reset each time the head of the ready-
+                to-run list changes.
+
+               "Then getpid() could be implemented in user space with no system call
+                by simply reading this variable.
+
+               "This one would be easy: Just a change to include/nuttx/userspace.h,
+                configs/*/kernel/up_userspace.c, libc/, sched/sched_addreadytorun.c, and
+                sched/sched_removereadytorun.c. That would eliminate 59% of the syscalls."
   Status:      Open
   Priority:    Low-Medium.  Right now, I do not know if these syscalls are a
                real performance issue or not.
@@ -1009,6 +1025,14 @@ o File system / Generic drivers (fs/, drivers/)
   Status:      Open
   Priority:    Medium
 
+  Title :      USE VTF TO MANAGE NAMED MESSAGE QUEUES AND NAMED SEMAPHORES
+  Description: Currently redundant namespace management logic is use for named
+               message queues and semaphores.  Namesphore management should
+               be consolidated in the VFS.  Perhaps in /ipc/mqueue and /ipc/sem.
+  Status:      Open
+  Priority:    Low.  Nothing is broken.  This is an enhancement that would
+               improve the OS design and possible reduce some FLASH usage
+
 o Graphics subystem (graphics/)
   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1554,7 +1578,7 @@ o ARM/STM32 (arch/arm/src/stm32/)
   Status:      Open
   Priority:    Medium-High
   
-  Title:       DMA EXTENSIONS
+  Title:       DMA EXTENSIONS F1/3
   Description: DMA logic needs to be extended.  DMA2, Channel 5, will not work
                because the DMA2 channels 4 & 5 share the same interrupt.
   Status:      Open
@@ -1593,21 +1617,6 @@ o ARM/STM32 (arch/arm/src/stm32/)
                SRAM.
   Status:      Open
   Priority:    Low
-
-  Title:       USB DRIVER IN STM32F4DISCVORY usbnsh CONFIGURATION
-  Description: The USB device driver is not reliable in the
-               configs/stm32f3discovery/upnsh configuration.  When a large
-               volume of serial data is sent (for example, by entering
-               'help' from the NSH command line), the driver hangs.  This
-               looks like an improperly handled output data overrun problem.
-  
-               This is a surprising since this same driver has worked with
-               the STM32 F1 for some time using the Mass Storage driver
-               which has considerably higher data rates.  So this seems to
-               be some particular issue with the way that the CDC/ACM driver
-               sends data through the driver.
-  Status:      Open
-  Priority:    Medium High
 
 o AVR (arch/avr)
   ^^^^^^^^^^^^^^

@@ -56,7 +56,7 @@
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
-#include <nuttx/spi.h>
+#include <nuttx/spi/spi.h>
 #include <nuttx/wqueue.h>
 #include <nuttx/clock.h>
 #include <nuttx/net/enc28j60.h>
@@ -156,10 +156,22 @@
 
 #define ALIGNED_BUFSIZE ((CONFIG_NET_BUFSIZE + 255) & ~255)
 
-#define PKTMEM_TX_START 0x0000           /* Start TX buffer at 0 */
-#define PKTMEM_TX_ENDP1 ALIGNED_BUFSIZE  /* Allow TX buffer for one frame */
-#define PKTMEM_RX_START PKTMEM_TX_ENDP1  /* Followed by RX buffer */
-#define PKTMEM_RX_END   PKTMEM_END       /* RX buffer goes to the end of SRAM */
+/* Work around Errata #5 (spurious reset of ERXWRPT to 0) by placing the RX
+ * FIFO at the beginning of packet memory.
+ */
+
+#define ERRATA5 1
+#if ERRATA5
+#  define PKTMEM_RX_START 0x0000                            /* RX buffer must be at addr 0 for errata 5 */
+#  define PKTMEM_RX_END   (PKTMEM_END-ALIGNED_BUFSIZE)      /* RX buffer length is total SRAM minus TX buffer */
+#  define PKTMEM_TX_START (PKTMEM_RX_END+1)                 /* Start TX buffer after */
+#  define PKTMEM_TX_ENDP1 (PKTMEM_TX_START+ALIGNED_BUFSIZE) /* Allow TX buffer for one frame */
+#else
+#  define PKTMEM_TX_START 0x0000                            /* Start TX buffer at 0 */
+#  define PKTMEM_TX_ENDP1 ALIGNED_BUFSIZE                   /* Allow TX buffer for one frame */
+#  define PKTMEM_RX_START PKTMEM_TX_ENDP1                   /* Followed by RX buffer */
+#  define PKTMEM_RX_END   PKTMEM_END                        /* RX buffer goes to the end of SRAM */
+#endif
 
 /* Misc. Helper Macros ******************************************************/
 

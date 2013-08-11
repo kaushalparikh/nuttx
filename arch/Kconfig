@@ -103,148 +103,6 @@ source arch/x86/Kconfig
 source arch/z16/Kconfig
 source arch/z80/Kconfig
 
-menu "External Memory Configuration"
-
-config ARCH_HAVE_EXTNAND
-	bool
-
-config ARCH_HAVE_EXTNOR
-	bool
-
-config ARCH_HAVE_EXTDRAM
-	bool
-
-config ARCH_HAVE_EXTSRAM0
-	bool
-
-config ARCH_HAVE_EXTSRAM1
-	bool
-
-config ARCH_EXTNAND
-	bool "Configure external NAND"
-	default n
-	depends on ARCH_HAVE_EXTNAND
-	---help---
-		Configure external NAND memory and, if applicable, map then external
-		NAND into the memory map.
-
-if ARCH_EXTNAND
-
-config ARCH_EXTNANDSIZE
-	int "External NAND size"
-	default 0
-	---help---
-		Size of the external NAND in bytes.
-
-endif
-
-config ARCH_EXTNOR
-	bool "Configure external NOR memory"
-	default n
-	depends on ARCH_HAVE_EXTNOR
-	---help---
-		Configure external NOR memory and, if applicable, map then external
-		NOR into the memory map.
-
-if ARCH_EXTNOR
-
-config ARCH_EXTNORSIZE
-	int "External NOR size"
-	default 0
-	---help---
-		Size of the external NOR in bytes.
-
-endif
-
-config ARCH_EXTDRAM
-	bool "Configure external DRAM"
-	default n
-	depends on ARCH_HAVE_EXTDRAM
-	---help---
-		Configure external DRAM memory and, if applicable, map then external
-		DRAM into the memory map.
-
-if ARCH_EXTDRAM
-
-config ARCH_EXTDRAMSIZE
-	int "External SDRAM size"
-	default 0
-	---help---
-		Size of the external SDRAM in bytes.
-
-choice
-	prompt "SDRAM Width Selection"
-	default ARCH_CHIP_STM32F103ZET6
-	depends on ARCH_CHIP_STM32
-
-config ARCH_SDRAM_8BIT
-	bool "8-bit"
-
-config ARCH_SDRAM_16BIT
-	bool "16-bit"
-
-config ARCH_SDRAM_32BIT
-	bool "32-bit"
-
-endchoice
-
-config ARCH_EXTDRAMHEAP
-	bool "Add external SDRAM to the heap"
-	default y
-	---help---
-		Add the external SDRAM into the heap.
-
-endif
-
-config ARCH_EXTSRAM0
-	bool "Configure external SRAM (Bank 0)"
-	default n
-	depends on ARCH_HAVE_EXTSRAM0
-	---help---
-		Configure external SRAM Bank 0 memory and, if applicable, map then
-		external SRAM Bank 0 into the memory map.
-
-if ARCH_EXTSRAM0
-
-config ARCH_EXTSRAM0SIZE
-	int "External SRAM size"
-	default 0
-	---help---
-		Size of the external SRAM Bank 0 in bytes.
-
-config ARCH_EXTSRAM0HEAP
-	bool "Add external SRAM (Bank 0) to the heap"
-	default y
-	---help---
-		Add external SRAM Bank 0 into the heap.
-
-endif
-
-config ARCH_EXTSRAM1
-	bool "Configure external SRAM (Bank 1)"
-	default n
-	depends on ARCH_HAVE_EXTSRAM1
-	---help---
-		Configure external SRAM Bank 1 memory and, if applicable, map then
-		external SRAM Bank 1 into the memory map.
-
-if ARCH_EXTSRAM1
-
-config ARCH_EXTSRAM1SIZE
-	int "External SRAM1 size"
-	default 0
-	---help---
-		Size of the external SRAM Bank 1 in bytes.
-
-config ARCH_EXTSRAM1HEAP
-	bool "Add external SRAM (Bank 1) to the heap"
-	default y
-	---help---
-		Add external SRAM Bank 1 into the heap.
-
-endif
-endmenu
-
 comment "Architecture Options"
 
 config ARCH_NOINTC
@@ -274,6 +132,9 @@ config ADDRENV
 config ARCH_HAVE_VFORK
 	bool
 	default n
+
+config ARCH_HAVE_MMU
+	bool
 
 config ARCH_STACKDUMP
 	bool "Dump stack on assertions"
@@ -333,28 +194,6 @@ config ARCH_CALIBRATION
 		watch to measure the actual delay then adjust BOARD_LOOPSPERMSEC until
 		the actual delay is 100 seconds.
 
-config DRAM_START
-	hex "DRAM start physical address"
-	help
-		The physical start address of installed RAM.  Despite the naming,
-		this may be SDRAM or SRAM or any other RAM technology that support
-		program execution.
-
-config DRAM_VSTART
-	hex "DRAM start virtual address"
-	depends on ARCH_HAVE_MMU
-	help
-		The virtual start address of installed RAM.  Despite the naming,
-		this may be SDRAM or SRAM or any other RAM technology that support
-		program execution.
-
-config DRAM_SIZE
-	int "DRAM size"
-	help
-		The size in bytes of the installed RAM.  Despite the naming,
-		this may be SDRAM or SRAM or any other RAM technology that support
-		program execution.
-
 config ARCH_HAVE_INTERRUPTSTACK
 	bool
 
@@ -402,3 +241,59 @@ config BOOT_COPYTORAM
 		RAM for better performance.
 
 endchoice
+
+menu "Boot Memory Configuration"
+
+config RAM_START
+	hex "Primary RAM start address (physical)"
+	default 0x0
+	help
+		The physical start address of primary installed RAM.  "Primary" RAM
+		refers to the RAM that you link program code into.  If program code
+		does not excecute out of RAM but from FLASH, then you may designate
+		any block of RAM as "primary."
+
+config RAM_VSTART
+	hex "Primary RAM start address (virtual)"
+	default 0x0
+	depends on ARCH_HAVE_MMU
+	help
+		The virtual start address of installed primary RAM. "Primary" RAM
+		refers to the RAM that you link program code into.  If program code
+		does not excecute out of RAM but from FLASH, then you may designate
+		any block of RAM as "primary."
+
+config RAM_SIZE
+	int "Primary RAM size"
+	default 0
+	help
+		The size in bytes of the installed primary RAM. "Primary" RAM
+		refers to the RAM that you link program code into.  If program code
+		does not excecute out of RAM but from FLASH, then you may designate
+		any block of RAM as "primary."
+
+if BOOT_RUNFROMFLASH && ARCH_HAVE_MMU
+
+config FLASH_START
+	hex "Boot FLASH start address (physical)"
+	default 0x0
+	help
+		The physical start address of installed boot FLASH.  "Boot" FLASH
+		refers to the FLASH that you link program code into.
+
+config FLASH_VSTART
+	hex "Boot FLASH start address (virtual)"
+	default 0x0
+	help
+		The virtual start address of installed boot FLASH.  "Boot" FLASH
+		refers to the FLASH that you link program code into.
+
+config FLASH_SIZE
+	int "Boot FLASH size"
+	default 0
+	help
+		The size in bytes of the installed boot FLASH.  "Boot" FLASH
+		refers to the FLASH that you link program code into.
+
+endif
+endmenu

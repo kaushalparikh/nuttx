@@ -75,19 +75,20 @@ void kl_boardinitialize(void)
    * kl_spiinitialize() has been brought into the link.
    */
 
-#if defined(CONFIG_NUC1XX_SPI1) || defined(CONFIG_NUC1XX_SPI2) || defined(CONFIG_NUC1XX_SPI3)
+#if defined(CONFIG_KL_SPI0) || defined(CONFIG_KL_SPI1)
   if (kl_spiinitialize)
     {
       kl_spiinitialize();
     }
 #endif
 
-  /* Initialize USB if the 1) USB device controller is in the configuration and 2)
-   * disabled, and 3) the weak function kl_usbinitialize() has been brought 
-   * into the build. Presumeably either CONFIG_USBDEV is also selected.
+  /* Initialize USB if the 1) USB device controller is in the configuration
+   * and 2) disabled, and 3) the weak function kl_usbinitialize() has been
+   * brought into the build. Presumeably either CONFIG_USBHOST or
+   * CONFIG_USBDEV is also selected.
    */
 
-#ifdef CONFIG_NUC1XX_USB
+#ifdef CONFIG_KL_USBOTG
   if (kl_usbinitialize)
     {
       kl_usbinitialize();
@@ -100,3 +101,30 @@ void kl_boardinitialize(void)
   kl_ledinit();
 #endif
 }
+
+/****************************************************************************
+ * Name: board_initialize
+ *
+ * Description:
+ *   If CONFIG_BOARD_INITIALIZE is selected, then an additional
+ *   initialization call will be performed in the boot-up sequence to a
+ *   function called board_initialize().  board_initialize() will be
+ *   called immediately after up_intitialize() is called and just before the
+ *   initial application is started.  This additional initialization phase
+ *   may be used, for example, to initialize board-specific device drivers.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_BOARD_INITIALIZE
+void board_initialize(void)
+{
+  /* Perform NSH initialization here instead of from the NSH.  This
+   * alternative NSH initialization is necessary when NSH is ran in user-space
+   * but the initialization function must run in kernel space.
+   */
+
+#if defined(CONFIG_NSH_LIBRARY) && !defined(CONFIG_NSH_ARCHINIT)
+  (void)nsh_archinitialize();
+#endif
+}
+#endif

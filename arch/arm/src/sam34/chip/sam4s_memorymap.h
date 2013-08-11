@@ -71,7 +71,7 @@
 
 #define SAM_HSMCI_BASE         0x40000000 /* 0x40000000-0x400003ff: High Speed Multimedia Card Interface */
 #define SAM_SSC_BASE           0x40004000 /* 0x40004000-0x40007fff: Synchronous Serial Controller */
-#define SAM_SPI_BASE           0x40008000 /* 0x40008000-0x4000bfff: Serial Peripheral Interface */
+#define SAM_SPI0_BASE          0x40008000 /* 0x40008000-0x4000bfff: Serial Peripheral Interface */
                                           /* 0x4000c000-0x4000ffff: Reserved */
 #define SAM_TC_BASE            0x40010000 /* 0x40010000-0x40017fff: Timer Counters */
 #  define SAM_TC0_BASE         0x40080000 /* 0x40010000-0x4001003f:   Timer Counter 0 */
@@ -92,7 +92,7 @@
                                           /* 0x40030000-0x40033fff: Reserved */
 #define SAM_UDP_BASE           0x40034000 /* 0x40034000-0x40037fff: USB 2.0 Device */
 #define SAM_ADC_BASE           0x40038000 /* 0x40038000-0x4003bfff: Analog To Digital Converter */
-#define SAM_DACCBASE           0x400cC000 /* 0x4003c000-0x4003ffff: Digital To Analog Converter */
+#define SAM_DACC_BASE          0x4003c000 /* 0x4003c000-0x4003ffff: Digital To Analog Converter */
 #define SAM_ACC_BASE           0x40040000 /* 0x40040000-0x40043fff: Analog Comparator */
 #define SAM_CRCCU_BASE         0x40044000 /* 0x40040000-0x40047fff: CRC Calculation Unit */
                                           /* 0x40048000-0x400dffff: Reserved */

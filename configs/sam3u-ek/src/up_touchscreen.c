@@ -45,7 +45,7 @@
 #include <assert.h>
 #include <errno.h>
 
-#include <nuttx/spi.h>
+#include <nuttx/spi/spi.h>
 #include <nuttx/input/touchscreen.h>
 #include <nuttx/input/ads7843e.h>
 
@@ -62,8 +62,8 @@
 #  error "Touchscreen support requires CONFIG_INPUT"
 #endif
 
-#ifndef CONFIG_SAM34_SPI
-#  error "Touchscreen support requires CONFIG_SAM34_SPI"
+#ifndef CONFIG_SAM34_SPI0
+#  error "Touchscreen support requires CONFIG_SAM34_SPI0"
 #endif
 
 #ifndef CONFIG_GPIOA_IRQ
@@ -75,11 +75,11 @@
 #endif
 
 #ifndef CONFIG_ADS7843E_SPIDEV
-#  define CONFIG_ADS7843E_SPIDEV 0
+#  define CONFIG_ADS7843E_SPIDEV TSC_CSNUM
 #endif
 
-#if CONFIG_ADS7843E_SPIDEV != 0
-#  error "CONFIG_ADS7843E_SPIDEV must be zero"
+#if CONFIG_ADS7843E_SPIDEV != TSC_CSNUM
+#  error "CONFIG_ADS7843E_SPIDEV must have the same value as TSC_CSNUM"
 #endif
 
 #ifndef CONFIG_ADS7843E_DEVMINOR
@@ -201,9 +201,9 @@ static bool tsc_busy(FAR struct ads7843e_config_s *state)
 
 static bool tsc_pendown(FAR struct ads7843e_config_s *state)
 {
-  /* REVISIT:  This might need to be inverted */
+  /* The /PENIRQ value is active low */
 
-  bool pendown = sam_gpioread(GPIO_TCS_IRQ);
+  bool pendown = !sam_gpioread(GPIO_TCS_IRQ);
   ivdbg("pendown:%d\n", pendown);
   return pendown;
 }
@@ -247,12 +247,12 @@ int arch_tcinitialize(int minor)
 
   sam_gpioirq(GPIO_TCS_IRQ);
 
-  /* Get an instance of the SPI interface */
+  /* Get an instance of the SPI interface for the touchscreen chip select */
 
-  dev = up_spiinitialize(CONFIG_ADS7843E_SPIDEV);
+  dev = up_spiinitialize(TSC_CSNUM);
   if (!dev)
     {
-      idbg("Failed to initialize SPI bus %d\n", CONFIG_ADS7843E_SPIDEV);
+      idbg("Failed to initialize SPI chip select %d\n", TSC_CSNUM);
       return -ENODEV;
     }
 
@@ -261,7 +261,7 @@ int arch_tcinitialize(int minor)
   ret = ads7843e_register(dev, &g_tscinfo, CONFIG_ADS7843E_DEVMINOR);
   if (ret < 0)
     {
-      idbg("Failed to initialize SPI bus %d\n", CONFIG_ADS7843E_SPIDEV);
+      idbg("Failed to initialize SPI chip select %d\n", TSC_CSNUM);
       /* up_spiuninitialize(dev); */
       return -ENODEV;
     }

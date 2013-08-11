@@ -40,10 +40,14 @@ CFLAGS += -I$(TOPDIR)/sched
 ASRCS =
 AOBJS = $(ASRCS:.S=$(OBJEXT))
 
-CSRCS = sam_boot.c sam_spi.c
+CSRCS = sam_boot.c
 
 ifeq ($(CONFIG_HAVE_CXX),y)
 CSRCS += sam_cxxinitialize.c
+endif
+
+ifeq ($(CONFIG_SAM34_SPI0),y)
+CSRCS += sam_spi.c
 endif
 
 ifeq ($(CONFIG_ARCH_LEDS),y)
@@ -54,6 +58,30 @@ endif
 
 ifeq ($(CONFIG_ARCH_BUTTONS),y)
 CSRCS += sam_buttons.c
+endif
+
+ifeq ($(CONFIG_NSH_ARCHINIT),y)
+CSRCS += sam_nsh.c
+endif
+
+ifeq ($(CONFIG_SAM34_LCDCA),y)
+ifeq ($(CONFIG_SAM4L_XPLAINED_SLCD1MODULE),y)
+CSRCS += sam_slcd.c
+endif
+endif
+
+ifeq ($(CONFIG_SAM34_SPI0),y)
+ifeq ($(CONFIG_SAM4L_XPLAINED_IOMODULE),y)
+CSRCS += sam_mmcsd.c
+endif
+endif
+
+ifeq ($(CONFIG_SAM34_SPI0),y)
+ifeq ($(CONFIG_SAM4L_XPLAINED_OLED1MODULE),y)
+ifeq ($(CONFIG_LCD_UG2832HSWEG04),y)
+CSRCS += sam_ug2832hsweg04.c
+endif
+endif
 endif
 
 COBJS = $(CSRCS:.c=$(OBJEXT))

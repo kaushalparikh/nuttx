@@ -522,15 +522,15 @@ ARM/EA3131-specific Configuration Options
     CONFIG_ENDIAN_BIG - define if big endian (default is little
        endian)
 
-    CONFIG_DRAM_SIZE - For most ARM9 architectures, this describes the
+    CONFIG_RAM_SIZE - For most ARM9 architectures, this describes the
       size of installed DRAM.  For the LPC313X, it is used only to
       deterimine how to map the executable regions.  It is SDRAM size
       only if you are executing out of the external SDRAM; or it could
       be NOR FLASH size, external SRAM size, or internal SRAM size.
 
-    CONFIG_DRAM_START - The start address of installed DRAM (physical)
+    CONFIG_RAM_START - The start address of installed DRAM (physical)
 
-    CONFIG_DRAM_VSTART - The startaddress of DRAM (virtual)
+    CONFIG_RAM_VSTART - The startaddress of DRAM (virtual)
 
     CONFIG_ARCH_LEDS - Use LEDs to show state. Unique to boards that
        have LEDs
@@ -570,23 +570,23 @@ ARM/EA3131-specific Configuration Options
 
   External memory available on the board (see also CONFIG_MM_REGIONS)
 
-    CONFIG_ARCH_EXTSRAM0 - Select if external SRAM0 is present
-    CONFIG_ARCH_EXTSRAM0HEAP - Select if external SRAM0 should be
+    CONFIG_LPC31_EXTSRAM0 - Select if external SRAM0 is present
+    CONFIG_LPC31_EXTSRAM0HEAP - Select if external SRAM0 should be
       configured as part of the NuttX heap.
-    CONFIG_ARCH_EXTSRAM0SIZE - Size (in bytes) of the installed
+    CONFIG_LPC31_EXTSRAM0SIZE - Size (in bytes) of the installed
       external SRAM0 memory
-    CONFIG_ARCH_EXTSRAM1 - Select if external SRAM1 is present
-    CONFIG_ARCH_EXTSRAM1HEAP - Select if external SRAM1 should be
+    CONFIG_LPC31_EXTSRAM1 - Select if external SRAM1 is present
+    CONFIG_LPC31_EXTSRAM1HEAP - Select if external SRAM1 should be
       configured as part of the NuttX heap.
-    CONFIG_ARCH_EXTSRAM1SIZE - Size (in bytes) of the installed
+    CONFIG_LPC31_EXTSRAM1SIZE - Size (in bytes) of the installed
       external SRAM1 memory
-    CONFIG_ARCH_EXTDRAM - Select if external SDRAM is present
-    CONFIG_ARCH_EXTDRAMHEAP - Select if external SDRAM should be
+    CONFIG_LPC31_EXTDRAM - Select if external SDRAM is present
+    CONFIG_LPC31_EXTDRAMHEAP - Select if external SDRAM should be
       configured as part of the NuttX heap.
-    CONFIG_ARCH_EXTDRAMSIZE - Size (in bytes) of the installed
+    CONFIG_LPC31_EXTDRAMSIZE - Size (in bytes) of the installed
       external SDRAM memory
-    CONFIG_ARCH_EXTNAND - Select if external NAND is present
-    CONFIG_ARCH_EXTNANDSIZE - Size (in bytes) of the installed
+    CONFIG_LPC31_EXTNAND - Select if external NAND is present
+    CONFIG_LPC31_EXTNANDSIZE - Size (in bytes) of the installed
       external NAND memory
 
   LPC313X specific device driver settings

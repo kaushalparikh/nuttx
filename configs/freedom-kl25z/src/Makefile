@@ -42,6 +42,14 @@ AOBJS = $(ASRCS:.S=$(OBJEXT))
 
 CSRCS = kl_boardinitialize.c 
 
+ifeq ($(CONFIG_KL_TSI),y)
+CSRCS += kl_tsi.c
+endif
+
+ifeq ($(CONFIG_KL_SPI0),y)
+CSRCS += kl_spi.c
+endif
+
 ifeq ($(CONFIG_HAVE_CXX),y)
 CSRCS += kl_cxxinitialize.c
 endif
@@ -50,8 +58,8 @@ ifeq ($(CONFIG_ARCH_LEDS),y)
 CSRCS += kl_led.c
 endif
 
-ifeq ($(CONFIG_NUC1XX_USBD),y)
-CSRCS += kl_usbd.c
+ifeq ($(CONFIG_KL_USBOTG),y)
+CSRCS += kl_usb.c
 endif
 
 ifeq ($(CONFIG_PWM),y)
@@ -66,7 +74,7 @@ ifeq ($(CONFIG_WATCHDOG),y)
 CSRCS += kl_watchdog.c
 endif
 
-ifeq ($(CONFIG_NSH_ARCHINIT),y)
+ifeq ($(CONFIG_NSH_LIBRARY),y)
 CSRCS += kl_nsh.c
 endif
 

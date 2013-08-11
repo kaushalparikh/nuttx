@@ -1,7 +1,7 @@
 /****************************************************************************
  * arch/arm/src/chip/sam3u_clockconfig.c
  *
- *   Copyright (C) 2010 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2010, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,6 +70,9 @@
 #  define BOARD_CKGR_PLLAR  (PMC_CKGR_PLLAR_ONE | BOARD_CKGR_PLLAR_MUL | \
                              BOARD_CKGR_PLLAR_STMODE | BOARD_CKGR_PLLAR_COUNT | \
                              BOARD_CKGR_PLLAR_DIV)
+#elif defined(CONFIG_ARCH_CHIP_SAM3A) || defined(CONFIG_ARCH_CHIP_SAM3X)
+#  define BOARD_CKGR_PLLAR  (PMC_CKGR_PLLAR_ONE | BOARD_CKGR_PLLAR_MUL | \
+                             BOARD_CKGR_PLLAR_COUNT | BOARD_CKGR_PLLAR_DIV)
 #elif defined(CONFIG_ARCH_CHIP_SAM4S)
 #  define BOARD_CKGR_PLLAR  (PMC_CKGR_PLLAR_ONE | BOARD_CKGR_PLLAR_MUL | \
                              BOARD_CKGR_PLLAR_COUNT | BOARD_CKGR_PLLAR_DIV)

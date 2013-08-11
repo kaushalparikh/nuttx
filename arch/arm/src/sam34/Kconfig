@@ -7,15 +7,53 @@ comment "AT91SAM3/4 Configuration Options"
 
 choice
 	prompt "AT91SAM3/4 Chip Selection"
-	default ARCH_CHIP_AT91SAM3U4E
+	default ARCH_CHIP_ATSAM3U4E
 	depends on ARCH_CHIP_SAM34
 
-config ARCH_CHIP_AT91SAM3U4E
-	bool "AT91SAM3U4E"
+config ARCH_CHIP_ATSAM3U4E
+	bool "ATSAM3U4E"
 	select ARCH_CORTEXM3
 	select ARCH_CHIP_SAM3U
 
-config ARCH_CHIP_SAM34_NDMACHANC2C
+config ARCH_CHIP_ATSAM3X8E
+	bool "ATSAMSAM3X8E"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3X
+	select ARCH_HAVE_EXTNOR
+	select ARCH_HAVE_EXTNAND
+	select ARCH_HAVE_EXTSRAM0
+	select ARCH_HAVE_EXTSRAM1
+
+config ARCH_CHIP_ATSAM3X8C
+	bool "ATSAM3X8C"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3X
+
+config ARCH_CHIP_ATSAM3X4E
+	bool "ATSAM3X4E"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3X
+	select ARCH_HAVE_EXTNOR
+	select ARCH_HAVE_EXTNAND
+	select ARCH_HAVE_EXTSRAM0
+	select ARCH_HAVE_EXTSRAM1
+
+config ARCH_CHIP_ATSAM3X4C
+	bool "ATSAM3X4C"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3X
+
+config ARCH_CHIP_ATSAM3A8C
+	bool "ATSAM3A8C"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3A
+
+config ARCH_CHIP_ATSAM3A4C
+	bool "ATSAM3A4C"
+	select ARCH_CORTEXM3
+	select ARCH_CHIP_SAM3A
+
+config ARCH_CHIP_ATSAM4LC2C
 	bool "ATSAM4LC2C"
 	select ARCH_CORTEXM4
 	select ARCH_CHIP_SAM4L
@@ -125,9 +163,21 @@ config ARCH_CHIP_ATSAM4S8B
 	select ARCH_CORTEXM4
 	select ARCH_CHIP_SAM4S
 
-endchoice
+endchoice # AT91SAM3/4 Chip Selection
 
 config ARCH_CHIP_SAM3U
+	bool
+	default n
+	select ARCH_HAVE_EXTNOR
+	select ARCH_HAVE_EXTNAND
+	select ARCH_HAVE_EXTSRAM0
+	select ARCH_HAVE_EXTSRAM1
+
+config ARCH_CHIP_SAM3X
+	bool
+	default n
+
+config ARCH_CHIP_SAM3A
 	bool
 	default n
 
@@ -139,6 +189,10 @@ config ARCH_CHIP_SAM4L
 config ARCH_CHIP_SAM4S
 	bool
 	default n
+	select ARCH_HAVE_EXTNOR
+	select ARCH_HAVE_EXTNAND
+	select ARCH_HAVE_EXTSRAM0
+	select ARCH_HAVE_EXTSRAM1
 
 menu "AT91SAM3/4 Peripheral Support"
 
@@ -168,14 +222,19 @@ config SAM34_IISC
 	default n
 	depends on ARCH_CHIP_SAM4L
 
-config SAM34_SPI
-	bool "Serial Peripheral Interface (SPI)"
+config SAM34_SPI0
+	bool "Serial Peripheral Interface 0 (SPI0)"
 	default n
+
+config SAM34_SPI1
+	bool "Serial Peripheral Interface 1 (SPI1)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
 
 config SAM34_SSC
 	bool "Synchronous Serial Controller (SSC)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_TC0
 	bool "Timer/Counter 0 (TC0)"
@@ -188,27 +247,42 @@ config SAM34_TC1
 config SAM34_TC2
 	bool "Timer/Counter 2 (TC2)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_TC3
 	bool "Timer/Counter 3 (TC3)"
 	default n
-	depends on ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_TC4
 	bool "Timer/Counter 4 (TC4)"
 	default n
-	depends on ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_TC5
 	bool "Timer/Counter 5 (TC5)"
 	default n
-	depends on ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
+
+config SAM34_TC6
+	bool "Timer/Counter 6 (TC6)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config SAM34_TC7
+	bool "Timer/Counter 7 (TC6)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config SAM34_TC8
+	bool "Timer/Counter 6 (TC8)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
 
 config SAM34_PWM
 	bool "Pulse Width Modulation (PWM) Controller"
 	default n
-	depends on ARCH_CHIP_SAM3U|| ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_TWIM0
 	bool "Two-wire Master Interface 0 (TWIM0)"
@@ -239,7 +313,7 @@ config SAM34_TWIM3
 config SAM34_UART0
 	bool "UART 0"
 	default y
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 	select ARCH_HAVE_UART0
 
 config SAM34_UART1
@@ -268,13 +342,13 @@ config SAM34_USART2
 	bool "USART 2"
 	default n
 	select ARCH_HAVE_USART2
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4L
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4L
 
 config SAM34_USART3
 	bool "USART 3"
 	default n
 	select ARCH_HAVE_USART3
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4L
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4L
 
 config SAM34_ADC12B
 	bool "12-bit ADC Controller"
@@ -288,7 +362,7 @@ config SAM34_ADC
 config SAM34_DACC
 	bool "Digital To Analog Converter (DAC)"
 	default n
-	depends on ARCH_CHIP_SAM4L || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4L || ARCH_CHIP_SAM4S
 
 config SAM34_ACC
 	bool "Analog Comparator (AC)"
@@ -308,7 +382,22 @@ config SAM34_ABDACB
 config SAM34_TRNG
 	bool "True Random Number Generator (TRNG)"
 	default n
-	depends on ARCH_CHIP_SAM4L
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4L
+
+config SAM34_EMAC
+	bool "Ethernet MAC (EMAC)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config SAM34_CAN0
+	bool "CAN0"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config SAM34_CAN1
+	bool "CAN1"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
 
 config SAM34_PARC
 	bool "Parallel Capture (PARC)"
@@ -333,7 +422,12 @@ config SAM34_HRAMC1
 config SAM34_SMC
 	bool "Static Memory Controller (SMC)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
+
+config SAM34_SDRAMC
+	bool "SDRAM Controller (SDRAMC)"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
 
 config SAM34_NAND
 	bool "NAND support"
@@ -354,7 +448,7 @@ config SAM34_PDCA
 config SAM34_DMA
 	bool "DMA controller"
 	default n
-	depends on ARCH_CHIP_SAM3U
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
 	select ARCH_DMA
 
 config SAM34_CRCCU
@@ -366,6 +460,11 @@ config SAM34_UDPHS
 	bool "USB Device High Speed"
 	default n
 	depends on ARCH_CHIP_SAM3U
+
+config SAM34_UOTGHS
+	bool "USB OTG High Speed"
+	default n
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X
 
 config SAM34_UDP
 	bool "USB Device Full Speed"
@@ -400,12 +499,12 @@ config SAM34_AST
 config SAM34_RTC
 	bool "Real Time Clock (RTC)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_RTT
 	bool "Real Time Timer (RTT)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
 config SAM34_WDT
 	bool "Watchdog Timer (WDT)"
@@ -419,46 +518,244 @@ config SAM34_EIC
 config SAM34_HSMCI
 	bool "High Speed Multimedia Card Interface (HSMCI)"
 	default n
-	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM4S
+	depends on ARCH_CHIP_SAM3U || ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A || ARCH_CHIP_SAM4S
 
-endmenu
+endmenu # AT91SAM3/4 Peripheral Support
+
+if ARCH_CHIP_SAM4L
+menu "AT91SAM3/4 Clock Configuration"
 
 config SAM32_RESET_PERIPHCLKS
 	bool "Enable all peripheral clocks on reset"
 	default n
-	depends on ARCH_CHIP_SAM4L
 	---help---
 		By default, only a few necessary peripheral clocks are enabled at
 		reset. If this setting is enabled, then all clocking will be enabled
 		to all of the selected peripherals on reset.
 
-comment "AT91SAM3/4 USART Configuration"
-
-config USART0_ISUART
-	bool "USART0 is a UART"
-	default y
-	depends on SAM34_USART0
-	select ARCH_HAVE_USART0
-
-config USART1_ISUART
-	bool "USART1 is a UART"
-	default y
-	depends on SAM34_USART1
-	select ARCH_HAVE_USART1
-
-config USART2_ISUART
-	bool "USART2 is a UART"
+config SAM34_OSC0
+	bool "External oscillator 0"
 	default n
-	depends on SAM34_USART2
-	select ARCH_HAVE_USART2
+	---help---
+		Oscillator 0 might be automatically selected for several reasons:
+		Oscillator 0 might be the system clock or the source clock for
+		either PLL0 or DFPLL.  It might also be needed if OSC0 is the source
+		clock for GCLK9.  By selecting SAM34_OSC0, you can also force the
+		clock to be enabled at boot time for other uses.
 
-config USART3_ISUART
-	bool "USART3 is a UART"
+config SAM34_OSC32K
+	bool "32.768KHz external oscillator"
+	default n
+	---help---
+		The 32K oscillator might be automatically selected for several
+		reasons: The 32K oscillator may be the source clock for DFPLL0 or
+		the source clock for GLK9 that might be used to driver PLL0.  By
+		selecting SAM34_OSC32K, you can also force the clock to be enabled
+		at boot time.  OSC32 may needed by other devices as well (AST, WDT,
+		PICUART, RTC).
+
+config SAM34_RC80M
+	bool "80MHz RC oscillator"
+	default n
+	---help---
+		The 80MHz RC oscillator might be automatically selected for several
+		reasons: This might be the system clock or the source clock for the
+		DFPLL or it could be the source for GCLK9 that drives PLL0. By
+		selecting SAM34_RC80M, you can also force the clock to be enabled at
+		boot time for other uses.
+
+config SAM34_RCFAST
+	bool "Fast RC oscillator"
+	default n
+	---help---
+		The fast RC oscillator might be automatically selected for several
+		reasons: The 12/8/4 fast RC oscillator may be used as the system
+		clock or as the source for GLCK9 that drives PLL0. If not then, it
+		may be enabled by setting the SAM34_RCFASTxM configuration variable.
+
+if SAM34_RCFAST
+choice
+	prompt "Fast RC Oscillator Speed"
+	default SAM34_RCFAST8M
+
+config SAM34_RCFAST12M
+	bool "12MHz"
+
+config SAM34_RCFAST8M
+	bool "8MHz"
+
+config SAM34_RCFAST4M
+	bool "4MHz"
+
+endchoice # Fast RC Oscillator Speed
+endif # SAM34_RCFAST
+
+config SAM34_RC1M
+	bool "1MHz RC oscillator"
+	default n
+	---help---
+		The 1MHz RC oscillator might be automatically selected for several
+		reasons: The 1MHz RC oscillator may be used as the system block or
+		may be the source clock for GLCK9 that drives PLL0.  By selecting
+		SAM34_RC1M, you can also force the clock to be enabled at boot time
+		for other purposes.
+
+config SAM34_RC32K
+	bool "32KHz RC oscillator"
+	default n
+	---help---
+		The 32KHz RC oscillator might be automatically selected for several
+		reasons: The 32KHz RC oscillator may be used as the input to DFLL0
+		or as the input to GCLK9 that drives PLL0. By selecting SAM34_RC32K,
+		you can also force the clock to be enabled at boot time for other
+		purposes.
+
+endmenu # AT91SAM3/4 Clock Configuration
+endif # ARCH_CHIP_SAM4L
+
+menu "External Memory Configuration"
+
+config ARCH_HAVE_EXTNAND
+	bool
+
+config ARCH_HAVE_EXTNOR
+	bool
+
+config ARCH_HAVE_EXTDRAM
+	bool
+
+config ARCH_HAVE_EXTSRAM0
+	bool
+
+config ARCH_HAVE_EXTSRAM1
+	bool
+
+config SAM34_EXTNAND
+	bool "Configure external NAND"
+	default n
+	depends on ARCH_HAVE_EXTNAND
+	---help---
+		Configure external NAND memory and, if applicable, map then external
+		NAND into the memory map.
+
+if SAM34_EXTNAND
+
+config SAM34_EXTNANDSIZE
+	int "External NAND size"
+	default 0
+	---help---
+		Size of the external NAND in bytes.
+
+endif # SAM34_EXTNAND
+
+config SAM34_EXTNOR
+	bool "Configure external NOR memory"
+	default n
+	depends on ARCH_HAVE_EXTNOR
+	---help---
+		Configure external NOR memory and, if applicable, map then external
+		NOR into the memory map.
+
+if SAM34_EXTNOR
+
+config SAM34_EXTNORSIZE
+	int "External NOR size"
+	default 0
+	---help---
+		Size of the external NOR in bytes.
+
+endif # SAM34_EXTNOR
+
+config SAM34_EXTDRAM
+	bool "Configure external DRAM"
+	default n
+	depends on ARCH_HAVE_EXTDRAM
+	---help---
+		Configure external DRAM memory and, if applicable, map then external
+		DRAM into the memory map.
+
+if SAM34_EXTDRAM
+
+config SAM34_EXTDRAMSIZE
+	int "External SDRAM size"
+	default 0
+	---help---
+		Size of the external SDRAM in bytes.
+
+choice
+	prompt "SDRAM Width Selection"
+	default SAM34_SDRAM_16BIT
+
+config SAM34_SDRAM_8BIT
+	bool "8-bit"
+
+config SAM34_SDRAM_16BIT
+	bool "16-bit"
+
+config SAM34_SDRAM_32BIT
+	bool "32-bit"
+
+endchoice # SDRAM Width Selection
+
+config SAM34_EXTDRAMHEAP
+	bool "Add external SDRAM to the heap"
 	default y
-	depends on SAM34_USART3
-	select ARCH_HAVE_USART2
+	---help---
+		Add the external SDRAM into the heap.
+
+endif # SAM34_EXTDRAM
+
+config SAM34_EXTSRAM0
+	bool "Configure external SRAM (Bank 0)"
+	default n
+	depends on ARCH_HAVE_EXTSRAM0
+	---help---
+		Configure external SRAM Bank 0 memory and, if applicable, map then
+		external SRAM Bank 0 into the memory map.
+
+if SAM34_EXTSRAM0
+
+config SAM34_EXTSRAM0SIZE
+	int "External SRAM size"
+	default 0
+	---help---
+		Size of the external SRAM Bank 0 in bytes.
+
+config SAM34_EXTSRAM0HEAP
+	bool "Add external SRAM (Bank 0) to the heap"
+	default y
+	---help---
+		Add external SRAM Bank 0 into the heap.
+
+endif # SAM34_EXTSRAM0
+
+config SAM34_EXTSRAM1
+	bool "Configure external SRAM (Bank 1)"
+	default n
+	depends on ARCH_HAVE_EXTSRAM1
+	---help---
+		Configure external SRAM Bank 1 memory and, if applicable, map then
+		external SRAM Bank 1 into the memory map.
+
+if SAM34_EXTSRAM1
+
+config SAM34_EXTSRAM1SIZE
+	int "External SRAM1 size"
+	default 0
+	---help---
+		Size of the external SRAM Bank 1 in bytes.
+
+config SAM34_EXTSRAM1HEAP
+	bool "Add external SRAM (Bank 1) to the heap"
+	default y
+	---help---
+		Add external SRAM Bank 1 into the heap.
+
+endif # SAM34_EXTSRAM1
+endmenu # External Memory Configuration
 
 comment "AT91SAM3/4 GPIO Interrupt Configuration"
+
 config GPIO_IRQ
 	bool "GPIO pin interrupts"
 	---help---
@@ -478,7 +775,22 @@ config GPIOC_IRQ
 	bool "GPIOC interrupts"
 	default n
 
-endif
+config GPIOD_IRQ
+	bool "GPIOD interrupts"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config GPIOE_IRQ
+	bool "GPIOE interrupts"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+config GPIOF_IRQ
+	bool "GPIOF interrupts"
+	default n
+	depends on ARCH_CHIP_SAM3X || ARCH_CHIP_SAM3A
+
+endif # GPIO_IRQ
 
 if SAM34_WDT
 comment "AT91SAM3/4 Watchdog Configuration"|
@@ -504,4 +816,4 @@ config WDT_DISABLE_ON_RESET
 		configure and disable the watchdog timer very early in the boot
 		sequence.
 
-endif
+endif # SAM34_WDT
